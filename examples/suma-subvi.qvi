@@ -1,0 +1,42 @@
+Red [title: "suma"]
+
+; ── CABECERA GRÁFICA ─────────────────────────────
+
+qvi-diagram: [
+    connector: [
+        input  [id: 1  label: "A"]
+        input  [id: 2  label: "B"]
+        output [id: 3  label: "Resultado"]
+    ]
+    front-panel: [
+        control   [id: 1  type: 'numeric  label: "A"         default: 0.0]
+        control   [id: 2  type: 'numeric  label: "B"         default: 0.0]
+        indicator [id: 3  type: 'numeric  label: "Resultado"]
+    ]
+    block-diagram: [
+        nodes: [
+            node [id: 1  type: 'control    x: 40   y: 80   label: "A"]
+            node [id: 2  type: 'control    x: 40   y: 160  label: "B"]
+            node [id: 3  type: 'add        x: 200  y: 120  label: "Suma"]
+            node [id: 4  type: 'indicator  x: 360  y: 120  label: "Resultado"]
+        ]
+        wires: [
+            wire [from: 1  port: 'out  to: 3  port: 'a]
+            wire [from: 2  port: 'out  to: 3  port: 'b]
+            wire [from: 3  port: 'out  to: 4  port: 'in]
+        ]
+    ]
+]
+
+; ── CÓDIGO GENERADO ──────────────────────────────
+; Connector pane → el código se envuelve en una función Red.
+
+suma: func [A [float!] B [float!]] [
+    Resultado: A + B
+    Resultado
+]
+
+; Ejecución standalone — solo cuando se ejecuta directamente con Red
+if not value? 'qtorres-runtime [
+    print suma 5.0 3.0
+]

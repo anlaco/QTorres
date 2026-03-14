@@ -1,0 +1,15 @@
+qproj [
+    version: 1
+    title: "Ejemplo básico"
+
+    files: [
+        %suma-basica.qvi
+        %suma-subvi.qvi
+        %programa-con-subvi.qvi
+    ]
+
+    build: [
+        target: 'executable
+        entry: %suma-basica.qvi
+    ]
+]

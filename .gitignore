@@ -1,0 +1,22 @@
+# Compiled binaries
+*.exe
+
+# Red compilation artifacts
+*.dll
+*.so
+*.dylib
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Build output
+build/
+out/

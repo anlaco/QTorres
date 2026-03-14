@@ -1,0 +1,33 @@
+Red [title: "Programa con sub-VI"]
+
+; ── CABECERA GRÁFICA ─────────────────────────────
+
+qvi-diagram: [
+    front-panel: [
+        control   [id: 1  type: 'numeric  label: "X"       default: 10.0]
+        control   [id: 2  type: 'numeric  label: "Y"       default: 4.0]
+        indicator [id: 3  type: 'numeric  label: "Total"]
+    ]
+    block-diagram: [
+        nodes: [
+            node [id: 1   type: 'control    x: 40   y: 80   label: "X"]
+            node [id: 2   type: 'control    x: 40   y: 160  label: "Y"]
+            node [id: 10  type: 'subvi      x: 200  y: 120  file: %suma-subvi.qvi]
+            node [id: 3   type: 'indicator  x: 360  y: 120  label: "Total"]
+        ]
+        wires: [
+            wire [from: 1   port: 'out        to: 10  port: 'A]
+            wire [from: 2   port: 'out        to: 10  port: 'B]
+            wire [from: 10  port: 'Resultado  to: 3   port: 'in]
+        ]
+    ]
+]
+
+; ── CÓDIGO GENERADO ──────────────────────────────
+
+do %suma-subvi.qvi          ; carga y define la función `suma`
+
+X: 10.0
+Y: 4.0
+Total: suma X Y
+print Total

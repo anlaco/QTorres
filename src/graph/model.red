@@ -1,44 +1,82 @@
 Red [
     Title:   "QTorres — Modelo del grafo"
-    Purpose: "Estructuras de datos para nodos, puertos, wires y diagramas"
+    Purpose: "Dialecto qvi-diagram para describir VIs de forma declarativa"
 ]
 
-; === Modelo del Grafo ===
-; Estructura central sobre la que operan el canvas, el compilador y el file I/O.
+; ══════════════════════════════════════════════════
+; DIALECTO: qvi-diagram
+; ══════════════════════════════════════════════════
+; Describe la estructura completa de un VI.
+; Se usa como cabecera gráfica del .qvi y como formato de carga.
+;
+; Sintaxis:
+;   front-panel [
+;       control   [id: <int>  type: <lit-word>  label: <string>  default: <value>]
+;       indicator [id: <int>  type: <lit-word>  label: <string>]
+;   ]
+;   block-diagram [
+;       nodes [
+;           node [id: <int>  type: <lit-word>  x: <int>  y: <int>  label: <string>  ...]
+;       ]
+;       wires [
+;           wire [from: <int>  port: <lit-word>  to: <int>  port: <lit-word>]
+;       ]
+;   ]
+;   connector [                    ; solo si el VI se usa como sub-VI
+;       input  [id: <int>  label: <string>]
+;       output [id: <int>  label: <string>]
+;   ]
+;
+; Reglas de parse:
+;   qvi-rule:     [opt connector-rule front-panel-rule block-diagram-rule]
+;   control-rule: ['control block!]
+;   node-rule:    ['node block!]
+;   wire-rule:    ['wire block!]
+;
+; El procesador del dialecto (load-qvi) recorre el bloque con parse
+; y construye el modelo en memoria (listas de nodos, puertos, wires).
 
-; Plantilla de un nodo
-node-template: [
-    id:     0
-    type:   'none
-    label:  ""
-    x:      0
-    y:      0
-    ports:  []       ; lista de puertos
-    config: []       ; configuración específica del tipo
+; === Modelo en memoria ===
+; Después de parsear un qvi-diagram, el modelo queda como objetos Red:
+
+make-node: func [spec [block!]] [
+    make object! [
+        id:     select spec 'id
+        type:   select spec 'type
+        label:  select spec 'label
+        x:      select spec 'x
+        y:      select spec 'y
+        ports:  copy []
+        config: copy []
+    ]
 ]
 
-; Plantilla de un puerto
-port-template: [
-    id:        0
-    name:      ""
-    direction: 'in    ; 'in o 'out
-    data-type: 'number ; tipo de dato del wire
-    value:     none
+make-port: func [spec [block!]] [
+    make object! [
+        id:        select spec 'id
+        name:      select spec 'name
+        direction: select spec 'direction
+        data-type: any [select spec 'type  'number]
+        value:     select spec 'value
+    ]
 ]
 
-; Plantilla de un wire
-wire-template: [
-    id:       0
-    from-node: 0
-    from-port: 0
-    to-node:   0
-    to-port:   0
+make-wire: func [spec [block!]] [
+    make object! [
+        from-node: select spec 'from
+        from-port: select/skip spec 'port 2   ; primer 'port
+        to-node:   select spec 'to
+        to-port:   select/skip spec 'port 4   ; segundo 'port (después de 'to)
+    ]
 ]
 
-; Plantilla de un diagrama completo
-diagram-template: [
-    version: 1
-    title:   ""
-    nodes:   []
-    wires:   []
+make-diagram: func [title [string!]] [
+    make object! [
+        name:      title
+        connector: none
+        nodes:     copy []
+        wires:     copy []
+        controls:  copy []
+        indicators: copy []
+    ]
 ]

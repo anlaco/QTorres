@@ -128,11 +128,125 @@ Esto evita colisiones de nombres: `utilidades/suma` y `matematica/suma` coexiste
 
 ## Registro de bloques
 
-Cada tipo de bloque se registra con:
+Cada tipo de bloque se registra con el dialecto `block-def` (ver sección Dialectos).
 
-- Nombre y categoría
-- Lista de puertos (nombre, tipo, dirección)
-- Plantilla de código Red
-- Función de renderizado (icono, color, forma)
+Esto permite extender QTorres con nuevos bloques sin modificar el núcleo: basta con escribir una nueva definición `block` siguiendo la gramática del dialecto.
 
-Esto permite extender QTorres con nuevos bloques sin modificar el núcleo.
+## Dialectos de QTorres
+
+QTorres define tres dialectos Red propios. Cada uno tiene una gramática procesable con `parse` y una función específica dentro del sistema. No son convenciones — son mini-lenguajes enforzados por el procesador.
+
+### 1. `block-def` — Definición de tipos de bloques
+
+**Dónde:** `src/graph/blocks.red`  
+**Qué hace:** Define los tipos de bloques disponibles de forma declarativa.  
+**Quién lo procesa:** El registro de bloques al cargar.
+
+```red
+block add 'math [
+    in a 'number
+    in b 'number
+    out result 'number
+    emit [result: a + b]
+]
+```
+
+**Gramática:**
+- `block <nombre> <categoría> [<cuerpo>]` — define un tipo de bloque
+- `in <puerto> <tipo>` — declara un puerto de entrada
+- `out <puerto> <tipo>` — declara un puerto de salida
+- `config <nombre> <tipo> <default>` — declara un parámetro configurable
+- `emit [<código Red>]` — define la semántica de compilación como un bloque Red
+
+**Por qué es un dialecto:** Porque tiene gramática propia que se procesa con `parse`. No es un bloque de datos con campos — es una DSL con vocabulario (`block`, `in`, `out`, `emit`, `config`) y reglas de composición.
+
+### 2. `qvi-diagram` — Descripción de un Virtual Instrument
+
+**Dónde:** Cabecera de cada fichero `.qvi`  
+**Qué hace:** Describe el Front Panel, Block Diagram y connector pane de un VI.  
+**Quién lo procesa:** El File I/O al cargar un VI.
+
+```red
+qvi-diagram: [
+    connector: [
+        input  [id: 1  label: "A"]
+        output [id: 3  label: "Resultado"]
+    ]
+    front-panel: [
+        control   [id: 1  type: 'numeric  label: "A"  default: 5.0]
+        indicator [id: 3  type: 'numeric  label: "Resultado"]
+    ]
+    block-diagram: [
+        nodes: [
+            node [id: 1  type: 'control  x: 40  y: 80  label: "A"]
+            ...
+        ]
+        wires: [
+            wire [from: 1  port: 'out  to: 3  port: 'a]
+            ...
+        ]
+    ]
+]
+```
+
+**Gramática:**
+- `front-panel [<controles e indicadores>]`
+- `block-diagram [nodes [...] wires [...]]`
+- `connector [<inputs y outputs>]` (opcional)
+- `control [<spec>]`, `indicator [<spec>]` — elementos del panel
+- `node [<spec>]`, `wire [<spec>]` — elementos del diagrama
+
+**Por qué es un dialecto:** Aunque parece "solo datos", tiene estructura obligatoria que se valida con `parse`. El procesador sabe qué palabras son válidas, qué campos son obligatorios y qué tipos se esperan. Un bloque malformado se rechaza con error claro.
+
+### 3. `emit` — Semántica de compilación
+
+**Dónde:** Dentro de cada definición `block-def`  
+**Qué hace:** Define qué código Red genera un bloque cuando se compila.  
+**Quién lo procesa:** El compilador.
+
+```red
+emit [result: a + b]
+```
+
+**Cómo funciona el procesador:**
+1. El compilador toma el bloque `emit` de la definición del bloque
+2. Identifica las palabras que corresponden a puertos (`a`, `b`, `result`)
+3. Las sustituye por los nombres reales de las variables (que vienen de los wires conectados)
+4. El resultado es un bloque Red válido listo para insertar en el código generado
+
+```red
+; emit original:     [result: a + b]
+; port bindings:     a → X, b → Y, result → Total
+; resultado:         [Total: X + Y]
+```
+
+**Por qué es un dialecto:** Es código Red que el compilador manipula como datos antes de emitirlo como código. La sustitución de puertos por variables es la operación del procesador. No es interpolación de strings — es manipulación de bloques Red (homoiconicidad en acción).
+
+### Dialectos de Red que QTorres usa (no propios)
+
+Además de los tres dialectos propios, QTorres usa estos dialectos nativos de Red:
+
+| Dialecto | Uso en QTorres |
+|----------|---------------|
+| **Draw** | Renderizar bloques y wires en el canvas del Block Diagram |
+| **View/VID** | Construir el Front Panel (controles, indicadores, layout) |
+| **Parse** | Procesador de los tres dialectos propios |
+
+### Mapa de dialectos
+
+```
+                      block-def
+                     (definición)
+                          │
+                          ▼
+┌──────────┐    ┌──────────────────┐    ┌───────────┐
+│ qvi-diagram│──►│   Modelo en      │───►│  emit     │
+│ (carga)   │    │   memoria       │    │ (compila) │
+└────────────┘    └──────────────────┘    └─────┬─────┘
+                                               │
+                                               ▼
+                                        Código Red puro
+                                        (sección del .qvi)
+```
+
+`qvi-diagram` entra, se construye el modelo, `emit` sale como código Red ejecutable. `block-def` define las reglas de transformación.

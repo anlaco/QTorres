@@ -137,3 +137,29 @@ El `.qvi` se ejecuta directamente con `red mi-vi.qvi` sin QTorres instalado.
 - El separador `/` es enforzado por el lenguaje (no una convención que se pueda romper)
 - El código generado es autodocumentado: `utilidades/suma` indica la librería de origen
 - Alternativa descartada: prefijos (`utilidades-suma`) → no hay aislamiento real, nombres crecen sin control
+
+---
+
+## DT-008: Tres dialectos Red propios
+
+**Fecha:** 2026-03-14  
+**Estado:** Adoptada  
+
+**Contexto:** El manifiesto de QTorres cita los dialectos de Red como una de las razones clave del proyecto. Definir dónde se usan dialectos reales (no datos pasivos ni interpolación de strings).
+
+**Decisión:** QTorres define tres dialectos propios, cada uno con gramática procesable con `parse`:
+
+1. **`block-def`** — Define tipos de bloques de forma declarativa. Vocabulario: `block`, `in`, `out`, `config`, `emit`. Procesado al cargar la paleta de bloques.
+
+2. **`qvi-diagram`** — Describe la estructura de un VI (front panel, block diagram, connector). Procesado al cargar un `.qvi`. Valida estructura y campos obligatorios.
+
+3. **`emit`** — Define la semántica de compilación de cada bloque como un bloque Red. El compilador sustituye las palabras de los puertos por los nombres reales de las variables. Es manipulación de bloques Red, no interpolación de strings.
+
+**Razones:**
+- Usar dialectos reales aprovecha la homoiconicidad de Red (el punto diferencial del proyecto)
+- El código generado se produce manipulando bloques Red, no concatenando strings
+- Los dialectos son extensibles: añadir un nuevo tipo de bloque es escribir una definición `block-def`, no modificar el compilador
+- El formato `.qvi` queda especificado en Red (reglas de parse), no en código ad-hoc
+- Alternativa descartada: interpolación de strings con `{~var~}` → no idiomático, frágil, no validable
+
+**Consecuencia:** El compilador trabaja con `block!` (bloques Red) en todo momento. Nunca genera strings intermedios. El resultado final se serializa a texto solo al escribir el fichero `.qvi`.

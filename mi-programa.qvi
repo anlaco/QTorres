@@ -1,0 +1,35 @@
+Red [title: "QTorres VI"]
+
+; -- CABECERA GRAFICA --
+; QTorres lee esta seccion para reconstruir la vista.
+; Para Red es solo una asignacion sin efectos.
+
+qvi-diagram: [
+    front-panel: [
+        control [id: 1 type: 'numeric label: "Ctrl_1" default: 0.0]
+        indicator [id: 2 type: 'numeric label: "Ind_2"]
+        control [id: 3 type: 'numeric label: "Ctrl_3" default: 0.0]
+    ]
+    block-diagram: [
+        nodes: [
+            node [id: 1 type: 'control x: 50 y: 30 label: "Ctrl_1"]
+            node [id: 2 type: 'indicator x: 535.0 y: 73.0 label: "Ind_2"]
+            node [id: 3 type: 'control x: 50 y: 170 label: "Ctrl_3"]
+            node [id: 4 type: 'add x: 296.0 y: 75.0 label: "Add_4"]
+        ]
+        wires: [
+            wire [from: 1 port: 'out to: 4 port: 'a]
+            wire [from: 3 port: 'out to: 4 port: 'b]
+            wire [from: 4 port: 'result to: 2 port: 'in]
+        ]
+    ]
+]
+
+; -- CODIGO GENERADO --
+; Generado por QTorres al guardar. Ejecutable con Red directamente.
+
+Ctrl_1: 0.0
+Ctrl_3: 0.0
+Add_4: Ctrl_1 + Ctrl_3
+Ind_2: Add_4
+print Ind_2

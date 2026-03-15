@@ -37,6 +37,22 @@ Ciclo completo: dibujar → compilar → ejecutar → ver resultado.
 - [ ] El .qvi guardado es ejecutable con `red mi-vi.qvi`
 - [ ] Validación básica (tipos compatibles, sin ciclos)
 
+#### Qué genera el compilador en la beta (decisión DT-009)
+
+El compilador genera **código Red/View completo**, no solo código imperativo. Al ejecutar el `.qvi` con Red aparece una ventana con el Front Panel, igual que en LabVIEW.
+
+Estructura del `.qvi` generado:
+
+```
+[Cabecera Red]
+[qvi-diagram: ... — para reconstruir la vista en QTorres]
+[view layout [ ... — ventana con controles, botón Run e indicadores ]]
+```
+
+Los controles de entrada se convierten en `field` editables. Los indicadores de salida se convierten en `text` que se actualizan al pulsar Run. El botón Run ejecuta la lógica del diagrama y actualiza los indicadores en la misma ventana.
+
+Esta es la diferencia principal respecto al MVP actual, que genera código de terminal sin UI.
+
 ### Fase 2 — Tipos y estructuras
 
 - Wires tipados (numérico, string, booleano) con color por tipo

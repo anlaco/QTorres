@@ -57,14 +57,43 @@ Vista de controles/indicadores. Responsabilidades:
 
 ### 4. Compilador (`compiler/`)
 
-Transforma el modelo del grafo en código Red. El compilador genera la sección de código del `.qvi`:
+Transforma el modelo del grafo en código Red. El compilador produce salidas diferentes según el tipo de VI:
 
-- Recorrido topológico del grafo
-- Instanciación de plantillas de código por tipo de nodo
-- Si el VI tiene connector pane → envuelve el código en una `func` Red
+**VI principal (sin connector pane) → genera Red/View completo:**
+
+El código generado construye una ventana con el Front Panel. Al ejecutar `red mi-programa.qvi` aparece la interfaz gráfica, igual que en LabVIEW. El usuario ve los controles de entrada, pulsa Run, y los indicadores se actualizan con el resultado.
+
+Estructura de la sección generada:
+```red
+view layout [
+    ; controles (field editables con el valor por defecto)
+    label "A"    fA: field "5.0"
+    label "B"    fB: field "3.0"
+    ; botón Run con la lógica del diagrama incrustada
+    button "Run" [
+        A: to-float fA/text
+        B: to-float fB/text
+        Resultado: A + B
+        lResultado/text: form Resultado
+    ]
+    ; indicadores (text que se actualiza al pulsar Run)
+    label "Resultado:"  lResultado: text "---"
+]
+```
+
+**Sub-VI (con connector pane) → genera `func` Red sin UI:**
+
+- Envuelve el código en una `func` Red
+- No genera ninguna llamada a `view`
+- La guarda `if not value? 'qtorres-runtime [...]` permite ejecución standalone
+- El VI padre hace `do %sub-vi.qvi` para cargar la función
+
+**En ambos casos el compilador:**
+
+- Ordena los nodos topológicamente
+- Instancia plantillas de código por tipo de nodo (dialecto `emit`)
 - Si el VI contiene sub-VIs → emite `do %sub-vi.qvi` al inicio
 - Si el VI pertenece a una `.qlib` → el código va dentro de un `context`
-- Genera la guarda `if not value? 'qtorres-runtime [...]` para ejecución standalone
 
 ### 5. Runner (`runner/`)
 

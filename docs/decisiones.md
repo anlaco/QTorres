@@ -140,6 +140,58 @@ El `.qvi` se ejecuta directamente con `red mi-vi.qvi` sin QTorres instalado.
 
 ---
 
+## DT-009: El .qvi genera Red/View — el Front Panel siempre se muestra al ejecutar
+
+**Fecha:** 2026-03-15  
+**Estado:** Adoptada  
+
+**Contexto:** Definir qué genera el compilador cuando se guarda un VI principal (top-level). La pregunta es si el `.qvi` ejecutable muestra una ventana o solo corre en terminal.
+
+**Decisión:** QTorres sigue el modelo de LabVIEW: el VI principal **siempre muestra el Front Panel** al ejecutarse. El compilador genera código Red/View completo que construye la ventana con los controles de entrada y los indicadores de salida. Al ejecutar `red mi-programa.qvi` aparece la interfaz gráfica, no output de terminal.
+
+Los sub-VIs (VIs con connector pane) siguen el comportamiento contrario: generan una `func` Red sin UI. Su Front Panel no se muestra cuando son llamados por otro VI, salvo que se configure explícitamente.
+
+**Dos tipos de salida del compilador:**
+
+| Tipo de VI | Genera | Front Panel al ejecutar |
+|------------|--------|------------------------|
+| VI principal | Red/View con ventana completa | Sí, siempre |
+| Sub-VI (con connector pane) | `func` Red sin UI | No por defecto |
+
+**Estructura del código generado para un VI principal:**
+
+```red
+Red [title: "mi-programa" Needs: 'View]
+
+; -- CABECERA GRÁFICA --
+qvi-diagram: [...]
+
+; -- CÓDIGO GENERADO --
+view layout [
+    ; Controles de entrada (editables por el usuario)
+    label "A"  field "5.0"
+    label "B"  field "3.0"
+    ; Botón Run
+    button "Run" [... lógica del diagrama ...]
+    ; Indicadores de salida
+    label "Resultado:"  text "---"
+]
+```
+
+**Razones:**
+- Fidelidad al modelo mental de LabVIEW: el programa ES la ventana
+- El usuario que viene de LabVIEW reconoce el comportamiento inmediatamente
+- El `.qvi` es un ejecutable completo y autónomo, no un script de terminal
+- Red/View está incluido en el runtime de Red — sin dependencias adicionales
+
+**Consecuencias:**
+- El compilador debe generar Red/View, no solo código imperativo
+- Los controles del Front Panel se convierten en `field` y `button` de Red/View
+- Los indicadores se convierten en `text` reactivos que se actualizan al pulsar Run
+- Esta es la diferencia más significativa respecto al MVP actual
+
+---
+
 ## DT-008: Tres dialectos Red propios
 
 **Fecha:** 2026-03-14  

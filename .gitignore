@@ -20,3 +20,20 @@ Thumbs.db
 # Build output
 build/
 out/
+
+# Ficheros sensibles — nunca commitear
+token.txt
+*.token
+.env
+
+# Binarios compilados por Red (no van en git)
+QTorres-mvp
+QTorres
+prueba-bd
+prueba-view
+red-view
+libRedRT.so
+libRedRT-defs.r
+libRedRT-extras.r
+libRedRT-include.red
+redc

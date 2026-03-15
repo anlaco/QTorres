@@ -209,8 +209,8 @@ render-fp: func [] [
             pen black  line-width 1  fill-pen (clr)
             box (as-pair item/x item/y) (as-pair (item/x + 140) (item/y + 40)) 5
             fill-pen black
-            text (as-pair (item/x + 5) (item/y + 5)) (item/label)
-            text (as-pair (item/x + 5) (item/y + 22)) (val-text)
+            text (as-pair (item/x + 5) (item/y + 13)) (item/label)
+            text (as-pair (item/x + 5) (item/y + 27)) (val-text)
         ]
     ]
     d
@@ -252,9 +252,12 @@ render-bd: func [] [
             p2: port-xy dn w/to-p   'in
             ; Calcular punto medio X para formar la esquina central
             mx: to-integer (p1/x + p2/x) / 2
-            ; Añadir primitivas que dibujan la línea con color gris
+            ; Determinar color del wire según el tipo del nodo origen
+            ; Si el nodo origen es un control, indicador u operación (numérico)
+            ; pintamos la conexión en naranja, en caso contrario usamos gris.
+            wire-color: either any [sn/type = 'control sn/type = 'add sn/type = 'sub sn/type = 'indicator] [orange] [80.80.80]
             append d compose [
-                pen 80.80.80  line-width 2
+                pen (wire-color)  line-width 2
                 line (p1) (as-pair mx p1/y) (as-pair mx p2/y) (p2)
             ]
         ]
@@ -286,7 +289,7 @@ render-bd: func [] [
             pen black  line-width 1  fill-pen (c)
             box (as-pair n/x n/y) (as-pair (n/x + bw) (n/y + bh)) 6
             fill-pen black
-            text (as-pair (n/x + 10) (n/y + 8)) (n/label)
+            text (as-pair (n/x + 10) (n/y + 13)) (n/label)
         ]
         ; Texto pequeño que muestra tipo abreviado (CTRL/IND/ADD/SUB)
         tl: switch n/type [control ["CTRL"] indicator ["IND"] add ["ADD +"] sub ["SUB -"]]
@@ -683,13 +686,13 @@ open-front-panel: does [
 
     palette-box: make face! [
         type: 'base  offset: 5x5  size: 145x110  color: 225.225.225
-        draw: [pen gray box 0x0 144x109 4  pen black text 10x5 "Paleta"]
+        draw: [pen gray box 0x0 144x109 4  pen black text 10x10 "Paleta"]
         pane: reduce [btn-ctrl btn-ind]
     ]
 
     lbl: make face! [
         type: 'base  offset: 155x5  size: 580x18  color: 240.240.240
-        draw: [pen gray text 5x2 "Arrastra controles/indicadores"]
+        draw: [pen gray text 5x10 "Arrastra controles/indicadores"]
     ]
 
     fp-win: make face! [
@@ -831,13 +834,13 @@ open-block-diagram: does [
 
     palette-box: make face! [
         type: 'base  offset: 5x5  size: 145x110  color: 225.225.225
-        draw: [pen gray box 0x0 144x109 4  pen black text 10x5 "Bloques"]
+        draw: [pen gray box 0x0 144x109 4  pen black text 10x10 "Bloques"]
         pane: reduce [btn-add btn-sub]
     ]
 
     lbl: make face! [
         type: 'base  offset: 155x5  size: 680x18  color: 240.240.240
-        draw: [pen gray text 5x2 "Clic rojo(salida) -> clic azul(entrada) para wire | Arrastra nodos"]
+        draw: [pen gray text 5x10 "Clic rojo(salida) -> clic azul(entrada) para wire | Arrastra nodos"]
     ]
 
     bd-win: make face! [
@@ -954,12 +957,15 @@ main-win: make face! [
             ]
         ]
         make face! [
-            type: 'base  offset: 20x125  size: 460x45  color: 240.240.240
+            type: 'base  offset: 40x115  size: 400x45  color: 240.240.240
             draw: [
+                pen black
+                fill-pen 255.220.60
+                box 0x0 400x45 4
                 pen gray
-                text 0x0  "1) Pulsa 'Generar .qvi' para abrir el editor"
-                text 0x15 "2) Controles, indicadores, bloques y wires"
-                text 0x30 "3) Guardar y luego Ejecutar"
+                text 0x10  "1) Pulsa 'Generar .qvi' para abrir el editor"
+                text 0x25 "2) Controles, indicadores, bloques y wires"
+                text 0x40 "3) Guardar y luego Ejecutar"
             ]
         ]
         make face! [

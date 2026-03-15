@@ -321,26 +321,52 @@ make-canvas: func [w [integer!] h [integer!]] [
 ; Demo standalone — ejecutar: red src/ui/diagram/canvas.red
 ; ══════════════════════════════════════════════════════════
 
-; Nodos de ejemplo
-append bd-nodes make object! [id: gen-id  type: 'control    label: "A"         x: 40   y: 60 ]
-append bd-nodes make object! [id: gen-id  type: 'control    label: "B"         x: 40   y: 170]
-append bd-nodes make object! [id: gen-id  type: 'add        label: "Add_3"     x: 250  y: 100]
-append bd-nodes make object! [id: gen-id  type: 'sub        label: "Sub_4"     x: 250  y: 230]
-append bd-nodes make object! [id: gen-id  type: 'indicator  label: "Resultado" x: 460  y: 100]
-append bd-nodes make object! [id: gen-id  type: 'indicator  label: "Resta"     x: 460  y: 230]
+; ── Demo: 20 nodos / 15 wires (Issue #4 stress test) ──────────────────────
+; Cuadrícula 4 columnas × 5 filas con nodos ADD y SUB alternados.
+; 15 wires encadenando nodos consecutivos (result → a).
+; Arrastra un nodo para verificar que no hay lag perceptible.
 
-canvas: make-canvas 700 480
+cols:    4
+col-gap: 210
+row-gap: 90
+sx:      40
+sy:      20
+
+repeat i 20 [
+    col:   (i - 1) % cols
+    row:   (i - 1) / cols
+    ntype: either odd? i ['add] ['sub]
+    lbl:   rejoin [either ntype = 'add ["Add_"] ["Sub_"] i]
+    append bd-nodes make object! [
+        id:    gen-id
+        type:  ntype
+        label: lbl
+        x:     sx + (col * col-gap)
+        y:     sy + (row * row-gap)
+    ]
+]
+
+repeat i 15 [
+    append bd-wires make object! [
+        from-id: bd-nodes/:i/id
+        from-p:  'result
+        to-id:   bd-nodes/(i + 1)/id
+        to-p:    'a
+    ]
+]
+
+canvas: make-canvas 880 490
 canvas/offset: 10x38
 
 view make face! [
-    type: 'window
-    text: "QTorres — Canvas Spike (Issue #1 + #2)"
-    size: 720x540
-    offset: 100x80
-    pane: reduce [
+    type:   'window
+    text:   "QTorres — Canvas (Issue #1 #2 #3 #4)"
+    size:   900x540
+    offset: 80x60
+    pane:   reduce [
         make face! [
-            type: 'base  offset: 10x8  size: 700x25  color: 240.240.240
-            draw: [pen gray text 5x15 "Clic rojo(salida) -> clic azul(entrada) para wire | Arrastra nodos"]
+            type: 'base  offset: 10x8  size: 880x25  color: 240.240.240
+            draw: [pen gray text 5x15 "20 nodos / 15 wires — arrastra para evaluar fluidez | clic wire = amarillo"]
         ]
         canvas
     ]

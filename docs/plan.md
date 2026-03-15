@@ -2,44 +2,60 @@
 
 ## Visión
 
-QTorres es un entorno de programación visual open source que replica el modelo mental de LabVIEW (bloques, wires, Front Panel, Block Diagram) compilando a código Red-Lang puro y legible.
+QTorres es una alternativa open source a LabVIEW para el mismo público objetivo: ingenieros de instrumentación y automatización. El usuario construye programas visualmente con bloques y wires (igual que en LabVIEW), y QTorres genera código Red-Lang puro y legible.
 
-## Fases
+**Principios de diseño:**
+- Mismo modelo mental que LabVIEW: Front Panel + Block Diagram, dataflow, sub-VIs
+- Identidad visual propia y más moderna (no un clon visual de LabVIEW)
+- Hardware como ciudadano de primera clase: SCPI/VISA para Keysight, serie para microcontroladores, DAQ
+- Sin dependencias externas. Un binario, multiplataforma.
 
-### Fase 0 — Spike técnico (validación)
+---
 
-Antes de construir arquitectura, validar que Red/View soporta las primitivas necesarias:
+## Fase 0 — Spike técnico ✅ COMPLETADA
 
-- [ ] Prototipo de canvas con bloques arrastrables (drag & drop)
-- [ ] Dibujo de wires entre bloques con Red/Draw
-- [ ] Hit testing: detectar clic sobre bloque, sobre wire, sobre puerto
-- [ ] Scroll del canvas
-- [ ] Evaluar rendimiento con 20+ bloques en pantalla
+Validar que Red/View soporta las primitivas necesarias.
 
-**Criterio de éxito:** Se puede arrastrar bloques y dibujar wires entre ellos de forma fluida.
+- [x] Prototipo de canvas con bloques arrastrables (drag & drop)
+- [x] Dibujo de wires entre bloques con Red/Draw
+- [x] Hit testing: detectar clic sobre bloque, sobre wire, sobre puerto
+- [x] Evaluar rendimiento con 20+ bloques en pantalla
 
-### Fase 1 — MVP
+**Resultado:** `src/ui/diagram/canvas.red` funcional con 20 nodos y 15 wires fluidos.
+
+---
+
+## Fase 1 — Beta funcional
 
 Ciclo completo: dibujar → compilar → ejecutar → ver resultado.
 
-#### Bloques primitivos
-- Constante numérica (entrada)
-- Suma, Resta, Multiplicación (operación)
-- Display / Print (salida)
+### Edición del diagrama
+- [ ] Canvas modular (refactor de canvas.red a src/ui/diagram/)
+- [ ] Borrar wire/nodo con tecla Delete (#20)
+- [ ] Renombrar nodo con doble clic (#21)
+- [ ] Identidad visual: diseño de bloques moderno, customizable (#22)
 
-#### Funcionalidades
-- [ ] Canvas interactivo con bloques arrastrables
-- [ ] Conexión de bloques mediante wires
-- [ ] Front Panel con controles numéricos e indicadores
-- [ ] Botón Run (ejecuta el .qvi en memoria)
-- [ ] Guardar .qvi con cabecera gráfica + código generado
-- [ ] Cargar .qvi (reconstruir Front Panel y Block Diagram desde cabecera)
-- [ ] El .qvi guardado es ejecutable con `red mi-vi.qvi`
-- [ ] Validación básica (tipos compatibles, sin ciclos)
+### Motor de compilación
+- [ ] Procesador dialecto `block-def` (#5)
+- [ ] Topological sort del grafo (#6)
+- [ ] `bind-emit`: sustituye nombres de puerto por variables (#7)
+- [ ] Compilador genera Red/View completo (DT-009) (#8)
+- [ ] Guardar/cargar .qvi: `save-vi` y `load-vi` (#9)
+- [ ] Runner en memoria (ejecuta sin generar fichero) (#10)
 
-#### Qué genera el compilador en la beta (decisión DT-009)
+### Bloques primitivos de Fase 1
+- Constante numérica, Suma, Resta, Multiplicación, División
+- Display numérico
+- Controles e indicadores numéricos en Front Panel
 
-El compilador genera **código Red/View completo**, no solo código imperativo. Al ejecutar el `.qvi` con Red aparece una ventana con el Front Panel, igual que en LabVIEW.
+### Front Panel modular
+- [ ] Panel con controles e indicadores arrastrables (#12)
+- [ ] Botón Run visible en el panel
+- [ ] Conectar módulos en `qtorres.red` (#13)
+
+### Qué genera el compilador (decisión DT-009)
+
+El compilador genera **código Red/View completo**. Al ejecutar el `.qvi` con Red aparece una ventana con el Front Panel, igual que en LabVIEW.
 
 Estructura del `.qvi` generado:
 
@@ -49,40 +65,91 @@ Estructura del `.qvi` generado:
 [view layout [ ... — ventana con controles, botón Run e indicadores ]]
 ```
 
-Los controles de entrada se convierten en `field` editables. Los indicadores de salida se convierten en `text` que se actualizan al pulsar Run. El botón Run ejecuta la lógica del diagrama y actualiza los indicadores en la misma ventana.
+Los controles de entrada se convierten en `field` editables. Los indicadores de salida en `text` que se actualizan al pulsar Run.
 
-Esta es la diferencia principal respecto al MVP actual, que genera código de terminal sin UI.
+---
 
-### Fase 2 — Tipos y estructuras
+## Fase 2 — Tipos de datos y estructuras de control
 
-- Wires tipados (numérico, string, booleano) con color por tipo
-- Estructuras de control: While Loop, For Loop, Case Structure
-- Bloques de string y booleanos
-- Undo/Redo
+### Tipos de datos esenciales
+- [ ] Tipo booleano: wire azul oscuro, control LED, indicador LED (#23)
+- [ ] Tipo string: wire rosa, control field, indicador text (#24)
+- [ ] Array 1D: wire con borde doble, representación en Front Panel (#25)
+- [ ] Cluster: wire marrón, editor de campos (#26)
 
-### Fase 3 — Extensibilidad
+### Visualización
+- [ ] Waveform chart y graph en Front Panel (#27)
+- [ ] Wires con color según tipo (numérico naranja, booleano azul, string rosa)
+- [ ] Error de tipo al conectar wires incompatibles (visual en el wire)
 
-- Sub-VIs: connector pane, `func` generada, guarda `qtorres-runtime`
-- Un .qvi con connector se puede usar como bloque dentro de otro .qvi
-- `.qlib` con `context` de Red para namespacing (`libreria/funcion`)
-- Bloques de I/O (ficheros, puertos serie, red)
-- Paleta de bloques extensible por el usuario
-- Depurador con sondas en wires
+### Estructuras de control
+- [ ] While Loop con terminal de condición (#15)
+- [ ] For Loop con terminal N e índice (#16)
+- [ ] Case Structure con selector y múltiples frames (#17)
 
-### Fase 4 — Madurez
+### Calidad de edición
+- [ ] Undo/Redo (historial de acciones)
+- [ ] Validación: detectar ciclos, tipos incompatibles, puertos sin conectar
 
-- Editor de tipos de wire personalizados
-- Clusters y arrays como tipos de wire
-- Exportar a ejecutable (compilación Red nativa)
-- Documentación y tutoriales
+---
+
+## Fase 3 — Sub-VIs y extensibilidad
+
+- [ ] Connector pane: definir entradas/salidas de un VI para usarlo como bloque (#18)
+- [ ] Compilador genera `func` Red para sub-VIs (DT-006, DT-009)
+- [ ] Un .qvi con connector pane se puede usar como bloque en otro .qvi
+- [ ] `.qlib`: librería de bloques con `context` Red para namespacing
+- [ ] Paleta de bloques extensible por el usuario
+- [ ] Depurador con sondas en wires (ver valor en ejecución)
+- [ ] Exportar a ejecutable (compilación Red nativa a binario)
+
+---
+
+## Fase 4 — Hardware (instrumentación y automatización)
+
+Esta fase es esencial para el público objetivo (mismo que LabVIEW: ingeniería de test y automatización).
+
+### SCPI para instrumentos Keysight y compatibles
+- [ ] SCPI sobre TCP/IP (puerto 5025): bloques connect/write/query/close (#28)
+- [ ] SCPI sobre USB/USBTMC (/dev/usbtmc*): mismos bloques, diferente transporte (#29)
+- [ ] Gestión de errores de instrumento (+/-OPC, error queue)
+- [ ] Bloque de identificación: `*IDN?` y detección automática de instrumento
+
+### Comunicación serie
+- [ ] Puerto serie RS-232/RS-485: bloques open/write/read/close (#30)
+- [ ] Configuración: baud rate, paridad, bits de stop, timeout
+- [ ] Soporte para /dev/ttyUSB* (Arduino, ESP32, adaptadores USB-serie)
+
+### Red genérica
+- [ ] TCP/IP cliente y servidor para protocolos propios (#31)
+- [ ] UDP para comunicación de baja latencia
+- [ ] Modbus TCP (protocolo industrial estándar)
+
+### Adquisición de datos (DAQ)
+- [ ] Tarjetas DAQ vía comedi/libcomedi en Linux (#32)
+- [ ] Alternativa ligera: Arduino como DAQ de bajo coste (vía serie)
+- [ ] Entradas analógicas, salidas analógicas, I/O digital
+- [ ] Adquisición continua con timestamp
+
+---
 
 ## Hitos clave
 
 | Hito | Descripción | Fase |
 |------|------------|------|
-| Canvas vivo | Bloques arrastrables con wires dibujados | 0 |
+| Canvas vivo | Bloques arrastrables con wires dibujados | 0 ✅ |
 | Primera compilación | .qvi guardado se ejecuta con Red directamente | 1 |
-| Primer programa útil | Usuario puede hacer aritmética y ver resultado | 1 |
+| Primer programa útil | Aritmética con Front Panel funcional | 1 |
+| Tipos completos | Boolean, string, array, cluster en wires | 2 |
 | Estructuras de control | Bucles y condicionales en el diagrama | 2 |
-| SubVIs | VIs reutilizables dentro de otros con connector | 3 |
-| Librerías | Namespacing con context de Red | 3 |
+| Sub-VIs | VIs reutilizables como bloques con connector | 3 |
+| Primera medida real | Controlar un Keysight desde QTorres | 4 |
+| DAQ completo | Adquisición continua con tarjeta o Arduino | 4 |
+
+---
+
+## Orden de trabajo recomendado
+
+Trabajar siempre Issues en orden de Fase. No empezar una fase sin completar la anterior.
+
+**Próximo:** Fase 1 — empezar por Issue #20 (borrar wire/nodo) o Issue #22 (identidad visual, decide el look antes de construir más UI).

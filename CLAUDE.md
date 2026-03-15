@@ -59,14 +59,18 @@ QTorres/
 
 ## Estado actual
 
-**El MVP funciona.** `MVP/QTorres-mvp.red` es un prototipo monolítico operativo con:
-- Front Panel con controles e indicadores arrastrables
-- Block Diagram con nodos add/sub conectables con wires
-- Ejecución en memoria
-- Guardado a `.qvi` (genera código de terminal, NO Red/View — pendiente de cambiar)
+**Fase 0 completada.** `src/ui/diagram/canvas.red` implementa los 4 spikes (Issues #1-#4 cerrados):
+- Bloques arrastrables con drag & drop
+- Wires con routing de punto medio
+- Hit testing sobre bloques, puertos y wires
+- Stress test con 20 nodos y 15 wires fluido
+
+**El MVP monolítico funciona.** `MVP/QTorres-mvp.red` es referencia de implementación existente.
 
 **Los módulos `src/` son stubs documentados.** La arquitectura está diseñada pero sin implementar.
 El objetivo es implementar `src/` de forma modular usando el MVP como referencia.
+
+**Próximo paso: Fase 1.** Empezar por Issue #22 (identidad visual) o Issue #20 (borrar wire/nodo).
 
 ## Decisiones técnicas clave
 
@@ -118,13 +122,12 @@ Los VIs principales generan Red/View con ventana.
 ### Orden de los Issues (backlog)
 Trabajar siempre en orden de Fase. No empezar Fase 1 sin completar Fase 0.
 
-**Fase 0 — Spike técnico (Issues #1-#4):**
-- #1 Canvas con bloques arrastrables ← EMPEZAR AQUÍ
-- #2 Dibujo de wires entre bloques
-- #3 Hit testing
-- #4 Rendimiento con 20+ bloques
+**Fase 0 — Spike técnico ✅ COMPLETADA (Issues #1-#4 CERRADOS)**
 
-**Fase 1 — Beta (Issues #5-#13):**
+**Fase 1 — Beta funcional (Issues #5-#13, #20-#22):**
+- #20 Borrar wire/nodo con Delete ← EMPEZAR AQUÍ (edición básica)
+- #21 Renombrar nodo con doble clic
+- #22 Identidad visual: diseño de bloques moderno
 - #5 Procesador dialecto block-def
 - #6 Topological-sort
 - #7 bind-emit
@@ -135,8 +138,26 @@ Trabajar siempre en orden de Fase. No empezar Fase 1 sin completar Fase 0.
 - #12 Front Panel modular
 - #13 Conectar módulos en qtorres.red
 
-**Fase 2 — Issues #14-#16**
-**Fase 3 — Issues #17-#19**
+**Fase 2 — Tipos de datos y estructuras (Issues #15-#17, #23-#27):**
+- #23 Tipo booleano
+- #24 Tipo string
+- #25 Array 1D
+- #26 Cluster
+- #27 Waveform chart y graph
+- #15 While Loop
+- #16 For Loop
+- #17 Case Structure
+
+**Fase 3 — Sub-VIs y extensibilidad (Issues #18-#19):**
+- #18 Sub-VI con connector pane
+- #19 Librería .qlib
+
+**Fase 4 — Hardware (Issues #28-#32):**
+- #28 SCPI sobre TCP/IP (Keysight por red)
+- #29 SCPI sobre USB/USBTMC (Keysight por USB)
+- #30 Puerto serie RS-232/RS-485 (Arduino, ESP32)
+- #31 TCP/IP genérico (Modbus TCP, protocolos propios)
+- #32 DAQ analógico (comedi/libcomedi)
 
 ## Comandos útiles
 

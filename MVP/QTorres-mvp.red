@@ -6,8 +6,59 @@ Red [
     Needs:   'View
 ]
 
+; ==================================================================================================
+; QTorres-v2.red — Documento de código con documentación extensa
+;
+; Este archivo implementa una versión mínima viable (MVP) de un editor visual
+; similar a LabVIEW para el lenguaje Red. El objetivo del programa es permitir
+; crear mediante una interfaz gráfica (Front Panel + Block Diagram) una
+; representación visual de un pequeño diagrama de datos y operaciones, y a
+; partir de él generar un fichero ejecutable en formato `.qvi` (un artefacto
+; textual usable por Red) o ejecutar el diagrama de forma inmediata.
+;
+; El contenido del archivo está organizado en secciones claramente señaladas
+; (estado global, configuración, funciones utilitarias, renderizado, tests de
+; colisión (hit-tests), compilador a .qvi y construcción de ventanas). A lo
+; largo del código se usan objetos simples para representar los elementos
+; principales: controles/indicadores del Front Panel (`fp-items`), nodos del
+; Block Diagram (`bd-nodes`) y cables/ conexiones (`bd-wires`).
+;
+; Notas de diseño y estructura de datos:
+; - `fp-items` : lista (block) de objetos de tipo control o indicator.
+;    Cada `item` tiene propiedades: `id`, `kind` (control|indicator), `label`,
+;    `x`,`y` (posición sobre el panel) y `default` (valor numérico para
+;    controles/indicadores).
+; - `bd-nodes` : lista de nodos del diagrama con propiedades: `id`, `type`
+;    (ej. 'add, 'sub, 'control, 'indicator), `label`, `x`,`y`.
+; - `bd-wires` : lista de conexiones. Cada `wire` contiene `from-id`, `from-p`
+;    (nombre de puerto de salida en el nodo origen), `to-id`, `to-p` (puerto de
+;    entrada en el nodo destino).
+; - `next-id` y `gen-id` : sencillo generador de identificadores enteros
+;    secuenciales para asignar IDs únicos a controles/nodos.
+;
+; Flujo de ejecución principal (resumido):
+; 1) Usuario abre la ventana principal `main-win`.
+; 2) Desde ahí puede abrir Front Panel y Block Diagram o generar/guardar
+;    un `.qvi` o ejecutar en memoria el diagrama.
+; 3) El Front Panel permite crear controles/indicadores y posicionarlos.
+; 4) El Block Diagram permite crear nodos (suma/resta) y conectar puertos
+;    mediante wires (clic en salida rojo -> clic en entrada azul).
+; 5) `compile-to-qvi` recorre las estructuras y produce un fichero con dos
+;    secciones: `qvi-diagram:` (mold del diagrama) y `-- CODIGO GENERADO --`
+;    (líneas de código ejecutable simple representando la lógica del diagrama).
+;
+; Comentarios en el código: he añadido bloques explicativos en cada sección y
+; antes de funciones clave para facilitar entender parámetros, efectos
+; secundarios y formato de retorno. Las funciones mantienen exactamente el
+; comportamiento original; solo se añaden comentarios aclaratorios.
+; ==================================================================================================
+
 ; ==============================================================================
 ; Estado global
+; Descripción amplia:
+; Este bloque declara las variables globales que representan el estado de la
+; aplicación mientras el usuario edita diagramas y paneles. Son objetos
+; mutables y listas que mantienen la representación en memoria del proyecto.
 ; ==============================================================================
 
 next-id: 1
@@ -44,6 +95,14 @@ last-saved: none
 
 ; ==============================================================================
 ; Config
+;
+; Variables de configuración visual y de espaciamiento usadas por el render:
+; - `bw` (box width): ancho por defecto de cada nodo en el Block Diagram.
+; - `bh` (box height): alto por defecto de cada nodo.
+; - `pr` (port radius / padding): radio/espaciado empleado para dibujar los
+;   círculos de los puertos y para calcular offsets.
+; Estas constantes controlan el layout visual y se usan en `port-xy`, en los
+; bucles de dibujo (`render-bd`, `render-fp`) y en las pruebas de colisión.
 ; ==============================================================================
 
 bw: 120
@@ -52,6 +111,14 @@ pr: 8
 
 ; ==============================================================================
 ; Puertos por tipo
+;
+; Las siguientes funciones describen, para cada tipo de nodo, el conjunto de
+; nombres de puertos de entrada (`in-ports`) y puertos de salida (`out-ports`).
+; Estas listas son pequeñas y explícitas: por ejemplo, un nodo `add` tiene
+; puertos de entrada `a` y `b`, y un puerto de salida `result`.
+; Estas funciones no realizan efectos secundarios: devuelven listas que son
+; consultadas por `port-xy` para ubicar gráficamente los círculos de conexión
+; y por las rutinas de ejecución/compilación para conectar valores.
 ; ==============================================================================
 
 in-ports: func [n] [
@@ -95,6 +162,14 @@ ncolor: func [t] [
 
 ; ==============================================================================
 ; Sincronizacion FP -> BD
+;
+; Un control o indicador mostrado en el Front Panel debe existir también como
+; nodo en el Block Diagram para que el usuario pueda conectar cables. La
+; función `sync-fp-to-bd` realiza esa sincronización: si no existe un nodo con
+; el mismo `id` que el `item` del Front Panel, crea un nodo con tipo igual a
+; `item/kind` (control|indicator) y posición por defecto. Esta operación
+; garantiza que al crear elementos en el panel el diagrama de bloques refleje
+; los elementos disponibles.
 ; ==============================================================================
 
 sync-fp-to-bd: func [item] [
@@ -113,6 +188,12 @@ sync-fp-to-bd: func [item] [
 
 ; ==============================================================================
 ; Render Front Panel
+;
+; `render-fp` devuelve una block de primitivas que describe visualmente cada
+; control e indicador: un rectángulo con etiqueta, valor y color según su
+; tipo. La función no dibuja directamente: su retorno es pasado al sistema de
+; GUI (propiedad `draw` de una face) que interpreta la lista de primitivas y
+; las pinta en pantalla cuando sea necesario.
 ; ==============================================================================
 
 render-fp: func [] [
@@ -137,22 +218,41 @@ render-fp: func [] [
 
 ; ==============================================================================
 ; Render Block Diagram
+;
+; `render-bd` construye las primitivas del Block Diagram: cada wire, un posible
+; wire temporal (mientras el usuario arrastra), y cada nodo con sus puertos de
+; entrada y salida. Para mejorar la legibilidad de las conexiones, las líneas
+; de los wires se dibujan en forma de esquinas usando un punto medio `mx`.
 ; ==============================================================================
 
 render-bd: func [] [
+    ; Inicializa la lista de primitivas gráficas que devolveremos.
     d: copy []
 
-    ; Wires
+    ; ==================================================================
+    ; Dibujo de wires (conexiones permanentes)
+    ; Recorremos `bd-wires` y, para cada wire, buscamos los nodos origen y
+    ; destino (sn = source node, dn = destination node). Si ambos existen,
+    ; calculamos las posiciones físicas de los puertos con `port-xy` y
+    ; trazamos una línea compuesta que pasa por un punto medio `mx` para
+    ; generar un trazado con esquina (mejor legibilidad que una línea recta).
+    ; ==================================================================
     foreach w bd-wires [
+        ; sn y dn serán asignados a los objetos de nodo correspondientes
         sn: none  dn: none
         foreach n bd-nodes [
             if n/id = w/from-id [sn: n]
             if n/id = w/to-id   [dn: n]
         ]
+        ; Solo dibujamos si encontramos ambos extremos del wire
         if all [sn dn] [
+            ; Obtener coordenadas del puerto de salida del nodo fuente
             p1: port-xy sn w/from-p 'out
+            ; Obtener coordenadas del puerto de entrada del nodo destino
             p2: port-xy dn w/to-p   'in
+            ; Calcular punto medio X para formar la esquina central
             mx: to-integer (p1/x + p2/x) / 2
+            ; Añadir primitivas que dibujan la línea con color gris
             append d compose [
                 pen 80.80.80  line-width 2
                 line (p1) (as-pair mx p1/y) (as-pair mx p2/y) (p2)
@@ -160,7 +260,11 @@ render-bd: func [] [
         ]
     ]
 
-    ; Wire temporal
+    ; ==================================================================
+    ; Wire temporal (mientras el usuario está arrastrando para crear una
+    ; conexión). Se dibuja desde el puerto de salida seleccionado hasta la
+    ; posición actual del ratón (`mouse-pos`).
+    ; ==================================================================
     if all [wire-src mouse-pos] [
         sp: port-xy wire-src wire-port 'out
         append d compose [
@@ -169,19 +273,30 @@ render-bd: func [] [
         ]
     ]
 
-    ; Nodos
+    ; ==================================================================
+    ; Dibujo de nodos: cada nodo se representa como un rectángulo con
+    ; etiqueta, una línea de texto adicional que indica el tipo y círculos
+    ; para puertos de entrada (izquierda) y salida (derecha).
+    ; ==================================================================
     foreach n bd-nodes [
+        ; Color de relleno según tipo (ncolor devuelve una tripleta RGB)
         c: ncolor n/type
+        ; Caja principal: rectángulo con borde negro y relleno `c`
         append d compose [
             pen black  line-width 1  fill-pen (c)
             box (as-pair n/x n/y) (as-pair (n/x + bw) (n/y + bh)) 6
             fill-pen black
             text (as-pair (n/x + 10) (n/y + 8)) (n/label)
         ]
+        ; Texto pequeño que muestra tipo abreviado (CTRL/IND/ADD/SUB)
         tl: switch n/type [control ["CTRL"] indicator ["IND"] add ["ADD +"] sub ["SUB -"]]
         append d compose [text (as-pair (n/x + 10) (n/y + 28)) (tl)]
 
-        ; Puertos entrada (azul, izquierda)
+        ; -----------------------
+        ; Puertos de entrada (izquierda)
+        ; - `in-ports` devuelve una lista de nombres de puertos.
+        ; - A cada puerto le asignamos una posición vertical incremental.
+        ; -----------------------
         ps: in-ports n
         iy: n/y + 12
         foreach p ps [
@@ -193,7 +308,10 @@ render-bd: func [] [
             ]
             iy: iy + 20
         ]
-        ; Puertos salida (rojo, derecha)
+
+        ; -----------------------
+        ; Puertos de salida (derecha)
+        ; -----------------------
         ps: out-ports n
         oy: n/y + 12
         foreach p ps [
@@ -206,11 +324,18 @@ render-bd: func [] [
             oy: oy + 20
         ]
     ]
+    ; Devolver la lista de primitivas al sistema de dibujo
     d
 ]
 
 ; ==============================================================================
 ; Hit tests (BD) — mismo patron que prueba-bd.red
+;
+; Las funciones de hit-test permiten mapear coordenadas del ratón a elementos
+; del diagrama: puertos (`hit-port`), nodos (`hit-node`) o elementos del
+; Front Panel (`hit-fp-item`). Estas rutinas se utilizan por los handlers de
+; eventos (`on-down`, `on-over`) para iniciar arrastres, conectar wires o
+; seleccionar elementos.
 ; ==============================================================================
 
 hit-port: func [px py] [
@@ -264,37 +389,54 @@ hit-fp-item: func [px py] [
 
 ; ==============================================================================
 ; Compilador: modelo -> .qvi
+;
+; `compile-to-qvi` serializa el modelo actual en dos partes:
+;  - una estructura `qvi-diagram` (usando `mold`) que contiene la descripción
+;    completa del Front Panel y del Block Diagram (nodos + wires), útil para
+;    reconstruir la vista cuando se abra el `.qvi`.
+;  - una sección de `-- CODIGO GENERADO --` que contiene líneas simples de
+;    asignación y operaciones derivadas del diagrama. El formato generado es
+;    intencionalmente simple y está pensado para ser ejecutado directamente
+;    por Red o por herramientas del proyecto.
 ; ==============================================================================
 
 compile-to-qvi: func [filename] [
-    ; Cabecera
+    ; === Cabecera: serializar controles/indicadores para la sección gráfica ===
+    ; `fp-block` será una lista que describe cada elemento del Front Panel
     fp-block: copy []
     foreach item fp-items [
+        ; Si es un control incluimos su valor por defecto en la descripción
         either item/kind = 'control [
             append fp-block compose/deep [
                 control [id: (item/id) type: 'numeric label: (item/label) default: (item/default)]
             ]
         ][
+            ; Si es indicador solo registramos id, tipo y etiqueta
             append fp-block compose/deep [
                 indicator [id: (item/id) type: 'numeric label: (item/label)]
             ]
         ]
     ]
 
+    ; === Nodos: serializar nodos del block-diagram ===
     nd-block: copy []
     foreach n bd-nodes [
+        ; `to-lit-word form n/type` convierte el tipo simbólico a literal
         append nd-block compose/deep [
             node [id: (n/id) type: (to-lit-word form n/type) x: (n/x) y: (n/y) label: (n/label)]
         ]
     ]
 
+    ; === Wires: serializar conexiones entre nodos ===
     wr-block: copy []
     foreach w bd-wires [
+        ; Guardamos identificador de origen, puerto origen, id destino y puerto
         append wr-block compose/deep [
             wire [from: (w/from-id) port: (to-lit-word form w/from-p) to: (w/to-id) port: (to-lit-word form w/to-p)]
         ]
     ]
 
+    ; === Bloque de diagrama completo (para reconstruir GUI si se abre el qvi) ===
     diagram-block: compose/deep [
         front-panel: [(fp-block)]
         block-diagram: [
@@ -303,39 +445,46 @@ compile-to-qvi: func [filename] [
         ]
     ]
 
-    ; Codigo ejecutable
+    ; === Código ejecutable: generaremos líneas simples que representan
+    ; inicializaciones y operaciones derivadas del diagrama ===
     code-lines: copy []
 
-    ; Defaults de controles
+    ; 1) Defaults de controles: por cada control añadimos `label: value` (texto)
     foreach item fp-items [
         if item/kind = 'control [
             append code-lines rejoin [item/label ": " item/default newline]
         ]
     ]
 
-    ; Nodos operacion
+    ; 2) Nodos de operación: filtramos nodos tipo add/sub
     op-nodes: copy []
     foreach n bd-nodes [
         if any [n/type = 'add  n/type = 'sub] [append op-nodes n]
     ]
 
+    ; Para cada nodo de operación buscamos sus entradas conectadas y
+    ; generamos una expresión usando las etiquetas de las fuentes.
     foreach n op-nodes [
+        ; Inicializamos operandos como constantes si no hay conexión
         input-a: "0.0"
         input-b: "0.0"
         foreach w bd-wires [
             if w/to-id = n/id [
                 foreach src bd-nodes [
                     if src/id = w/from-id [
+                        ; Dependiendo de si el puerto destino es 'a o 'b
                         either w/to-p = 'a [input-a: src/label] [input-b: src/label]
                     ]
                 ]
             ]
         ]
+        ; Operador textual: " + " o " - "
         op: either n/type = 'add [" + "] [" - "]
         append code-lines rejoin [n/label ": " input-a op input-b newline]
     ]
 
-    ; Indicadores
+    ; 3) Indicadores: para cada indicador buscamos su fuente y generamos una
+    ; asignación que asocia la etiqueta del indicador a la etiqueta de la fuente
     foreach item fp-items [
         if item/kind = 'indicator [
             foreach w bd-wires [
@@ -350,14 +499,14 @@ compile-to-qvi: func [filename] [
         ]
     ]
 
-    ; Print indicadores
+    ; 4) Añadir instrucciones para imprimir indicadores al final
     foreach item fp-items [
         if item/kind = 'indicator [
             append code-lines rejoin ["print " item/label newline]
         ]
     ]
 
-    ; Escribir fichero
+    ; === Composición final del archivo .qvi ===
     out: copy {Red [title: "QTorres VI"]^/^/}
     append out "; -- CABECERA GRAFICA --^/"
     append out "; QTorres lee esta seccion para reconstruir la vista.^/"
@@ -369,12 +518,22 @@ compile-to-qvi: func [filename] [
     append out "; Generado por QTorres al guardar. Ejecutable con Red directamente.^/^/"
     foreach line code-lines [append out line]
 
+    ; Escribir a disco y devolver el nombre de fichero
     write filename out
     filename
 ]
 
 ; ==============================================================================
 ; Abrir Front Panel
+;
+; `open-front-panel` construye y muestra la ventana del Front Panel. Además de
+; la construcción visual, registra actores (handlers) para eventos clave:
+; - `on-down` detecta inicio de arrastre y selección de items.
+; - `on-over` actualiza la posición del item mientras se arrastra.
+; - `on-dbl-click` abre un diálogo para editar el valor de un control.
+; La función también crea botones en la paleta para añadir controles e
+; indicadores; al añadirlos se sincronizan con el Block Diagram mediante
+; `sync-fp-to-bd`.
 ; ==============================================================================
 
 open-front-panel: does [
@@ -389,16 +548,25 @@ open-front-panel: does [
         draw: render-fp
         actors: make object! [
             on-down: func [face event] [
+                ; Capturar posición relativa del ratón dentro del lienzo
                 px: event/offset/x  py: event/offset/y
+                ; Buscar si hemos clicado sobre un item del Front Panel
                 item: hit-fp-item px py
                 if item [
+                    ; Si hay item, iniciamos arrastre guardando la referencia y
+                    ; el desplazamiento (offset) entre la posición del ratón y
+                    ; la esquina superior izquierda del objeto.
                     fp-drag-item: item
                     fp-drag-off: as-pair (px - item/x) (py - item/y)
                     return none
                 ]
+                ; Si no se ha pulsado sobre un item, limpiamos estado de drag
                 fp-drag-item: none
             ]
             on-over: func [face event] [
+                ; Mientras el botón del ratón esté pulsado y tengamos un item
+                ; en dragging, actualizamos su posición relativa usando el
+                ; offset guardado y forzamos el redraw del lienzo.
                 if all [fp-drag-item fp-drag-off event/down?] [
                     fp-drag-item/x: event/offset/x - fp-drag-off/x
                     fp-drag-item/y: event/offset/y - fp-drag-off/y
@@ -406,16 +574,19 @@ open-front-panel: does [
                 ]
             ]
             on-up: func [face event] [
+                ; Al soltar limpiamos el estado de arrastre
                 fp-drag-item: none
                 fp-drag-off: none
             ]
             on-dbl-click: func [face event] [
+                ; Doble clic: abrir diálogo de edición para controles numéricos
                 px: event/offset/x  py: event/offset/y
                 item: hit-fp-item px py
                 if all [item  item/kind = 'control] [
-                    ; Dialogo para editar valor
+                    ; Preparamos variables para comunicación con el diálogo
                     edit-item: item
                     edit-val: none
+                    ; Construcción de una ventana modal simple (campo + botón)
                     edit-dlg: make face! [
                         type: 'window
                         text: rejoin ["Valor de " item/label]
@@ -431,6 +602,7 @@ open-front-panel: does [
                                 offset: 10x35  size: 200x28
                                 actors: make object! [
                                     on-enter: func [face event] [
+                                        ; Cuando el usuario presiona Enter guardamos
                                         edit-val: face/text
                                         unview/only edit-dlg
                                     ]
@@ -441,6 +613,7 @@ open-front-panel: does [
                                 offset: 220x35  size: 60x28
                                 actors: make object! [
                                     on-click: func [face event] [
+                                        ; Al pulsar OK leemos el campo y cerramos
                                         fld: edit-dlg/pane/2
                                         edit-val: fld/text
                                         unview/only edit-dlg
@@ -449,12 +622,15 @@ open-front-panel: does [
                             ]
                         ]
                     ]
+                    ; Mostramos el diálogo y procesamos eventos hasta cerrarlo
                     view/no-wait edit-dlg
                     do-events
+                    ; Si el usuario introdujo un valor intentamos convertirlo a float
                     if edit-val [
                         v: attempt [to-float edit-val]
                         if v [edit-item/default: v]
                     ]
+                    ; Forzar redibujado del panel para mostrar el nuevo valor
                     face/draw: render-fp
                 ]
             ]
@@ -529,6 +705,12 @@ open-front-panel: does [
 
 ; ==============================================================================
 ; Abrir Block Diagram
+;
+; `open-block-diagram` crea la ventana del Block Diagram con su lienzo y
+; paleta de bloques (Suma, Resta). Los actores registrados permiten:
+; - comenzar y finalizar la creación de wires entre puertos (`on-down`),
+; - arrastrar nodos para reubicarlos (`on-down` + `on-over` mientras se pulsa),
+; - dibujar un wire temporal mientras se elige el destino.
 ; ==============================================================================
 
 open-block-diagram: does [
@@ -671,6 +853,12 @@ open-block-diagram: does [
 
 ; ==============================================================================
 ; Ventana principal
+;
+; `main-win` es la ventana de lanzamiento de la aplicación. Desde aquí se puede
+; generar el editor (abrir FP + BD), guardar el estado actual en un `.qvi` y
+; ejecutar el diagrama in-memory para ver resultados inmediatos en los
+; indicadores. El botón "Generar .qvi" reinicia el estado de la sesión y
+; abre las ventanas de edición.
 ; ==============================================================================
 
 main-win: make face! [

@@ -527,6 +527,71 @@ compile-to-qvi: func [filename] [
 ]
 
 ; ==============================================================================
+; Ejecutar diagrama
+;
+; `run-diagram` evalúa el diagrama en memoria: toma los valores de los
+; controles, propaga a través de los nodos de operación siguiendo los wires,
+; y actualiza los indicadores con los resultados. Es llamada desde los botones
+; ▶ del Front Panel, Block Diagram y ventana principal.
+; ==============================================================================
+
+run-diagram: does [
+    if empty? bd-nodes [
+        print "No hay diagrama para ejecutar."
+        return none
+    ]
+    print "Ejecutando diagrama..."
+    print "-----------------------------"
+
+    vals: copy []
+    foreach item fp-items [
+        if item/kind = 'control [
+            append vals item/id
+            append vals item/default
+        ]
+    ]
+
+    foreach n bd-nodes [
+        if any [n/type = 'add  n/type = 'sub] [
+            va: 0.0  vb: 0.0
+            foreach w bd-wires [
+                if w/to-id = n/id [
+                    src-val: select vals w/from-id
+                    if src-val [
+                        either w/to-p = 'a [va: src-val] [vb: src-val]
+                    ]
+                ]
+            ]
+            res: either n/type = 'add [va + vb] [va - vb]
+            pos: find vals n/id
+            either pos [poke vals (1 + index? pos) res] [
+                append vals n/id
+                append vals res
+            ]
+            print rejoin [n/label ": " res]
+        ]
+    ]
+
+    foreach item fp-items [
+        if item/kind = 'indicator [
+            foreach w bd-wires [
+                if w/to-id = item/id [
+                    src-val: select vals w/from-id
+                    if src-val [
+                        item/default: src-val
+                        print rejoin [item/label ": " src-val]
+                    ]
+                ]
+            ]
+        ]
+    ]
+
+    print "-----------------------------"
+    print "Ejecucion completada."
+    if fp-canvas [fp-canvas/draw: render-fp]
+]
+
+; ==============================================================================
 ; Abrir Front Panel
 ;
 ; `open-front-panel` construye y muestra la ventana del Front Panel. Además de
@@ -685,14 +750,40 @@ open-front-panel: does [
     ]
 
     palette-box: make face! [
-        type: 'base  offset: 5x5  size: 145x110  color: 225.225.225
+        type: 'base  offset: 5x37  size: 145x110  color: 225.225.225
         draw: [pen gray box 0x0 144x109 4  pen black text 10x10 "Paleta"]
         pane: reduce [btn-ctrl btn-ind]
     ]
 
     lbl: make face! [
-        type: 'base  offset: 155x5  size: 580x18  color: 240.240.240
+        type: 'base  offset: 155x37  size: 580x18  color: 240.240.240
         draw: [pen gray text 5x10 "Arrastra controles/indicadores"]
+    ]
+
+    fp-canvas/offset: 155x57
+    fp-canvas/size:   580x448
+
+    run-btn-fp: make face! [
+        type: 'base
+        size: 30x28
+        offset: 4x2
+        color: 210.210.210
+        draw: [
+            pen 70.70.70  line-width 1  fill-pen 235.235.235
+            polygon 3x9 17x9 17x4 27x14 17x23 17x18 3x18
+        ]
+        actors: make object! [
+            on-down: func [face event] [run-diagram]
+        ]
+    ]
+
+    fp-toolbar: make face! [
+        type: 'base
+        size: 740x32
+        offset: 0x0
+        color: 210.210.210
+        draw: [pen 170.170.170  line-width 1  line 0x31 740x31]
+        pane: reduce [run-btn-fp]
     ]
 
     fp-win: make face! [
@@ -700,7 +791,7 @@ open-front-panel: does [
         text: "QTorres - Front Panel"
         size: 740x510
         offset: 30x50
-        pane: reduce [palette-box lbl fp-canvas]
+        pane: reduce [fp-toolbar palette-box lbl fp-canvas]
     ]
 
     view/no-wait fp-win
@@ -833,14 +924,40 @@ open-block-diagram: does [
     ]
 
     palette-box: make face! [
-        type: 'base  offset: 5x5  size: 145x110  color: 225.225.225
+        type: 'base  offset: 5x37  size: 145x110  color: 225.225.225
         draw: [pen gray box 0x0 144x109 4  pen black text 10x10 "Bloques"]
         pane: reduce [btn-add btn-sub]
     ]
 
     lbl: make face! [
-        type: 'base  offset: 155x5  size: 680x18  color: 240.240.240
+        type: 'base  offset: 155x37  size: 680x18  color: 240.240.240
         draw: [pen gray text 5x10 "Clic rojo(salida) -> clic azul(entrada) para wire | Arrastra nodos"]
+    ]
+
+    bd-canvas/offset: 155x57
+    bd-canvas/size:   680x448
+
+    run-btn-bd: make face! [
+        type: 'base
+        size: 30x28
+        offset: 4x2
+        color: 210.210.210
+        draw: [
+            pen 70.70.70  line-width 1  fill-pen 235.235.235
+            polygon 3x9 17x9 17x4 27x14 17x23 17x18 3x18
+        ]
+        actors: make object! [
+            on-down: func [face event] [run-diagram]
+        ]
+    ]
+
+    bd-toolbar: make face! [
+        type: 'base
+        size: 840x32
+        offset: 0x0
+        color: 210.210.210
+        draw: [pen 170.170.170  line-width 1  line 0x31 840x31]
+        pane: reduce [run-btn-bd]
     ]
 
     bd-win: make face! [
@@ -848,7 +965,7 @@ open-block-diagram: does [
         text: "QTorres - Block Diagram"
         size: 840x510
         offset: 180x100
-        pane: reduce [palette-box lbl bd-canvas]
+        pane: reduce [bd-toolbar palette-box lbl bd-canvas]
     ]
 
     view/no-wait bd-win
@@ -969,69 +1086,11 @@ main-win: make face! [
             ]
         ]
         make face! [
-            type: 'button  text: "Ejecutar .qvi"
+            type: 'button  text: "▶ Ejecutar .qvi"
             offset: 340x70  size: 140x40
+            color: 80.180.80
             actors: make object! [
-                on-click: func [face event] [
-                    if empty? bd-nodes [
-                        print "No hay diagrama para ejecutar."
-                        return none
-                    ]
-                    print "Ejecutando diagrama..."
-                    print "-----------------------------"
-
-                    ; Construir tabla de valores: id -> valor
-                    vals: copy []
-                    foreach item fp-items [
-                        if item/kind = 'control [
-                            append vals item/id
-                            append vals item/default
-                        ]
-                    ]
-
-                    ; Ejecutar nodos operacion
-                    foreach n bd-nodes [
-                        if any [n/type = 'add  n/type = 'sub] [
-                            va: 0.0  vb: 0.0
-                            foreach w bd-wires [
-                                if w/to-id = n/id [
-                                    src-val: select vals w/from-id
-                                    if src-val [
-                                        either w/to-p = 'a [va: src-val] [vb: src-val]
-                                    ]
-                                ]
-                            ]
-                            res: either n/type = 'add [va + vb] [va - vb]
-                            ; Guardar resultado
-                            pos: find vals n/id
-                            either pos [poke vals (1 + index? pos) res] [
-                                append vals n/id
-                                append vals res
-                            ]
-                            print rejoin [n/label ": " res]
-                        ]
-                    ]
-
-                    ; Actualizar indicadores
-                    foreach item fp-items [
-                        if item/kind = 'indicator [
-                            foreach w bd-wires [
-                                if w/to-id = item/id [
-                                    src-val: select vals w/from-id
-                                    if src-val [
-                                        item/default: src-val
-                                        print rejoin [item/label ": " src-val]
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]
-
-                    print "-----------------------------"
-                    print "Ejecucion completada."
-                    ; Refrescar Front Panel para mostrar resultados
-                    if fp-canvas [fp-canvas/draw: render-fp]
-                ]
+                on-click: func [face event] [run-diagram]
             ]
         ]
     ]

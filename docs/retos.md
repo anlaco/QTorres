@@ -6,12 +6,15 @@
 
 **Riesgo:** Red no ha alcanzado la versión 1.0. La comunidad es pequeña. El desarrollo es lento.
 
-**Impacto:** Puede haber bugs o carencias en Red/View que haya que resolver nosotros mismos.
+**Estado actual:** Red es alpha stage, 32-bit. El backend GTK de Linux tiene bugs críticos (ver sección específica más abajo). El backend Windows (Win32 API nativo) es el más estable.
+
+**Impacto:** Puede haber bugs o carencias en Red/View que haya que resolver nosotros mismos. En Linux, algunos bugs son bloqueantes para funcionalidad core de QTorres.
 
 **Mitigación:**
-- Contribuir fixes y mejoras upstream a Red cuando se encuentren problemas
+- Contribuir fixes y mejoras upstream a `red/red` cuando se encuentren problemas (estrategia principal para los bugs GTK)
 - Construir las utilidades que falten dentro del ecosistema Red (si algo no existe, se crea)
 - Validar Red/View en las tres plataformas durante el spike técnico
+- Seguir el roadmap de Red para la migración a 64-bit
 
 ### Canvas interactivo en Red/View
 
@@ -78,21 +81,46 @@ No está en el MVP pero es imprescindible para cualquier editor. La arquitectura
 2. ¿Soporta Red/View canvas con scroll nativo o hay que construirlo?
 3. ¿El usuario objetivo es ingeniero saliendo de LabVIEW o programador Red?
 
+### Bugs del backend GTK en Linux
+
+**Riesgo:** Alto — **BLOQUEANTE para QTorres en Linux**
+**Estado:** Caracterizados — pendiente de contribuir fixes a `red/red`
+
+El canvas visual de QTorres depende de posicionamiento preciso: un cable que conecta dos nodos no puede aparecer desplazado entre plataformas. Los bugs del backend GTK son por tanto bloqueantes para el uso en Linux.
+
+**Bugs confirmados** (ver detalle completo en [`docs/GTK_ISSUES.md`](GTK_ISSUES.md)):
+
+| Bug | Impacto en QTorres |
+|-----|--------------------|
+| `system/view/metrics/dpi` retorna `none` | Offsets incorrectos en el canvas |
+| Coordenadas: Windows usa DPI virtual, Linux usa píxeles físicos | Posiciones distintas entre plataformas |
+| Eventos `resize` reportan tamaños incorrectos en GTK | Canvas no se adapta al resize de ventana |
+| Bug de locale: aritmética float incorrecta sin `LC_ALL=C` | Resultados numéricos incorrectos |
+| `system/view/metrics/colors` retorna `none` en Linux | Sin acceso a colores del sistema |
+| Backend GTK es 32-bit, requiere libs i386 en sistemas 64-bit | Instalación compleja; muchas distros eliminan soporte 32-bit |
+
+**Estrategia:**
+- Contribuir los fixes directamente al repo `red/red`, no workarounds locales en QTorres.
+- La migración a 64-bit está en el roadmap de Red: v1.0 → core 64-bit, v1.1 → View engine 64-bit.
+- Ver [`CONTRIBUTING.md`](../CONTRIBUTING.md) para el proceso de contribución a `red/red`.
+
 ### Diferencias visuales entre plataformas (Windows / Linux)
 
-**Riesgo:** Bajo-Medio
-**Estado:** Detectado — pendiente de caracterizar
+**Riesgo:** Medio (derivado en parte de los bugs GTK de arriba)
+**Estado:** Detectado — parcialmente caracterizado
 
-Red/View delega el renderizado de widgets nativos al sistema operativo, por lo que fuentes, espaciado, tamaño de controles y colores por defecto varían entre Windows y Linux.
+Red/View delega el renderizado de widgets nativos al sistema operativo, por lo que fuentes, espaciado, tamaño de controles y colores por defecto varían entre Windows y Linux. Además de esto, los bugs de DPI y coordenadas del backend GTK agravan el problema.
 
 **Impacto:**
 - El Front Panel generado por el compilador puede verse desalineado o con proporciones distintas según la plataforma.
 - El Block Diagram (canvas.red) usa Draw dialect y debería ser más consistente, pero el tamaño de texto de labels puede diferir.
+- Las coordenadas de nodos guardadas en el `.qvi` pueden no reproducir el mismo layout visual en diferentes plataformas.
 
 **Mitigación (propuesta):**
 - Usar tamaños y fuentes explícitos en lugar de depender de los defaults del SO.
 - Crear un smoke test visual en Linux y Windows para detectar regresiones al implementar el Front Panel modular (Issue #12).
 - Normalizar estilos en una constante compartida cuando se implemente la identidad visual (Issue #22).
+- Resolver primero los bugs GTK (sección anterior) antes de construir más UI.
 
 ## Retos resueltos en diseño
 

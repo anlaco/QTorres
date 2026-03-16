@@ -24,13 +24,26 @@ selected-node: none                 ; nodo seleccionado por clic
 next-id: 1
 gen-id: does [n: next-id  next-id: next-id + 1  n]
 
+; ── Paleta de colores ───────────────────────────────────
+col-canvas:     225.228.235    ; fondo canvas (gris frío claro)
+col-grid:       200.203.212    ; puntos de cuadrícula
+col-block-ctrl: 50.100.180     ; control (azul)
+col-block-ind:  175.125.20     ; indicador (ámbar)
+col-block-op:   55.75.105      ; operación (pizarra)
+col-wire:       195.95.20      ; wire numérico (naranja oscuro)
+col-wire-sel:   0.160.200      ; wire seleccionado (cian)
+col-port-in:    50.110.200     ; puerto entrada (azul)
+col-port-out:   195.80.25      ; puerto salida (naranja)
+col-sel:        0.175.210      ; borde selección nodo (cian)
+col-text:       240.245.250    ; texto en bloques (blanco)
+
 ; ── Color por tipo de nodo ─────────────────────────────
 ncolor: func [t] [
     switch t [
-        control   [135.190.240]
-        indicator [240.220.100]
-        add       [120.200.120]
-        sub       [255.150.100]
+        control   [col-block-ctrl]
+        indicator [col-block-ind]
+        add       [col-block-op]
+        sub       [col-block-op]
     ]
 ]
 
@@ -66,10 +79,30 @@ port-xy: func [n pname dir /local ps i] [
     ]
 ]
 
+; ── Grid de puntos ──────────────────────────────────────
+grid-size: 20
+
+render-grid: func [cw ch /local d x y] [
+    d: copy [pen col-grid  fill-pen col-grid  line-width 1]
+    x: grid-size
+    while [x < cw] [
+        y: grid-size
+        while [y < ch] [
+            append d compose [circle (as-pair x y) 1]
+            y: y + grid-size
+        ]
+        x: x + grid-size
+    ]
+    d
+]
+
 ; ── Render ─────────────────────────────────────────────
 ; Genera primitivas Draw para wires, wire temporal, nodos y puertos.
 render-bd: func [/local d sn dn p1 p2 mx wire-color c tl ps iy oy] [
     d: copy []
+
+    ; 0) Grid de fondo
+    append d render-grid 880 490
 
     ; 1) Wires permanentes (linea con punto medio estilo LabVIEW)
     foreach w bd-wires [
@@ -82,12 +115,7 @@ render-bd: func [/local d sn dn p1 p2 mx wire-color c tl ps iy oy] [
             p1: port-xy sn w/from-p 'out
             p2: port-xy dn w/to-p   'in
             mx: to-integer (p1/x + p2/x) / 2
-            wire-color: either same? w selected-wire [255.220.0] [
-                either any [
-                    sn/type = 'control  sn/type = 'add
-                    sn/type = 'sub      sn/type = 'indicator
-                ] [orange] [80.80.80]
-            ]
+            wire-color: either same? w selected-wire [col-wire-sel] [col-wire]
             append d compose [
                 pen (wire-color)  line-width 2
                 line (p1) (as-pair mx p1/y) (as-pair mx p2/y) (p2)
@@ -99,7 +127,7 @@ render-bd: func [/local d sn dn p1 p2 mx wire-color c tl ps iy oy] [
     if all [wire-src mouse-pos] [
         sp: port-xy wire-src wire-port 'out
         append d compose [
-            pen orange  line-width 2
+            pen col-wire  line-width 2
             line (sp) (mouse-pos)
         ]
     ]
@@ -107,12 +135,17 @@ render-bd: func [/local d sn dn p1 p2 mx wire-color c tl ps iy oy] [
     ; 3) Nodos con puertos
     foreach n bd-nodes [
         c: ncolor n/type
+        ; Cuerpo del bloque — borde sutil más oscuro que el fill
         append d compose [
-            pen black  line-width 1  fill-pen (c)
-            box (as-pair n/x n/y) (as-pair (n/x + bw) (n/y + bh)) 6
-            fill-pen black
-            text (as-pair (n/x + 10) (n/y + 13)) (n/label)
+            pen (c - 20.20.20)  line-width 1  fill-pen (c)
+            box (as-pair n/x n/y) (as-pair (n/x + bw) (n/y + bh)) 5
         ]
+        ; Banda izquierda de color (acento visual de categoría)
+        append d compose [
+            pen off  fill-pen (c + 30.30.30)
+            box (as-pair n/x n/y) (as-pair (n/x + 4) (n/y + bh)) 0
+        ]
+        ; Texto: label y tipo
         tl: switch n/type [
             control   ["CTRL"]
             indicator ["IND"]
@@ -120,41 +153,44 @@ render-bd: func [/local d sn dn p1 p2 mx wire-color c tl ps iy oy] [
             sub       ["SUB -"]
         ]
         append d compose [
-            text (as-pair (n/x + 10) (n/y + 28)) (tl)
+            fill-pen col-text
+            text (as-pair (n/x + 10) (n/y + 10)) (n/label)
+            text (as-pair (n/x + 10) (n/y + 26)) (tl)
         ]
 
-        ; Puertos de entrada (izquierda, azul)
+        ; Puertos de entrada (izquierda)
         ps: in-ports n
         iy: n/y + 12
         foreach p ps [
             append d compose [
-                pen black  fill-pen 50.100.220
+                pen col-port-in  fill-pen col-port-in
                 circle (as-pair (n/x - pr) iy) (pr)
-                fill-pen black
+                fill-pen col-text
                 text (as-pair (n/x - pr - 22) (iy - 7)) (form p)
             ]
             iy: iy + 20
         ]
-        ; Resalte de nodo seleccionado (borde naranja, encima del nodo)
-        if same? n selected-node [
-            append d compose [
-                pen 255.140.0  line-width 3  fill-pen off
-                box (as-pair (n/x - 2) (n/y - 2)) (as-pair (n/x + bw + 2) (n/y + bh + 2)) 7
-                line-width 1
-            ]
-        ]
 
-        ; Puertos de salida (derecha, rojo)
+        ; Puertos de salida (derecha)
         ps: out-ports n
         oy: n/y + 12
         foreach p ps [
             append d compose [
-                pen black  fill-pen 220.60.60
+                pen col-port-out  fill-pen col-port-out
                 circle (as-pair (n/x + bw + pr) oy) (pr)
-                fill-pen black
+                fill-pen col-text
                 text (as-pair (n/x + bw + pr + 12) (oy - 7)) (form p)
             ]
             oy: oy + 20
+        ]
+
+        ; Resalte de nodo seleccionado (borde cian)
+        if same? n selected-node [
+            append d compose [
+                pen col-sel  line-width 2  fill-pen off
+                box (as-pair (n/x - 3) (n/y - 3)) (as-pair (n/x + bw + 3) (n/y + bh + 3)) 6
+                line-width 1
+            ]
         ]
     ]
     d
@@ -238,11 +274,10 @@ hit-wire: func [px py /local tol sn dn p1 p2 mx] [
 
 ; ── Canvas factory ─────────────────────────────────────
 ; Crea una face con drag & drop de bloques y creacion de wires.
-make-canvas: func [w [integer!] h [integer!]] [
-    make face! [
+make-canvas: func [w [integer!] h [integer!] /local f] [
+    f: make face! [
         type: 'base
         size: as-pair w h
-        color: 245.245.240
         flags: [all-over]
         draw: render-bd
         actors: make object! [
@@ -327,6 +362,8 @@ make-canvas: func [w [integer!] h [integer!]] [
             ]
         ]
     ]
+    f/color: col-canvas
+    f
 ]
 
 ; ══════════════════════════════════════════════════════════
@@ -377,8 +414,8 @@ view make face! [
     offset: 80x60
     pane:   reduce [
         make face! [
-            type: 'base  offset: 10x8  size: 880x25  color: 240.240.240
-            draw: [pen gray text 5x15 "Arrastra nodos | clic wire = amarillo | clic nodo = naranja | Delete/Backspace = borrar seleccionado"]
+            type: 'base  offset: 10x8  size: 880x25  color: 200.203.212
+            draw: [pen 60.70.90  text 5x15 "Arrastra nodos | clic wire = cian | clic nodo = cian | Delete/Backspace = borrar seleccionado"]
         ]
         canvas
     ]

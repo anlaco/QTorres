@@ -78,6 +78,22 @@ No está en el MVP pero es imprescindible para cualquier editor. La arquitectura
 2. ¿Soporta Red/View canvas con scroll nativo o hay que construirlo?
 3. ¿El usuario objetivo es ingeniero saliendo de LabVIEW o programador Red?
 
+### Diferencias visuales entre plataformas (Windows / Linux)
+
+**Riesgo:** Bajo-Medio
+**Estado:** Detectado — pendiente de caracterizar
+
+Red/View delega el renderizado de widgets nativos al sistema operativo, por lo que fuentes, espaciado, tamaño de controles y colores por defecto varían entre Windows y Linux.
+
+**Impacto:**
+- El Front Panel generado por el compilador puede verse desalineado o con proporciones distintas según la plataforma.
+- El Block Diagram (canvas.red) usa Draw dialect y debería ser más consistente, pero el tamaño de texto de labels puede diferir.
+
+**Mitigación (propuesta):**
+- Usar tamaños y fuentes explícitos en lugar de depender de los defaults del SO.
+- Crear un smoke test visual en Linux y Windows para detectar regresiones al implementar el Front Panel modular (Issue #12).
+- Normalizar estilos en una constante compartida cuando se implemente la identidad visual (Issue #22).
+
 ## Retos resueltos en diseño
 
 ### .qvi como ejecutable

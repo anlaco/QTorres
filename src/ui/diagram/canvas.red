@@ -18,6 +18,7 @@ wire-src:     none                  ; nodo origen del wire en creacion
 wire-port:    none                  ; puerto origen del wire en creacion
 mouse-pos:    none                  ; posicion del raton durante creacion de wire
 selected-wire: none                 ; wire seleccionado por clic
+selected-node: none                 ; nodo seleccionado por clic
 
 ; ── ID generator ───────────────────────────────────────
 next-id: 1
@@ -133,6 +134,14 @@ render-bd: func [/local d sn dn p1 p2 mx wire-color c tl ps iy oy] [
                 text (as-pair (n/x - pr - 22) (iy - 7)) (form p)
             ]
             iy: iy + 20
+        ]
+        ; Resalte de nodo seleccionado (borde naranja, encima del nodo)
+        if same? n selected-node [
+            append d compose [
+                pen 255.140.0  line-width 3  fill-pen off
+                box (as-pair (n/x - 2) (n/y - 2)) (as-pair (n/x + bw + 2) (n/y + bh + 2)) 7
+                line-width 1
+            ]
         ]
 
         ; Puertos de salida (derecha, rojo)
@@ -269,13 +278,15 @@ make-canvas: func [w [integer!] h [integer!]] [
                     return none
                 ]
 
-                ; 2) Nodo? (drag)
+                ; 2) Nodo? (seleccionar + drag)
                 n: hit-node px py
                 if n [
                     wire-src: none  wire-port: none  mouse-pos: none
                     selected-wire: none
+                    selected-node: n
                     drag-node: n
                     drag-off: as-pair (px - n/x) (py - n/y)
+                    face/draw: render-bd
                     return none
                 ]
 
@@ -283,6 +294,7 @@ make-canvas: func [w [integer!] h [integer!]] [
                 n: hit-wire px py
                 if n [
                     selected-wire: n
+                    selected-node: none
                     wire-src: none  wire-port: none  mouse-pos: none
                     face/draw: render-bd
                     return none
@@ -290,7 +302,7 @@ make-canvas: func [w [integer!] h [integer!]] [
 
                 ; 4) Clic en vacio: cancelar todo
                 wire-src: none  wire-port: none  mouse-pos: none
-                drag-node: none  selected-wire: none
+                drag-node: none  selected-wire: none  selected-node: none
                 face/draw: render-bd
             ]
             on-over: func [face event /local px py] [
@@ -366,8 +378,34 @@ view make face! [
     pane:   reduce [
         make face! [
             type: 'base  offset: 10x8  size: 880x25  color: 240.240.240
-            draw: [pen gray text 5x15 "20 nodos / 15 wires — arrastra para evaluar fluidez | clic wire = amarillo"]
+            draw: [pen gray text 5x15 "Arrastra nodos | clic wire = amarillo | clic nodo = naranja | Delete/Backspace = borrar seleccionado"]
         ]
         canvas
+    ]
+    actors: make object! [
+        on-key: func [face event /local nid] [
+            if any [
+                find [delete backspace] event/key
+                find [#"^(7F)" #"^H"] event/key
+            ][
+                case [
+                    selected-wire [
+                        remove find bd-wires selected-wire
+                        selected-wire: none
+                        canvas/draw: render-bd
+                    ]
+                    selected-node [
+                        nid: selected-node/id
+                        remove-each w bd-wires [
+                            any [w/from-id = nid  w/to-id = nid]
+                        ]
+                        remove-each n bd-nodes [n/id = nid]
+                        selected-node: none
+                        drag-node: none
+                        canvas/draw: render-bd
+                    ]
+                ]
+            ]
+        ]
     ]
 ]

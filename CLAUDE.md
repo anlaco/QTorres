@@ -106,9 +106,27 @@ view layout [
 1. `qvi-diagram: [...]` — cabecera gráfica (inerte para Red, usada por QTorres para reconstruir la vista)
 2. Código Red/View generado — ejecutable directamente con `red mi-vi.qvi`
 
-### DT-006: Sub-VIs
-Los VIs con connector pane generan una `func` Red con guarda `qtorres-runtime`.
-Los VIs principales generan Red/View con ventana.
+### DT-010: Runner en memoria (decisión clave)
+Run compila en memoria y ejecuta con `do`. Save escribe el `.qvi` al disco. Son independientes.
+
+### DT-011: qvi-diagram es la fuente de verdad
+El código generado es un artefacto. QTorres siempre recompila desde `qvi-diagram` al cargar.
+Un `.qvi` con solo `qvi-diagram` (sin código generado) es válido.
+
+### DT-017: El tipo de VI lo determina el contexto de llamada
+Cualquier VI con `connector` puede ser sub-VI o top-level según cómo se invoque.
+La presencia de `connector` en `qvi-diagram` habilita el uso como sub-VI.
+
+### Formato completo del qvi-diagram
+```red
+qvi-diagram: [
+    meta:         [description: "..." version: 1 author: "..." tags: [...]]
+    icon:         [; Draw dialect 32x32]
+    connector:    [; opcional — habilita uso como sub-VI]
+    front-panel:  [...]
+    block-diagram: [nodes: [...] wires: [...]]
+]
+```
 
 ## Flujo de trabajo
 
@@ -189,5 +207,8 @@ gh issue close 1 --repo anlaco/QTorres --comment "Implementado en src/ui/diagram
 
 - Arquitectura completa: `docs/arquitectura.md`
 - Plan por fases: `docs/plan.md`
-- Todas las decisiones técnicas: `docs/decisiones.md`
+- Todas las decisiones técnicas: `docs/decisiones.md` — **leer antes de implementar**
+- Decisiones pendientes: `docs/PLANNING.md` — **leer antes de tocar compilador o file-io**
+- Formato de ficheros: `docs/tipos-de-fichero.md`
 - Riesgos conocidos: `docs/retos.md`
+- Bugs GTK Linux: `docs/GTK_ISSUES.md`

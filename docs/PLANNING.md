@@ -5,9 +5,9 @@ Para el registro de decisiones ya adoptadas, ver [`decisiones.md`](decisiones.md
 
 ---
 
-## [P1] Formato del archivo .qvi — PRIORITARIO
+## [P1] Formato del archivo .qvi — RESUELTO
 
-**Estado:** PENDIENTE — no implementar nada hasta tener esta decisión tomada
+**Estado:** RESUELTO — ver decisiones DT-010 a DT-019 en `decisiones.md`
 
 La decisión arquitectural más importante del proyecto. El formato `.qvi` debe satisfacer simultáneamente varios requisitos que pueden estar en tensión:
 
@@ -43,12 +43,16 @@ La decisión arquitectural más importante del proyecto. El formato `.qvi` debe 
 
 6. **Ejecución continua:** El modelo de ejecución es un loop continuo, no single-shot. ¿Cómo se refleja esto en el código generado? ¿`forever [...]` de Red, `loop [...] [...]`, o algo diferente?
 
-### No implementar hasta resolver
+### Decisiones adoptadas
 
-Los módulos afectados que no deben implementarse hasta tener P1 decidido:
-- `src/compiler/compiler.red` (genera el código del `.qvi`)
-- `src/io/file-io.red` (serializa/deserializa `.qvi`)
-- Issues #8, #9 de la Fase 1
+Las decisiones que resuelven P1 están en `decisiones.md` como DT-010 a DT-019. Resumen:
+- Formato de dos secciones: `qvi-diagram` (fuente de verdad) + código generado (artefacto)
+- `qvi-diagram` incluye: `meta`, `icon`, `connector` (opcional), `front-panel`, `block-diagram`
+- Modo dual de ejecución: sin args → UI, con args → headless (DT-012)
+- Unicidad de nombres por ruta relativa (DT-015)
+- Dos contextos de aislamiento (DT-016)
+
+Issues #8 y #9 están desbloqueados para implementación.
 
 ---
 

@@ -63,7 +63,7 @@ QTorres implementa el mismo modelo de ejecución que LabVIEW: **dataflow**.
 **Al pulsar Save:**
 - Serializa el estado actual en memoria al `.qvi` asociado (sin ejecutar)
 
-> **[REVISAR]** El módulo Runner (`runner/`) está documentado como "ejecuta en memoria sin generar fichero". Esto entra en conflicto con el flujo descrito arriba, donde Run siempre guarda al disco antes de ejecutar. Pendiente de decidir si coexisten ambos modos (Runner en memoria para desarrollo rápido, ejecución vía disco para distribución) o si se unifica en un único flujo.
+> **Decisión (DT-010):** Run compila el grafo en memoria y ejecuta con `do` de Red directamente, sin tocar el disco. Save escribe el `.qvi` completo. Son operaciones independientes. El Runner es el módulo responsable de la ejecución en memoria; File I/O es el responsable exclusivo de leer y escribir `.qvi`.
 
 ---
 

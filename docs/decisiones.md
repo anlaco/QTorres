@@ -215,3 +215,229 @@ view layout [
 - Alternativa descartada: interpolación de strings con `{~var~}` → no idiomático, frágil, no validable
 
 **Consecuencia:** El compilador trabaja con `block!` (bloques Red) en todo momento. Nunca genera strings intermedios. El resultado final se serializa a texto solo al escribir el fichero `.qvi`.
+
+---
+
+## DT-010: Runner en memoria — Run y Save son operaciones independientes
+
+**Fecha:** 2026-03-16
+**Estado:** Adoptada
+
+**Decisión:** Run compila el grafo en memoria y ejecuta con `do` de Red directamente. Save escribe el `.qvi` completo al disco. Son operaciones independientes — Run no guarda, Save no ejecuta.
+
+**Razones:**
+- Fidelidad al modelo mental de LabVIEW: Run no guarda en LabVIEW
+- Ciclo de desarrollo más rápido: sin I/O a disco en cada ejecución
+- Separación clara de responsabilidades: ejecutar ≠ persistir
+- Red tiene `do block` nativo — ejecutar un bloque en memoria es idiomático
+- El `.qvi` en disco representa el estado "publicado" deliberadamente, no el estado de trabajo
+
+**Consecuencia:** El módulo `runner/` compila el grafo a un bloque Red en memoria y hace `do` sobre él, sin tocar el disco. El módulo `file-io/` es responsable exclusivo de leer y escribir `.qvi`.
+
+---
+
+## DT-011: qvi-diagram es la fuente de verdad
+
+**Fecha:** 2026-03-16
+**Estado:** Adoptada
+
+**Decisión:** La sección `qvi-diagram` es la única fuente de verdad de un VI. El código generado es un artefacto derivado que QTorres regenera automáticamente al guardar.
+
+**Consecuencias:**
+- QTorres siempre recompila desde `qvi-diagram` al cargar un `.qvi`. No usa el código guardado para edición.
+- Un `.qvi` con solo la sección `qvi-diagram` (sin código generado) es un fichero válido. QTorres lo abrirá y compilará al guardar.
+- Una IA o un humano que quiera crear o editar un VI solo necesita escribir/modificar `qvi-diagram`.
+- No se debe editar la sección de código generado manualmente — los cambios se sobreescriben al guardar.
+
+---
+
+## DT-012: Modo dual de ejecución — UI y headless
+
+**Fecha:** 2026-03-16
+**Estado:** Adoptada
+
+**Decisión:** Un `.qvi` ejecutado directamente con Red (`red mi-vi.qvi`) tiene dos modos según si se pasan argumentos:
+
+- **Sin argumentos:** abre el Front Panel como ventana (comportamiento LabVIEW estándar)
+- **Con argumentos:** ejecuta en modo headless y devuelve el resultado por terminal
+
+```bash
+red suma.qvi              # abre ventana con Front Panel
+red suma.qvi A=5.0 B=3.0  # headless: imprime resultado
+```
+
+El código generado usa `system/options/args` de Red para detectar el modo.
+
+**Razones:**
+- Sin argumentos: fidelidad al modelo LabVIEW
+- Con argumentos: capacidad que LabVIEW no tiene — permite usar VIs en scripts y pipelines
+
+---
+
+## DT-013: Primitivas como tipo de archivo .qprim
+
+**Fecha:** 2026-03-16
+**Estado:** Adoptada
+
+**Contexto:** Los bloques primitivos (suma, resta, etc.) no deben ser código hardcodeado en QTorres. Cualquier usuario debe poder crear nuevas primitivas.
+
+**Decisión:** Las primitivas son ficheros `.qprim` — un tipo de archivo diferente al `.qvi`. En QTorres se abren con un editor de código Red + una paleta de dibujo libre (no el editor Front Panel + Block Diagram del `.qvi`).
+
+**Estructura de un `.qprim`:**
+```red
+Red [title: "Add" type: 'primitive]
+
+qprim: [
+    meta: [
+        description: "Suma dos valores numéricos"
+        category:    'math
+        version:     1
+    ]
+    ports: [
+        in  [id: 1  name: 'a       type: 'number  x: 0   y: 10]
+        in  [id: 2  name: 'b       type: 'number  x: 0   y: 22]
+        out [id: 3  name: 'result  type: 'number  x: 32  y: 16]
+    ]
+    icon: [
+        ; Draw dialect — diseño libre dentro de 32x32 px
+        pen 2
+        line 4x16 28x16
+        line 16x4 16x28
+    ]
+    code: [
+        result: a + b
+    ]
+]
+```
+
+**Diferencias clave respecto al `.qvi`:**
+- Los puertos tienen posición libre (x/y dentro de 32×32) — no siguen la cuadrícula fija de LabVIEW
+- La lógica se escribe en Red directamente (campo `code`)
+- No tiene Front Panel ni Block Diagram — es una función pura con icono
+- Se **incrusta en tiempo de compilación** en el VI que lo usa. No hay `do %primitiva.qprim` en tiempo de ejecución.
+
+---
+
+## DT-014: Sistema de librerías en tres niveles
+
+**Fecha:** 2026-03-16
+**Estado:** Adoptada
+
+**Decisión:** QTorres busca librerías en tres niveles, en orden de precedencia:
+
+1. **Librería estándar** — entregada con QTorres (bloques math, lógica, string, etc.)
+2. **Librería global de usuario** — `~/.qtorres/libs/` en Linux/macOS, `%APPDATA%\QTorres\libs\` en Windows
+3. **Librería de proyecto** — referenciada explícitamente en el `.qproj`
+
+Una `.qlib` puede contener tanto `.qvi` (sub-VIs) como `.qprim` (primitivas).
+
+---
+
+## DT-015: Unicidad de nombres por ruta relativa al proyecto
+
+**Fecha:** 2026-03-16
+**Estado:** Adoptada
+
+**Problema:** Dos VIs con el mismo nombre de fichero generarían funciones Red con el mismo nombre y colisionarían.
+
+**Decisión:** El nombre de la función generada = ruta relativa del fichero desde la raíz del proyecto. El sistema de ficheros enforza la unicidad dentro de un mismo scope (no pueden existir dos `suma.qvi` en la misma carpeta).
+
+```
+suma.qvi          →  función suma
+math/suma.qvi     →  función math/suma  (dentro de context math)
+utils/suma.qvi    →  función utils/suma (dentro de context utils)
+```
+
+El compilador siempre genera el nombre cualificado completo. Nunca el nombre corto solo.
+
+```red
+do %math/suma.qvi       ; carga y define math/suma
+resultado: math/suma A B
+```
+
+---
+
+## DT-016: Dos contextos de aislamiento
+
+**Fecha:** 2026-03-16
+**Estado:** Adoptada
+
+**Decisión:** El código generado usa dos niveles de contexto:
+
+1. **Contexto de librería** (extensión de DT-007): cuando un VI pertenece a una `.qlib`, su función se define dentro del `context` de la librería (`math/suma`, `utils/filtro`, etc.)
+
+2. **Contexto interno del VI**: las variables internas del código standalone se aíslan del namespace global usando `/local` en `func` y `context [...]` en el bloque de ejecución standalone.
+
+```red
+; Función expuesta al scope correcto
+suma: func [A [float!] B [float!] /local Resultado] [
+    Resultado: A + B
+    Resultado
+]
+
+; Variables de ejecución standalone aisladas
+if not value? 'qtorres-runtime [
+    context [
+        A: 5.0  B: 3.0
+        view layout [...]
+    ]
+]
+```
+
+**Razón:** Evitar que variables como `A`, `B`, `Resultado` de un VI contaminen el namespace global cuando múltiples VIs se cargan juntos.
+
+---
+
+## DT-017: El tipo de VI lo determina el contexto de llamada, no el VI
+
+**Fecha:** 2026-03-16
+**Estado:** Adoptada
+
+**Decisión:** Un VI no es "principal" o "sub-VI" por una propiedad propia. Es el contexto de uso quien determina el comportamiento:
+
+| Cómo se invoca | Comportamiento |
+|----------------|---------------|
+| `red mi-vi.qvi` directamente | Muestra Front Panel (o headless con args) |
+| `do %mi-vi.qvi` desde otro VI | Ejecuta como función, sin UI |
+
+La presencia de la sección `connector` en `qvi-diagram` indica que el VI **puede** ser usado como sub-VI (tiene inputs/outputs definidos). Un VI sin `connector` solo puede ejecutarse standalone — usarlo como sub-VI es un error de compilación.
+
+**Consecuencia:** Reemplaza la regla anterior de DT-006 que distinguía VIs principales de sub-VIs como tipos separados. Todo VI puede ser ambas cosas si tiene conector.
+
+---
+
+## DT-018: Campo meta en qvi-diagram y qprim
+
+**Fecha:** 2026-03-16
+**Estado:** Adoptada
+
+**Decisión:** Tanto `qvi-diagram` como `qprim` incluyen un campo `meta` opcional con información descriptiva:
+
+```red
+meta: [
+    description: "Descripción en lenguaje natural de qué hace este VI"
+    author:      "nombre"
+    version:     1
+    tags:        [math arithmetic]
+]
+```
+
+**Razón:** Permite a agentes de IA entender el propósito de un VI sin interpretar el diagrama completo. También útil para búsqueda y documentación automática.
+
+---
+
+## DT-019: Tres audiencias objetivo
+
+**Fecha:** 2026-03-16
+**Estado:** Adoptada
+
+**Decisión:** QTorres tiene tres audiencias que deben poder trabajar con el sistema:
+
+1. **Ingenieros de LabVIEW** — mismo modelo mental, transición natural
+2. **Programadores generales** — sin conocimiento previo de LabVIEW
+3. **Agentes de IA** — pueden leer, generar y modificar `.qvi` y `.qprim` directamente
+
+**Implicaciones de diseño:**
+- El formato `.qvi` debe ser legible y generabledirectamente (DT-011, DT-018)
+- Los mensajes de error deben ser comprensibles sin conocer LabVIEW
+- La estructura del proyecto debe ser predecible y consistente para que la IA pueda navegarla

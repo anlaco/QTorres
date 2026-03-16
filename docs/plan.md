@@ -10,6 +10,50 @@ QTorres es una alternativa open source a LabVIEW para el mismo público objetivo
 - Hardware como ciudadano de primera clase: SCPI/VISA para Keysight, serie para microcontroladores, DAQ
 - Sin dependencias externas. Un binario, multiplataforma.
 
+**Por qué puede competir con LabVIEW:**
+- Open source vs licencias de miles de euros
+- Binarios ~1 MB sin runtime externo
+- Linux real, no segunda clase
+- Código generado legible y modificable a mano
+
+---
+
+## Etapas de alto nivel
+
+> Esta sección es una visión de alto nivel. El detalle de implementación por Issues está en las Fases de abajo. Para decisiones arquitecturales pendientes ver [`docs/PLANNING.md`](PLANNING.md).
+
+### Etapa 1 — Fundaciones (actual)
+
+- **[CRÍTICO — PENDIENTE]** Diseño del formato `.qvi` (ver Planning P1) — no implementar nada hasta tener esta decisión
+- **[CRÍTICO — PENDIENTE]** Modelo del grafo en memoria (ver Planning P2)
+- **[CRÍTICO]** Fix bugs backend GTK contribuyendo a `red/red` (ver `docs/GTK_ISSUES.md`)
+- Compilador dataflow → Red secuencial (análisis topológico)
+
+### Etapa 2 — Motor de ejecución
+
+- Ejecución continua en loop
+- Timing determinista
+- Manejo de errores por cable
+- Tipos Red nativos en cables con validación en tiempo de diseño
+
+### Etapa 3 — Paralelismo
+
+- Aprovechar concurrencia Red cuando esté madura
+- Mismo grafo `.qvi`, ejecución paralela automática — sin cambios para el usuario
+
+### Etapa 4 — Ecosistema
+
+- Drivers de hardware vía `Red/System #import`
+- Librería estándar de VIs
+- Sistema de distribución de VIs de comunidad
+
+### Etapa 5 — Competir con LabVIEW
+
+- Plataforma completa para ingeniería de test y automatización
+- Alternativa real para proyectos industriales
+
+---
+
 ---
 
 ## Fase 0 — Spike técnico ✅ COMPLETADA
@@ -41,7 +85,8 @@ Ciclo completo: dibujar → compilar → ejecutar → ver resultado.
 - [ ] `bind-emit`: sustituye nombres de puerto por variables (#7)
 - [ ] Compilador genera Red/View completo (DT-009) (#8)
 - [ ] Guardar/cargar .qvi: `save-vi` y `load-vi` (#9)
-- [ ] Runner en memoria (ejecuta sin generar fichero) (#10)
+- [ ] Runner en memoria (ejecuta sin generar fichero) (#10) — ver [REVISAR] en `docs/arquitectura.md`
+- [ ] Ejecución continua en loop (Etapa 2)
 
 ### Bloques primitivos de Fase 1
 - Constante numérica, Suma, Resta, Multiplicación, División

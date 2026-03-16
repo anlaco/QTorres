@@ -26,6 +26,47 @@
 └────────────────────────────────────────────────┘
 ```
 
+## Stack tecnológico
+
+| Capa | Tecnología | Notas |
+|------|-----------|-------|
+| Lenguaje | Red-Lang (100%) | Alpha stage, 32-bit |
+| UI del diagrama | Red/View + Draw | |
+| UI del panel | Red/View | |
+| Compilador | Red puro (manipulación de bloques) | |
+| Formato de fichero | Sintaxis Red nativa | |
+| Backend Linux | GTK3 (`GTK` branch de `red/red`) | Bugs críticos — ver `docs/GTK_ISSUES.md` |
+| Backend Windows | Win32 API nativo | Estable |
+
+> **Nota:** Red es actualmente 32-bit y alpha stage. El backend GTK de Linux requiere librerías i386 en sistemas 64-bit. Muchas distribuciones modernas están eliminando soporte 32-bit. La migración a 64-bit está en el roadmap de Red: v1.0 → core 64-bit, v1.1 → View engine 64-bit.
+
+---
+
+## Modelo de ejecución: dataflow
+
+QTorres implementa el mismo modelo de ejecución que LabVIEW: **dataflow**.
+
+### Principios fundamentales
+
+- **Nodo listo = nodo ejecutable:** un nodo ejecuta automáticamente cuando todos sus puertos de entrada tienen datos disponibles.
+- **El grafo define el orden:** el orden de ejecución se deduce de las conexiones del diagrama, no lo especifica el programador explícitamente.
+- **Compilación a imperativo:** QTorres compila el grafo dataflow a código Red secuencial ordenado topológicamente. El usuario programa como dataflow puro; el compilador genera el código imperativo.
+- **Ejecución continua:** la ejecución es un loop continuo, no single-shot.
+- **Paralelismo futuro:** cuando Red tenga concurrencia madura, el mismo `.qvi` se ejecutará con paralelismo automático sin cambios para el usuario.
+
+### Flujo Run vs Save
+
+**Al pulsar Run:**
+1. QTorres serializa el estado en memoria al `.qvi` en disco (mismo que Save)
+2. Ejecuta el `.qvi` con Red directamente
+
+**Al pulsar Save:**
+- Serializa el estado actual en memoria al `.qvi` asociado (sin ejecutar)
+
+> **[REVISAR]** El módulo Runner (`runner/`) está documentado como "ejecuta en memoria sin generar fichero". Esto entra en conflicto con el flujo descrito arriba, donde Run siempre guarda al disco antes de ejecutar. Pendiente de decidir si coexisten ambos modos (Runner en memoria para desarrollo rápido, ejecución vía disco para distribución) o si se unifica en un único flujo.
+
+---
+
 ## Módulos principales
 
 ### 1. Modelo del Grafo (`graph/`)

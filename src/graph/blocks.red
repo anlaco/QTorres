@@ -1,62 +1,147 @@
 Red [
     Title:   "QTorres — Registro de bloques"
-    Purpose: "Definición de los tipos de bloques usando el dialecto block-def"
+    Purpose: "Procesador del dialecto block-def y registro de tipos de bloques"
 ]
 
-; ══════════════════════════════════════════════════
-; DIALECTO: block-def
-; ══════════════════════════════════════════════════
-; Define tipos de bloques de forma declarativa.
-; Cada bloque especifica su categoría, puertos y semántica de compilación.
+; ══════════════════════════════════════════════════════════
+; REGISTRO
+; ══════════════════════════════════════════════════════════
+
+block-registry: copy []
+
+; ══════════════════════════════════════════════════════════
+; PROCESADOR DEL DIALECTO block-def
+; ══════════════════════════════════════════════════════════
 ;
-; Sintaxis:
-;   block <nombre> <categoría> [
-;       in <nombre-puerto> <tipo>        ; puerto de entrada
-;       out <nombre-puerto> <tipo>       ; puerto de salida
-;       emit [<código Red con palabras de los puertos>]
+; Sintaxis del dialecto:
+;   block 'nombre 'categoria [
+;       in  <puerto> '<tipo>
+;       out <puerto> '<tipo>
+;       config <nombre> '<tipo> <valor-por-defecto>
+;       emit [<código Red con nombres de puertos>]
 ;   ]
 ;
-; Dentro de `emit`, los nombres de los puertos se sustituyen por los
-; valores reales que vienen de los wires. El resultado es código Red
-; generado por manipulación de bloques — no interpolación de strings.
-;
-; Reglas de parse del dialecto:
-;   port-rule:  ['in | 'out] word! lit-word!
-;   emit-rule:  'emit block!
-;   block-rule: 'block word! lit-word! block!
+; El procesador parsea el cuerpo con `parse` y registra la
+; entrada en block-registry como un objeto con:
+;   name, category, inputs, outputs, configs, emit
 
-block-registry: []
-
-; === Bloques primitivos del MVP ===
-
-block const 'input [
-    out result 'number
-    config default 'number 0.0
-    emit [result: (default)]
+block: func [
+    name     [word!]       ; nombre del tipo de bloque
+    category [word!]       ; categoría (math, input, output...)
+    body     [block!]      ; cuerpo con puertos y emit
+    /local entry n cat port-name port-type cfg-type cfg-default emit-body
+][
+    n: name  cat: category
+    entry: context [
+        name:     n
+        category: cat
+        inputs:   copy []
+        outputs:  copy []
+        configs:  copy []
+        emit:     none
+    ]
+    parse body [
+        any [
+              ['in  set port-name word!  set port-type lit-word!]
+              (append entry/inputs  make object! [name: port-name  type: port-type])
+            | ['out set port-name word!  set port-type lit-word!]
+              (append entry/outputs make object! [name: port-name  type: port-type])
+            | ['config set port-name word!  set cfg-type lit-word!  set cfg-default skip]
+              (append entry/configs make object! [name: port-name  type: cfg-type  default: cfg-default])
+            | ['emit set emit-body block!]
+              (entry/emit: emit-body)
+            | skip
+        ]
+    ]
+    append block-registry entry
+    name
 ]
 
-block add 'math [
+; ── Consulta del registro ────────────────────────────────
+
+; Devuelve la definición completa de un bloque por nombre, o none.
+find-block: func [name [word!] /local b] [
+    foreach b block-registry [
+        if b/name = name [return b]
+    ]
+    none
+]
+
+; Devuelve los nombres de los puertos de entrada de un bloque.
+block-in-ports: func [name [word!] /local b] [
+    b: find-block name
+    if b [collect [foreach p b/inputs [keep p/name]]]
+]
+
+; Devuelve los nombres de los puertos de salida de un bloque.
+block-out-ports: func [name [word!] /local b] [
+    b: find-block name
+    if b [collect [foreach p b/outputs [keep p/name]]]
+]
+
+; ══════════════════════════════════════════════════════════
+; DEFINICIONES DE BLOQUES PRIMITIVOS
+; ══════════════════════════════════════════════════════════
+
+block 'const 'input [
+    out result 'number
+    config default 'number 0.0
+    emit [result: default]
+]
+
+block 'add 'math [
     in a 'number
     in b 'number
     out result 'number
     emit [result: a + b]
 ]
 
-block sub 'math [
+block 'sub 'math [
     in a 'number
     in b 'number
     out result 'number
     emit [result: a - b]
 ]
 
-block mul 'math [
+block 'mul 'math [
     in a 'number
     in b 'number
     out result 'number
     emit [result: a * b]
 ]
 
-block display 'output [
+block 'div 'math [
+    in a 'number
+    in b 'number
+    out result 'number
+    emit [result: a / b]
+]
+
+block 'display 'output [
     in value 'number
     emit [print value]
 ]
+
+; ══════════════════════════════════════════════════════════
+; TEST — ejecutar: red src/graph/blocks.red
+; ══════════════════════════════════════════════════════════
+
+print rejoin ["Bloques registrados: " length? block-registry]
+foreach b block-registry [
+    print rejoin [
+        "  " b/name
+        " (" b/category ")"
+        " | in: " length? b/inputs
+        " | out: " length? b/outputs
+        " | emit: " mold b/emit
+    ]
+]
+print ""
+print "--- find-block 'add ---"
+b: find-block 'add
+print rejoin ["  inputs:  " mold collect [foreach p b/inputs  [keep p/name]]]
+print rejoin ["  outputs: " mold collect [foreach p b/outputs [keep p/name]]]
+print rejoin ["  emit:    " mold b/emit]
+print ""
+print "--- block-in-ports 'mul ---"
+print rejoin ["  " mold block-in-ports 'mul]

@@ -198,3 +198,15 @@ Esta fase es esencial para el público objetivo (mismo que LabVIEW: ingeniería 
 Trabajar siempre Issues en orden de Fase. No empezar una fase sin completar la anterior.
 
 **Próximo:** Fase 1 — empezar por Issue #20 (borrar wire/nodo) o Issue #22 (identidad visual, decide el look antes de construir más UI).
+
+---
+
+## Notas para el futuro
+
+### Referencia del lenguaje Red para agentes de IA
+
+Si en el futuro los agentes de IA muestran problemas recurrentes con la sintaxis Red (confusión con Rebol, funciones inventadas, mezcla de dialectos), se creará un documento o skill de referencia del lenguaje Red específicamente diseñado para consumo por LLMs. Por ahora no es necesario — no se han observado problemas que lo justifiquen.
+
+### Generación de ficheros QTorres por IA (vibe coding → spec-driven design)
+
+Ver DT-021 en `docs/decisiones.md`. La referencia de formatos para agentes de IA está en `docs/ai-reference.md`. Conforme el proyecto madure y se implementen más tipos de fichero, esta referencia crecerá y el nivel de rigor de la generación por IA aumentará progresivamente — desde generar un `.qvi` individual (vibe coding) hasta generar proyectos completos desde especificaciones técnicas (spec-driven design).

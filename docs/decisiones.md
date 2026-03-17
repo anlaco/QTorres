@@ -441,3 +441,72 @@ meta: [
 - El formato `.qvi` debe ser legible y generabledirectamente (DT-011, DT-018)
 - Los mensajes de error deben ser comprensibles sin conocer LabVIEW
 - La estructura del proyecto debe ser predecible y consistente para que la IA pueda navegarla
+
+---
+
+## DT-020: Jerarquía de diseño de dialectos — industria primero, IA después
+
+**Fecha:** 2026-03-17
+**Estado:** Adoptada
+
+**Contexto:** QTorres usa dialectos propios (`qvi-diagram`, `block-def`, `qprim`, etc.) que deben servir a tres propósitos: funcionar correctamente en entornos industriales, ser legibles para humanos, y ser generables por agentes de IA. Estos propósitos pueden entrar en conflicto.
+
+**Decisión:** El diseño de todos los dialectos de QTorres sigue esta jerarquía estricta de prioridades:
+
+1. **Funcionalidad industrial correcta** — si el formato necesita expresar `U64`, `float32`, un registro Modbus con endianness, un timeout en milisegundos, o cualquier detalle técnico necesario para que el sistema funcione correctamente en producción, se expresa. Nunca se simplifica un formato para facilitar la generación por IA si eso compromete la precisión técnica.
+
+2. **Legibilidad y auditabilidad humana** — un ingeniero de proceso, un auditor o un cliente debe poder leer el formato y entender qué hace el programa sin ejecutarlo.
+
+3. **Facilidad de generación por IA** — dentro de lo que permitan los dos puntos anteriores, se busca la estructura más regular y predecible posible para facilitar la generación por agentes de IA.
+
+**Principios de diseño para IA (subordinados a los puntos 1 y 2):**
+- Estructura regular y repetible — todos los nodos siguen el mismo patrón
+- Vocabulario mínimo sin sinónimos — una sola forma de expresar cada concepto
+- Sin casos especiales ni excepciones sintácticas innecesarias
+- Todos los formatos del ecosistema (`.qvi`, `.qprim`, `.qlib`, `.qproj`, `.qctl`) siguen el mismo patrón estructural
+
+**Cuando hay conflicto:** prevalece la funcionalidad de la herramienta. Si la precisión técnica requiere complejidad adicional en el dialecto, se añade esa complejidad y se documenta en `docs/ai-reference.md` para que los agentes de IA puedan manejarla.
+
+**Justificación:** La homoiconicidad de Red hace que los dialectos se comporten como datos estructurados, el formato ideal para un LLM. Pero QTorres es una herramienta industrial primero — la IA es una audiencia de primera clase (DT-019), no la audiencia principal.
+
+---
+
+## DT-021: Generación de ficheros QTorres por IA — vibe coding y spec-driven design
+
+**Fecha:** 2026-03-17
+**Estado:** Adoptada
+
+**Contexto:** QTorres genera código Red ejecutable a partir de dialectos en texto plano. Estos dialectos son Red puro, homoicónicos y legibles. Eso los hace naturalmente adecuados para generación por agentes de IA.
+
+**Decisión:** QTorres se diseña para que agentes de IA externos puedan generar ficheros del ecosistema QTorres a partir de descripciones en lenguaje natural o especificaciones técnicas. Esto se desarrolla en dos niveles de madurez:
+
+### Nivel 1 — Vibe coding (MVP)
+
+Un agente de IA externo (Claude Code, Kilo Code, Ollama, o cualquier herramienta) genera ficheros `.qvi` individuales a partir de una descripción en lenguaje natural. El agente solo trabaja con la sección `qvi-diagram` — el compilador de QTorres genera el código ejecutable.
+
+**Requisito:** el agente necesita una referencia del formato (`docs/ai-reference.md`) con la gramática, los bloques disponibles y ejemplos funcionales.
+
+**Ejemplo:**
+```
+"Crea un VI que lea temperatura por Modbus del registro 40001,
+ compare con un umbral de 75°C, y active una bomba en el registro 00001"
+→ El agente genera un .qvi con el qvi-diagram correcto
+→ QTorres lo abre, lo compila, y funciona
+```
+
+### Nivel 2 — Spec-driven design (visión a largo plazo)
+
+Un agente de IA genera un proyecto completo (`.qproj` con todos sus `.qvi`, `.qprim`, `.qlib`) a partir de una especificación técnica formal. Por ejemplo, la especificación de un banco de pruebas genera automáticamente un primer proyecto viable con todos los VIs, primitivas, librerías y conexiones de hardware necesarias.
+
+**Este nivel requiere:**
+- Que todos los formatos del ecosistema estén implementados y estabilizados
+- Que el agente tenga referencia completa de todos los tipos de fichero
+- Que el proyecto tenga suficiente madurez para validar los resultados generados
+
+**Nota:** el rigor de la generación por IA crecerá conforme madure el proyecto. El spec-driven design no es un objetivo inmediato, pero influye en las decisiones de diseño de formatos desde ahora — los formatos deben ser coherentes entre sí para que un agente pueda generar un proyecto completo en el futuro.
+
+### Integración en la aplicación (futuro)
+
+El objetivo final es que desde dentro de la propia aplicación QTorres se pueda pasar una especificación y generar un primer proyecto viable. Esto requiere una capa de integración IA dentro de la app que no es prioridad ahora pero debe considerarse en la arquitectura.
+
+**Justificación:** La combinación de homoiconicidad de Red (DT-001), formatos en texto plano (DT-002), fuente de verdad en `qvi-diagram` (DT-011), metadatos descriptivos (DT-018), y diseño para tres audiencias (DT-019) crea las condiciones para que la generación por IA sea una consecuencia natural del buen diseño del sistema, no un añadido.

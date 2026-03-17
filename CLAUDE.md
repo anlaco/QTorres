@@ -54,7 +54,8 @@ QTorres/
 │   ├── suma-basica.qvi     # Ejemplo de VI simple
 │   ├── suma-subvi.qvi      # Ejemplo de sub-VI
 │   └── programa-con-subvi.qvi
-└── red-cli                 # Binario de Red para Linux
+├── red-cli                 # Permite ejecutar codigo de Red si GUI.
+└── red-view                # Permite probar codigo de red en GUI. Tambien permite ejecutar aplicaciones con view
 ```
 
 ## Estado actual

@@ -31,6 +31,7 @@ assert-error: func [desc [string!] body [block!] /local err] [
 ; ── Suites ───────────────────────────────────────────────────────────
 do %test-blocks.red
 do %test-topo-sort.red
+do %test-compiler.red
 
 ; ── Resumen ──────────────────────────────────────────────────────────
 total: pass-count + fail-count

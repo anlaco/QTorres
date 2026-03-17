@@ -64,9 +64,9 @@ make-port: func [spec [block!]] [
 make-wire: func [spec [block!]] [
     make object! [
         from-node: select spec 'from
-        from-port: select/skip spec 'port 2   ; primer 'port
+        from-port: to-word any [select spec 'from-port  'none]
         to-node:   select spec 'to
-        to-port:   select/skip spec 'port 4   ; segundo 'port (después de 'to)
+        to-port:   to-word any [select spec 'to-port    'none]
     ]
 ]
 

@@ -34,53 +34,42 @@ Red [
 ; Entrada:  un objeto diagrama con /nodes y /wires (make-diagram).
 ; Salida:   un block! con los nodos en orden de compilación,
 ;           o un error si se detecta un ciclo.
-;
-; Un nodo A "precede" a B cuando hay un wire from-node=A/id to-node=B/id.
 
 topological-sort: func [
     diagram [object!]
-    /local nodes wires in-degree id-to-node queue result nid neighbors w
+    /local nodes wires in-degree id-to-node queue result nid w
 ][
     nodes:  diagram/nodes
     wires:  diagram/wires
 
-    ; ── Paso 1: inicializar in-degree a 0 para cada nodo ──────────────
-    in-degree: make map! []
+    in-degree:  make map! []
     id-to-node: make map! []
     foreach n nodes [
         in-degree/(n/id): 0
         id-to-node/(n/id): n
     ]
 
-    ; ── Paso 2: contar entradas reales desde los wires ─────────────────
     foreach w wires [
         in-degree/(w/to-node): in-degree/(w/to-node) + 1
     ]
 
-    ; ── Paso 3: cola inicial — nodos con in-degree 0 ───────────────────
     queue: copy []
     foreach n nodes [
         if in-degree/(n/id) = 0 [append queue n/id]
     ]
 
-    ; ── Paso 4: bucle de Kahn ───────────────────────────────────────────
     result: copy []
     while [not empty? queue] [
-        nid: take queue                        ; sacar primero de la cola
-        append result id-to-node/:nid          ; añadir nodo al resultado
-
-        ; decrementar in-degree de todos los vecinos (to-node de este nodo)
+        nid: take queue
+        append result id-to-node/:nid
         foreach w wires [
             if w/from-node = nid [
                 in-degree/(w/to-node): in-degree/(w/to-node) - 1
-                if in-degree/(w/to-node) = 0 [
-                    append queue w/to-node
-                ]
+                if in-degree/(w/to-node) = 0 [append queue w/to-node]
             ]
         ]
     ]
 
-    ; ── Paso 5: detección de ciclos ────────────────────────────────────
     if (length? result) <> (length? nodes) [
         cause-error 'user 'message ["topological-sort: ciclo detectado en el diagrama"]
     ]
@@ -89,10 +78,204 @@ topological-sort: func [
 ]
 
 ; ══════════════════════════════════════════════════
-; Por implementar:
-;   bind-emit:        func emit-block, port-bindings → block!
-;   compile-diagram:  func diagram → block! (código Red como bloque)
-;   wrap-as-function: func connector, body → block!
-;   emit-subvi-loads: func diagram → block!
+; BIND-EMIT
+; ══════════════════════════════════════════════════
+;
+; Sustituye los nombres de puertos en un bloque emit por variables reales.
+;
+; emit-block: bloque con palabras que corresponden a puertos
+;             Ejemplo: [result: a + b]
+; bindings:   bloque plano de pares [puerto valor ...]
+;             Los valores pueden ser cualquier tipo Red.
+;             Ejemplo: [a X  b Y  result Suma]
+;
+; Maneja word!, set-word! y bloques anidados. El resto pasa sin cambios.
+
+bind-emit: func [
+    emit-block [block!]
+    bindings   [block!]
+    /local result item k v
+][
+    result: copy []
+    foreach item emit-block [
+        case [
+            word? item [
+                v: select bindings item
+                append result either v [v] [item]
+            ]
+            set-word? item [
+                k: to-word item
+                v: select bindings k
+                append result either v [to-set-word v] [item]
+            ]
+            block? item [
+                append/only result bind-emit item bindings
+            ]
+            true [append result item]
+        ]
+    ]
+    result
+]
+
+; ══════════════════════════════════════════════════
+; HELPERS
 ; ══════════════════════════════════════════════════
 
+; Nombre de variable para el puerto de salida de un nodo.
+; Convenio: label_portname  (ej: add_1_result)
+port-var: func [node [object!] port-name [word! lit-word!]] [
+    to-word rejoin [node/label "_" to-word port-name]
+]
+
+; Construye los bindings [puerto var ...] para un nodo concreto del diagrama:
+;   - puertos de salida: variable propia (label_portname)
+;   - puertos de entrada: variable del nodo fuente conectado por wire
+;   - configs: valor del nodo o el default de la definición
+build-bindings: func [
+    node    [object!]
+    diagram [object!]
+    bdef    [object!]
+    /local bindings p w src cfg-val
+][
+    bindings: copy []
+
+    foreach p bdef/outputs [
+        append bindings p/name
+        append bindings port-var node p/name
+    ]
+
+    foreach p bdef/inputs [
+        foreach w diagram/wires [
+            if all [w/to-node = node/id  (to-word w/to-port) = p/name] [
+                foreach src diagram/nodes [
+                    if src/id = w/from-node [
+                        append bindings p/name
+                        append bindings port-var src w/from-port
+                    ]
+                ]
+            ]
+        ]
+    ]
+
+    foreach cfg bdef/configs [
+        cfg-val: any [select node/config cfg/name  cfg/default]
+        append bindings cfg/name
+        append bindings cfg-val
+    ]
+
+    bindings
+]
+
+; ══════════════════════════════════════════════════
+; COMPILE-BODY
+; ══════════════════════════════════════════════════
+;
+; Genera el bloque de cómputo headless listo para ejecutar con do.
+; Incluye todos los nodos: inputs (const), math (add/sub...) y outputs (display).
+
+compile-body: func [
+    diagram [object!]
+    /local sorted code node bdef
+][
+    sorted: topological-sort diagram
+    code: copy []
+    foreach node sorted [
+        bdef: find-block node/type
+        if all [bdef  bdef/emit] [
+            append code bind-emit bdef/emit (build-bindings node diagram bdef)
+        ]
+    ]
+    code
+]
+
+; ══════════════════════════════════════════════════
+; COMPILE-DIAGRAM
+; ══════════════════════════════════════════════════
+;
+; Genera los componentes de código para un VI completo:
+;   /headless:  block! ejecutable con do (usa config defaults)
+;   /ui-layout: block! para view layout (controles + botón Run + indicadores)
+;
+; Para nodos de categoría 'input: el run-body lee de campos de texto del UI.
+; Para nodos de categoría 'output: el run-body escribe en etiquetas del UI.
+; Para nodos math: usa bind-emit igual que compile-body.
+
+compile-diagram: func [
+    diagram [object!]
+    /local sorted headless run-body ui-layout node bdef face-n cfg-val w src src-var bindings
+][
+    sorted: topological-sort diagram
+    headless: compile-body diagram
+
+    ; ── Cuerpo del botón Run (modo UI) ────────────────────────
+    run-body: copy []
+    foreach node sorted [
+        bdef: find-block node/type
+        if none? bdef [continue]
+        case [
+            bdef/category = 'input [
+                face-n: to-word rejoin ["f_" node/id]
+                append run-body to-set-word port-var node 'result
+                append run-body 'to-float
+                append run-body load rejoin [face-n "/text"]
+            ]
+            bdef/category = 'output [
+                face-n: to-word rejoin ["t_" node/id]
+                foreach w diagram/wires [
+                    if w/to-node = node/id [
+                        foreach src diagram/nodes [
+                            if src/id = w/from-node [
+                                src-var: port-var src to-word w/from-port
+                                append run-body load rejoin [face-n "/text:"]
+                                append run-body 'form
+                                append run-body src-var
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+            true [
+                if bdef/emit [
+                    bindings: build-bindings node diagram bdef
+                    append run-body bind-emit bdef/emit bindings
+                ]
+            ]
+        ]
+    ]
+
+    ; ── Layout del Front Panel ────────────────────────────────
+    ui-layout: copy []
+    foreach node sorted [
+        bdef: find-block node/type
+        if none? bdef [continue]
+        if bdef/category = 'input [
+            face-n: to-word rejoin ["f_" node/id]
+            cfg-val: any [select node/config 'default  0.0]
+            append ui-layout 'label
+            append ui-layout node/label
+            append ui-layout to-set-word face-n
+            append ui-layout 'field
+            append ui-layout form cfg-val
+        ]
+    ]
+    append ui-layout 'button
+    append ui-layout "Run"
+    append/only ui-layout run-body
+    foreach node sorted [
+        bdef: find-block node/type
+        if none? bdef [continue]
+        if bdef/category = 'output [
+            face-n: to-word rejoin ["t_" node/id]
+            append ui-layout 'label
+            append ui-layout node/label
+            append ui-layout to-set-word face-n
+            append ui-layout 'text
+            append ui-layout "---"
+        ]
+    ]
+
+    make map! [
+        headless:  headless
+        ui-layout: ui-layout
+    ]
+]

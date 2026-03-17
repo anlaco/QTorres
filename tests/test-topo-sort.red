@@ -10,8 +10,8 @@ d: make-diagram "lineal"
 append d/nodes make-node [id: 1  type: 'const    label: "const_A"   x: 0    y: 0]
 append d/nodes make-node [id: 2  type: 'add      label: "add_1"     x: 200  y: 0]
 append d/nodes make-node [id: 3  type: 'display  label: "display_1" x: 400  y: 0]
-append d/wires make-wire [from: 1  port: 'result  to: 2  port: 'a]
-append d/wires make-wire [from: 2  port: 'result  to: 3  port: 'value]
+append d/wires make-wire [from: 1  from-port: 'result  to: 2  to-port: 'a]
+append d/wires make-wire [from: 2  from-port: 'result  to: 3  to-port: 'value]
 
 sorted: topological-sort d
 n-first: first sorted
@@ -33,9 +33,9 @@ append d2/nodes make-node [id: 1  type: 'const    label: "A"  x: 0    y: 0]
 append d2/nodes make-node [id: 2  type: 'const    label: "B"  x: 0    y: 60]
 append d2/nodes make-node [id: 3  type: 'add      label: "S"  x: 200  y: 30]
 append d2/nodes make-node [id: 4  type: 'display  label: "D"  x: 400  y: 30]
-append d2/wires make-wire [from: 1  port: 'result  to: 3  port: 'a]
-append d2/wires make-wire [from: 2  port: 'result  to: 3  port: 'b]
-append d2/wires make-wire [from: 3  port: 'result  to: 4  port: 'value]
+append d2/wires make-wire [from: 1  from-port: 'result  to: 3  to-port: 'a]
+append d2/wires make-wire [from: 2  from-port: 'result  to: 3  to-port: 'b]
+append d2/wires make-wire [from: 3  from-port: 'result  to: 4  to-port: 'value]
 
 sorted2: topological-sort d2
 d2-n3:   sorted2/3
@@ -65,7 +65,7 @@ suite "topo-sort — detección de ciclos"
 d5: make-diagram "ciclo"
 append d5/nodes make-node [id: 10  type: 'add  label: "X"  x: 0    y: 0]
 append d5/nodes make-node [id: 11  type: 'add  label: "Y"  x: 200  y: 0]
-append d5/wires make-wire [from: 10  port: 'result  to: 11  port: 'a]
-append d5/wires make-wire [from: 11  port: 'result  to: 10  port: 'a]
+append d5/wires make-wire [from: 10  from-port: 'result  to: 11  to-port: 'a]
+append d5/wires make-wire [from: 11  from-port: 'result  to: 10  to-port: 'a]
 
 assert-error "ciclo directo lanza error" [topological-sort d5]

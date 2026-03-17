@@ -60,7 +60,8 @@ block: func [
 ; ── Consulta del registro ────────────────────────────────
 
 ; Devuelve la definición completa de un bloque por nombre, o none.
-find-block: func [name [word!] /local b] [
+find-block: func [name [word! lit-word!] /local b] [
+    name: to-word name
     foreach b block-registry [
         if b/name = name [return b]
     ]

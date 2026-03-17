@@ -122,26 +122,3 @@ block 'display 'output [
     emit [print value]
 ]
 
-; ══════════════════════════════════════════════════════════
-; TEST — ejecutar: red src/graph/blocks.red
-; ══════════════════════════════════════════════════════════
-
-print rejoin ["Bloques registrados: " length? block-registry]
-foreach b block-registry [
-    print rejoin [
-        "  " b/name
-        " (" b/category ")"
-        " | in: " length? b/inputs
-        " | out: " length? b/outputs
-        " | emit: " mold b/emit
-    ]
-]
-print ""
-print "--- find-block 'add ---"
-b: find-block 'add
-print rejoin ["  inputs:  " mold collect [foreach p b/inputs  [keep p/name]]]
-print rejoin ["  outputs: " mold collect [foreach p b/outputs [keep p/name]]]
-print rejoin ["  emit:    " mold b/emit]
-print ""
-print "--- block-in-ports 'mul ---"
-print rejoin ["  " mold block-in-ports 'mul]

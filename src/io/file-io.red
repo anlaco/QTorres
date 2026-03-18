@@ -28,7 +28,7 @@ serialize-diagram: func [
         append nodes-block 'node
         append/only nodes-block reduce [
             'id n/id  'type n/type
-            'name either find n 'name [n/name] [""]
+            'name either select n 'name [n/name] [""]
             'label lbl-block
             'x n/x  'y n/y
         ]

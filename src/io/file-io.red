@@ -8,19 +8,29 @@ Red [
 ; ══════════════════════════════════════════════════
 ;
 ; Convierte el objeto diagrama en memoria al formato de bloque qvi-diagram.
-; Formato de nodo:  node [id 1  type const  label "A"  x 100  y 100  config []]
-; Formato de wire:  wire [from 1  from-port result  to 2  to-port a]
+; Formato nuevo (DT-022/024):
+;   node [id: 1  type: 'control  name: "ctrl_1"  label: [text: "A" visible: true]  x: 100  y: 100]
+;   wire [from: 1  from-port: 'result  to: 2  to-port: 'a]
 
 serialize-diagram: func [
     diagram [object!]
-    /local nodes-block wires-block n w
+    /local nodes-block wires-block n w lbl-block
 ][
     nodes-block: copy []
     foreach n diagram/nodes [
+        ; Serializar label como bloque (DT-022)
+        lbl-block: either all [n/label  object? n/label] [
+            reduce ['text n/label/text  'visible n/label/visible]
+        ][
+            ; Fallback para label legacy (string)
+            reduce ['text either string? n/label [n/label] [""]  'visible true]
+        ]
         append nodes-block 'node
         append/only nodes-block reduce [
-            'id n/id  'type n/type  'label n/label
-            'x n/x   'y n/y        'config n/config
+            'id n/id  'type n/type
+            'name either find n 'name [n/name] [""]
+            'label lbl-block
+            'x n/x  'y n/y
         ]
     ]
 
@@ -86,7 +96,7 @@ save-vi: func [
 
 load-vi: func [
     path [file!]
-    /local src pos qd bd-data nodes-data wires-data d node-spec wire-spec
+    /local src pos qd bd-data nodes-data wires-data d node-spec wire-spec names
 ][
     src: load path
 
@@ -107,11 +117,19 @@ load-vi: func [
     nodes-data: select bd-data 'nodes
     wires-data: select bd-data 'wires
 
+    ; Recopilar names existentes para sincronizar contadores (DT-024)
+    names: copy []
+
     if nodes-data [
         parse nodes-data [
             any [
                 'node set node-spec block! (
+                    ; make-node acepta tanto label: "A" como label: [text: "A"] (retrocompat)
                     append d/nodes make-node node-spec
+                    ; Recopilar name si existe
+                    if select node-spec 'name [
+                        append names select node-spec 'name
+                    ]
                 )
                 | skip
             ]
@@ -122,17 +140,20 @@ load-vi: func [
         parse wires-data [
             any [
                 'wire set wire-spec block! (
-                    append d/wires make object! [
-                        from-node: select wire-spec 'from
-                        from-port: select wire-spec 'from-port
-                        to-node:   select wire-spec 'to
-                        to-port:   select wire-spec 'to-port
+                    append d/wires make-wire compose [
+                        from: (select wire-spec 'from)
+                        from-port: (select wire-spec 'from-port)
+                        to: (select wire-spec 'to)
+                        to-port: (select wire-spec 'to-port)
                     ]
                 )
                 | skip
             ]
         ]
     ]
+
+    ; Sincronizar contadores de names para evitar colisiones al crear nuevos nodos
+    if not empty? names [sync-name-counters names]
 
     d
 ]

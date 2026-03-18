@@ -4,21 +4,21 @@ Red [title: "suma"]
 
 qvi-diagram: [
     connector: [
-        input  [id: 1  label: "A"]
-        input  [id: 2  label: "B"]
-        output [id: 3  label: "Resultado"]
+        input  [id: 1  name: "ctrl_1"  label: [text: "A"]]
+        input  [id: 2  name: "ctrl_2"  label: [text: "B"]]
+        output [id: 4  name: "ind_1"   label: [text: "Resultado"]]
     ]
     front-panel: [
-        control   [id: 1  type: 'numeric  label: "A"         default: 0.0]
-        control   [id: 2  type: 'numeric  label: "B"         default: 0.0]
-        indicator [id: 3  type: 'numeric  label: "Resultado"]
+        control   [id: 1  type: 'numeric  name: "ctrl_1"  label: [text: "A"]         default: 0.0]
+        control   [id: 2  type: 'numeric  name: "ctrl_2"  label: [text: "B"]         default: 0.0]
+        indicator [id: 4  type: 'numeric  name: "ind_1"   label: [text: "Resultado"]]
     ]
     block-diagram: [
         nodes: [
-            node [id: 1  type: 'control    x: 40   y: 80   label: "A"]
-            node [id: 2  type: 'control    x: 40   y: 160  label: "B"]
-            node [id: 3  type: 'add        x: 200  y: 120  label: "Suma"]
-            node [id: 4  type: 'indicator  x: 360  y: 120  label: "Resultado"]
+            node [id: 1  type: 'control    x: 40   y: 80   name: "ctrl_1"  label: [text: "A" visible: true]]
+            node [id: 2  type: 'control    x: 40   y: 160  name: "ctrl_2"  label: [text: "B" visible: true]]
+            node [id: 3  type: 'add        x: 200  y: 120  name: "add_1"   label: [text: "Add"]]
+            node [id: 4  type: 'indicator  x: 360  y: 120  name: "ind_1"   label: [text: "Resultado" visible: true]]
         ]
         wires: [
             wire [from: 1  port: 'out  to: 3  port: 'a]
@@ -30,6 +30,7 @@ qvi-diagram: [
 
 ; ── CÓDIGO GENERADO ──────────────────────────────
 ; Connector pane → el código se envuelve en una función Red.
+; Los parámetros de la función usan label/text del connector (nombres legibles).
 
 suma: func [A [float!] B [float!]] [
     Resultado: A + B

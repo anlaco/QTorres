@@ -4,16 +4,16 @@ Red [title: "Programa con sub-VI"]
 
 qvi-diagram: [
     front-panel: [
-        control   [id: 1  type: 'numeric  label: "X"       default: 10.0]
-        control   [id: 2  type: 'numeric  label: "Y"       default: 4.0]
-        indicator [id: 3  type: 'numeric  label: "Total"]
+        control   [id: 1  type: 'numeric  name: "ctrl_1"  label: [text: "X"]       default: 10.0]
+        control   [id: 2  type: 'numeric  name: "ctrl_2"  label: [text: "Y"]       default: 4.0]
+        indicator [id: 3  type: 'numeric  name: "ind_1"   label: [text: "Total"]]
     ]
     block-diagram: [
         nodes: [
-            node [id: 1   type: 'control    x: 40   y: 80   label: "X"]
-            node [id: 2   type: 'control    x: 40   y: 160  label: "Y"]
-            node [id: 10  type: 'subvi      x: 200  y: 120  file: %suma-subvi.qvi]
-            node [id: 3   type: 'indicator  x: 360  y: 120  label: "Total"]
+            node [id: 1   type: 'control    x: 40   y: 80   name: "ctrl_1"   label: [text: "X" visible: true]]
+            node [id: 2   type: 'control    x: 40   y: 160  name: "ctrl_2"   label: [text: "Y" visible: true]]
+            node [id: 10  type: 'subvi      x: 200  y: 120  name: "subvi_1"  file: %suma-subvi.qvi  label: [text: "suma"]]
+            node [id: 3   type: 'indicator  x: 360  y: 120  name: "ind_1"    label: [text: "Total" visible: true]]
         ]
         wires: [
             wire [from: 1   port: 'out        to: 10  port: 'A]
@@ -27,7 +27,7 @@ qvi-diagram: [
 
 do %suma-subvi.qvi          ; carga y define la función `suma`
 
-X: 10.0
-Y: 4.0
-Total: suma X Y
-print Total
+ctrl_1: 10.0
+ctrl_2: 4.0
+ind_1: suma ctrl_1 ctrl_2
+print ind_1

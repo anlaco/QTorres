@@ -6,16 +6,22 @@ do %../src/compiler/compiler.red
 do %../src/io/file-io.red
 do %../src/runner/runner.red
 
+; Resetear contadores para tests predecibles
+reset-name-counters
+
 ; ── Diagrama de prueba compartido ────────────────────────────────────
 ; const_A(5.0) ──┐
 ;                ├──→ add_1 ──→ display_1
 ; const_B(3.0) ──┘
+;
+; name es el identificador del compilador (DT-024)
+; label es el texto visual (libre)
 
 td: make-diagram "test-vi"
-tn1: make-node [id: 1  type: 'const    label: "const_A"   x: 0    y: 0]
-tn2: make-node [id: 2  type: 'const    label: "const_B"   x: 0    y: 60]
-tn3: make-node [id: 3  type: 'add      label: "add_1"     x: 200  y: 30]
-tn4: make-node [id: 4  type: 'display  label: "display_1" x: 400  y: 30]
+tn1: make-node [id: 1  type: 'const    name: "const_A"    label: "Const A"    x: 0    y: 0]
+tn2: make-node [id: 2  type: 'const    name: "const_B"    label: "Const B"    x: 0    y: 60]
+tn3: make-node [id: 3  type: 'add      name: "add_1"      label: "Add"        x: 200  y: 30]
+tn4: make-node [id: 4  type: 'display  name: "display_1"  label: "Display"    x: 400  y: 30]
 tn1/config: [default 5.0]
 tn2/config: [default 3.0]
 append td/nodes tn1  append td/nodes tn2
@@ -46,6 +52,7 @@ suite "compile-body"
 
 body: compile-body td
 
+; Variables se derivan de name (DT-024), no de label/text
 assert "compile-body no está vacío"             (not empty? body)
 assert "contiene variable const_A_result"       (not none? find body 'const_A_result)
 assert "contiene variable const_B_result"       (not none? find body 'const_B_result)
@@ -74,6 +81,9 @@ lwire3: loaded/wires/3
 
 assert "nodo 1: id correcto"               (1 = lnode1/id)
 assert "nodo 1: tipo correcto"             ('const = lnode1/type)
+assert "nodo 1: name correcto"             ("const_A" = lnode1/name)
+assert "nodo 1: label es objeto"           (object? lnode1/label)
+assert "nodo 1: label/text correcto"       ("Const A" = lnode1/label/text)
 assert "nodo 3: tipo add"                  ('add = lnode3/type)
 assert "wire 1: from-node correcto"        (1 = lwire1/from-node)
 assert "wire 1: to-node correcto"          (3 = lwire1/to-node)
@@ -83,12 +93,15 @@ assert "wire 3: to-node correcto"          (4 = lwire3/to-node)
 ; ── Tests runner ─────────────────────────────────────────────────────
 suite "runner"
 
+; Resetear contadores para este diagrama
+reset-name-counters
+
 ; Diagrama mínimo propio para no depender del estado previo de td
 rd: make-diagram "run-test"
-rn1: make-node [id: 10  type: 'const    label: "rc1"  x: 0    y: 0]
-rn2: make-node [id: 11  type: 'const    label: "rc2"  x: 0    y: 60]
-rn3: make-node [id: 12  type: 'add      label: "ra1"  x: 200  y: 30]
-rn4: make-node [id: 13  type: 'display  label: "rd1"  x: 400  y: 30]
+rn1: make-node [id: 10  type: 'const    name: "rc1"  label: "RC1"  x: 0    y: 0]
+rn2: make-node [id: 11  type: 'const    name: "rc2"  label: "RC2"  x: 0    y: 60]
+rn3: make-node [id: 12  type: 'add      name: "ra1"  label: "RA1"  x: 200  y: 30]
+rn4: make-node [id: 13  type: 'display  name: "rd1"  label: "RD1"  x: 400  y: 30]
 rn1/config: [default 7.0]
 rn2/config: [default 3.0]
 append rd/nodes rn1  append rd/nodes rn2

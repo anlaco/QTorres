@@ -74,17 +74,17 @@ qvi-diagram: [
     ]
 
     front-panel: [
-        control   [id: 1  type: 'numeric  label: "A"          default: 5.0]
-        control   [id: 2  type: 'numeric  label: "B"          default: 3.0]
-        indicator [id: 3  type: 'numeric  label: "Resultado"]
+        control   [id: 1  type: 'numeric  name: "ctrl_1"  label: [text: "A" visible: true]          default: 5.0]
+        control   [id: 2  type: 'numeric  name: "ctrl_2"  label: [text: "B" visible: true]          default: 3.0]
+        indicator [id: 3  type: 'numeric  name: "ind_1"   label: [text: "Resultado" visible: true]]
     ]
 
     block-diagram: [
         nodes: [
-            node [id: 1  type: 'control    x: 40   y: 80   label: "A"]
-            node [id: 2  type: 'control    x: 40   y: 160  label: "B"]
-            node [id: 3  type: 'math/add   x: 200  y: 120]
-            node [id: 4  type: 'indicator  x: 360  y: 120  label: "Resultado"]
+            node [id: 1  type: 'control    x: 40   y: 80   name: "ctrl_1"  label: [text: "A" visible: true]]
+            node [id: 2  type: 'control    x: 40   y: 160  name: "ctrl_2"  label: [text: "B" visible: true]]
+            node [id: 3  type: 'math/add   x: 200  y: 120  name: "add_1"   label: [text: "Add" visible: false]]
+            node [id: 4  type: 'indicator  x: 360  y: 120  name: "ind_1"   label: [text: "Resultado" visible: true]]
         ]
         wires: [
             wire [from: 1  port: 'out     to: 3  port: 'a]
@@ -101,19 +101,19 @@ qvi-diagram: [
 context [
     either empty? system/options/args [
         view layout [
-            label "A"    fA: field "5.0"
-            label "B"    fB: field "3.0"
+            label "A"    f_ctrl_1: field "5.0"
+            label "B"    f_ctrl_2: field "3.0"
             button "Run" [
-                A: to-float fA/text
-                B: to-float fB/text
-                lResultado/text: form (A + B)
+                ctrl_1: to-float f_ctrl_1/text
+                ctrl_2: to-float f_ctrl_2/text
+                l_ind_1/text: form (ctrl_1 + ctrl_2)
             ]
-            label "Resultado:"  lResultado: text "---"
+            label "Resultado:"  l_ind_1: text "---"
         ]
     ][
-        A: to-float select system/options/args "A"
-        B: to-float select system/options/args "B"
-        print form (A + B)
+        ctrl_1: to-float select system/options/args "ctrl_1"
+        ctrl_2: to-float select system/options/args "ctrl_2"
+        print form (ctrl_1 + ctrl_2)
     ]
 ]
 ```
@@ -151,17 +151,17 @@ qvi-diagram: [
     ]
 
     front-panel: [
-        control   [id: 1  type: 'numeric  label: "A"          default: 5.0]
-        control   [id: 2  type: 'numeric  label: "B"          default: 3.0]
-        indicator [id: 3  type: 'numeric  label: "Resultado"]
+        control   [id: 1  type: 'numeric  name: "ctrl_1"  label: [text: "A" visible: true]          default: 5.0]
+        control   [id: 2  type: 'numeric  name: "ctrl_2"  label: [text: "B" visible: true]          default: 3.0]
+        indicator [id: 3  type: 'numeric  name: "ind_1"   label: [text: "Resultado" visible: true]]
     ]
 
     block-diagram: [
         nodes: [
-            node [id: 1  type: 'control    x: 40   y: 80   label: "A"]
-            node [id: 2  type: 'control    x: 40   y: 160  label: "B"]
-            node [id: 3  type: 'math/add   x: 200  y: 120]
-            node [id: 4  type: 'indicator  x: 360  y: 120  label: "Resultado"]
+            node [id: 1  type: 'control    x: 40   y: 80   name: "ctrl_1"  label: [text: "A" visible: true]]
+            node [id: 2  type: 'control    x: 40   y: 160  name: "ctrl_2"  label: [text: "B" visible: true]]
+            node [id: 3  type: 'math/add   x: 200  y: 120  name: "add_1"   label: [text: "Add" visible: false]]
+            node [id: 4  type: 'indicator  x: 360  y: 120  name: "ind_1"   label: [text: "Resultado" visible: true]]
         ]
         wires: [
             wire [from: 1  port: 'out     to: 3  port: 'a]
@@ -176,9 +176,9 @@ qvi-diagram: [
 ; ═══════════════════════════════════════════════════════════
 
 ; Función expuesta — disponible cuando otro VI hace do %suma.qvi
-suma: func [A [float!] B [float!] /local Resultado] [
-    Resultado: A + B
-    Resultado
+suma: func [ctrl_1 [float!] ctrl_2 [float!] /local ind_1] [
+    ind_1: ctrl_1 + ctrl_2
+    ind_1
 ]
 
 ; Ejecución standalone — solo cuando se lanza directamente con Red
@@ -186,17 +186,17 @@ if not value? 'qtorres-runtime [
     context [
         either empty? system/options/args [
             view layout [
-                label "A"    fA: field "5.0"
-                label "B"    fB: field "3.0"
+                label "A"    f_ctrl_1: field "5.0"
+                label "B"    f_ctrl_2: field "3.0"
                 button "Run" [
-                    lResult/text: form suma to-float fA/text to-float fB/text
+                    l_ind_1/text: form suma to-float f_ctrl_1/text to-float f_ctrl_2/text
                 ]
-                label "Resultado:"  lResult: text "---"
+                label "Resultado:"  l_ind_1: text "---"
             ]
         ][
             print form suma
-                to-float select system/options/args "A"
-                to-float select system/options/args "B"
+                to-float select system/options/args "ctrl_1"
+                to-float select system/options/args "ctrl_2"
         ]
     ]
 ]
@@ -219,17 +219,17 @@ qvi-diagram: [
     icon: [...]
 
     front-panel: [
-        control   [id: 1  type: 'numeric  label: "X"      default: 10.0]
-        control   [id: 2  type: 'numeric  label: "Y"      default: 4.0]
-        indicator [id: 3  type: 'numeric  label: "Total"]
+        control   [id: 1  type: 'numeric  name: "ctrl_1"  label: [text: "X" visible: true]      default: 10.0]
+        control   [id: 2  type: 'numeric  name: "ctrl_2"  label: [text: "Y" visible: true]      default: 4.0]
+        indicator [id: 3  type: 'numeric  name: "ind_1"   label: [text: "Total" visible: true]]
     ]
 
     block-diagram: [
         nodes: [
-            node [id: 1   type: 'control    label: "X"]
-            node [id: 2   type: 'control    label: "Y"]
-            node [id: 10  type: 'subvi      file: %utils/suma.qvi]
-            node [id: 3   type: 'indicator  label: "Total"]
+            node [id: 1   type: 'control    name: "ctrl_1"   label: [text: "X" visible: true]]
+            node [id: 2   type: 'control    name: "ctrl_2"   label: [text: "Y" visible: true]]
+            node [id: 10  type: 'subvi      name: "subvi_1"  label: [text: "suma" visible: false]  file: %utils/suma.qvi]
+            node [id: 3   type: 'indicator  name: "ind_1"    label: [text: "Total" visible: true]]
         ]
         wires: [
             wire [from: 1   port: 'out      to: 10  port: 'A]
@@ -248,17 +248,17 @@ do %utils/suma.qvi     ; carga y define utils/suma
 context [
     either empty? system/options/args [
         view layout [
-            label "X"    fX: field "10.0"
-            label "Y"    fY: field "4.0"
+            label "X"    f_ctrl_1: field "10.0"
+            label "Y"    f_ctrl_2: field "4.0"
             button "Run" [
-                lTotal/text: form utils/suma to-float fX/text to-float fY/text
+                l_ind_1/text: form utils/suma to-float f_ctrl_1/text to-float f_ctrl_2/text
             ]
-            label "Total:"  lTotal: text "---"
+            label "Total:"  l_ind_1: text "---"
         ]
     ][
         print form utils/suma
-            to-float select system/options/args "X"
-            to-float select system/options/args "Y"
+            to-float select system/options/args "ctrl_1"
+            to-float select system/options/args "ctrl_2"
     ]
 ]
 ```

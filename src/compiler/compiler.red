@@ -122,9 +122,10 @@ bind-emit: func [
 ; ══════════════════════════════════════════════════
 
 ; Nombre de variable para el puerto de salida de un nodo.
-; Convenio: label_portname  (ej: add_1_result)
+; Convenio: name_portname  (ej: add_1_result)
+; Usa node/name (DT-024), nunca node/label/text.
 port-var: func [node [object!] port-name [word! lit-word!]] [
-    to-word rejoin [node/label "_" to-word port-name]
+    to-word rejoin [node/name "_" to-word port-name]
 ]
 
 ; Construye los bindings [puerto var ...] para un nodo concreto del diagrama:
@@ -252,7 +253,8 @@ compile-diagram: func [
             face-n: to-word rejoin ["f_" node/id]
             cfg-val: any [select node/config 'default  0.0]
             append ui-layout 'label
-            append ui-layout node/label
+            ; UI layout usa label/text (display) para textos visibles (DT-024)
+            append ui-layout either all [node/label  object? node/label] [node/label/text] [any [node/name ""]]
             append ui-layout to-set-word face-n
             append ui-layout 'field
             append ui-layout form cfg-val
@@ -267,7 +269,8 @@ compile-diagram: func [
         if bdef/category = 'output [
             face-n: to-word rejoin ["t_" node/id]
             append ui-layout 'label
-            append ui-layout node/label
+            ; UI layout usa label/text (display) para textos visibles (DT-024)
+            append ui-layout either all [node/label  object? node/label] [node/label/text] [any [node/name ""]]
             append ui-layout to-set-word face-n
             append ui-layout 'text
             append ui-layout "---"

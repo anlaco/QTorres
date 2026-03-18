@@ -2,8 +2,8 @@
 
 Este documento es una referencia de consumo para agentes de IA que necesiten generar ficheros del ecosistema QTorres. No es documentación interna del proyecto — es el contrato entre QTorres y cualquier modelo que genere ficheros para él.
 
-**Versión:** 1.0 — MVP (solo `.qvi` con tipos numéricos)
-**Decisiones relacionadas:** DT-020, DT-021
+**Versión:** 1.1 — MVP (solo `.qvi` con tipos numéricos)
+**Decisiones relacionadas:** DT-020, DT-021, DT-022, DT-023, DT-024
 
 ---
 
@@ -19,6 +19,26 @@ Un agente de IA solo trabaja con la sección 1. Nunca genera la sección 2.
 ---
 
 ## Formato `.qvi` — Virtual Instrument
+
+> **Cambio DT-022/DT-023/DT-024:** A partir de la versión 1.1, los nodos, controles e indicadores usan dos campos separados:
+> - **`name`** — identificador estático para el compilador. Inmutable, generado automáticamente (ej. `"ctrl_1"`, `"add_1"`, `"ind_2"`). El compilador usa `name` para generar nombres de variable en el código Red.
+> - **`label`** — objeto con la etiqueta visible: `label: [text: "..." visible: true/false]`. El usuario puede editar `label/text` sin afectar al compilador.
+>
+> Convenciones de `name`:
+> - Controles: `"ctrl_1"`, `"ctrl_2"`, ...
+> - Indicadores: `"ind_1"`, `"ind_2"`, ...
+> - Add: `"add_1"`, `"add_2"`, ...
+> - Sub: `"sub_1"`, `"sub_2"`, ...
+> - Mul: `"mul_1"`, `"mul_2"`, ...
+> - Div: `"div_1"`, `"div_2"`, ...
+> - Const: `"const_1"`, `"const_2"`, ...
+> - Display: `"display_1"`, `"display_2"`, ...
+> - SubVI: `"subvi_1"`, `"subvi_2"`, ...
+>
+> Visibilidad por defecto de `label`:
+> - control / indicator: `visible: true`
+> - operadores math (add, sub, mul, div): `visible: false` (se puede omitir el campo `visible`, por defecto es `false`)
+> - wire: no tiene label
 
 ### Estructura mínima
 
@@ -65,17 +85,17 @@ qvi-diagram: [
     ]
 
     front-panel: [
-        control   [id: 1  type: 'numeric  label: "A"         default: 5.0]
-        control   [id: 2  type: 'numeric  label: "B"         default: 3.0]
-        indicator [id: 3  type: 'numeric  label: "Resultado"]
+        control   [id: 1  type: 'numeric  name: "ctrl_1"  label: [text: "A"         visible: true]  default: 5.0]
+        control   [id: 2  type: 'numeric  name: "ctrl_2"  label: [text: "B"         visible: true]  default: 3.0]
+        indicator [id: 3  type: 'numeric  name: "ind_1"   label: [text: "Resultado"  visible: true]]
     ]
 
     block-diagram: [
         nodes: [
-            node [id: 1  type: 'control    x: 40   y: 80   label: "A"]
-            node [id: 2  type: 'control    x: 40   y: 160  label: "B"]
-            node [id: 3  type: 'add        x: 200  y: 120]
-            node [id: 4  type: 'indicator  x: 360  y: 120  label: "Resultado"]
+            node [id: 1  type: 'control    x: 40   y: 80   name: "ctrl_1"  label: [text: "A"         visible: true]]
+            node [id: 2  type: 'control    x: 40   y: 160  name: "ctrl_2"  label: [text: "B"         visible: true]]
+            node [id: 3  type: 'add        x: 200  y: 120  name: "add_1"   label: [text: "Add"]]
+            node [id: 4  type: 'indicator  x: 360  y: 120  name: "ind_1"   label: [text: "Resultado"  visible: true]]
         ]
         wires: [
             wire [from: 1  port: 'out     to: 3  port: 'a]
@@ -101,21 +121,30 @@ qvi-diagram: [
 Dos tipos de elemento:
 
 ```red
-control   [id: <int>  type: '<tipo>  label: "<nombre>"  default: <valor>]
-indicator [id: <int>  type: '<tipo>  label: "<nombre>"]
+control   [id: <int>  type: '<tipo>  name: "<name>"  label: [text: "<texto>" visible: true]  default: <valor>]
+indicator [id: <int>  type: '<tipo>  name: "<name>"  label: [text: "<texto>" visible: true]]
 ```
 
 - `control` = entrada del usuario (campo editable)
 - `indicator` = salida del programa (solo lectura)
 - El `id` debe coincidir con el `id` del nodo correspondiente en `block-diagram`
+- `name` = identificador estático para el compilador (inmutable, ej. `"ctrl_1"`, `"ind_1"`)
+- `label` = objeto con `text` (editable por el usuario) y `visible` (controla si se muestra)
+- En controles e indicadores, `visible` es `true` por defecto
 
 **Tipos disponibles (MVP):** `'numeric`
 
 ### Block Diagram — Nodos
 
 ```red
-node [id: <int>  type: '<tipo>  x: <int>  y: <int>  label: "<nombre>"]
+node [id: <int>  type: '<tipo>  x: <int>  y: <int>  name: "<name>"  label: [text: "<texto>" visible: <true/false>]]
 ```
+
+- `name` = identificador estático para el compilador (inmutable). Sigue la convención `"<tipo>_<N>"` (ej. `"ctrl_1"`, `"add_1"`, `"ind_2"`).
+- `label` = objeto con `text` (editable por el usuario) y opcionalmente `visible`.
+  - control / indicator: `visible: true` por defecto (se debe incluir explícitamente).
+  - operadores math (add, sub, mul, div): `visible: false` por defecto (se puede omitir `visible`).
+  - Para operadores, el label existe pero normalmente no se muestra.
 
 **Tipos de nodo:**
 
@@ -133,7 +162,7 @@ node [id: <int>  type: '<tipo>  x: <int>  y: <int>  label: "<nombre>"]
 
 **Nodo sub-VI:** requiere campo `file:` con la ruta relativa al fichero:
 ```red
-node [id: 10  type: 'subvi  x: 200  y: 120  file: %ruta/al-subvi.qvi]
+node [id: 10  type: 'subvi  x: 200  y: 120  name: "subvi_1"  label: [text: "suma"]  file: %ruta/al-subvi.qvi]
 ```
 
 ### Block Diagram — Wires
@@ -268,16 +297,16 @@ Red [title: "Suma básica"]
 
 qvi-diagram: [
     front-panel: [
-        control   [id: 1  type: 'numeric  label: "A"         default: 5.0]
-        control   [id: 2  type: 'numeric  label: "B"         default: 3.0]
-        indicator [id: 3  type: 'numeric  label: "Resultado"]
+        control   [id: 1  type: 'numeric  name: "ctrl_1"  label: [text: "A"         visible: true]  default: 5.0]
+        control   [id: 2  type: 'numeric  name: "ctrl_2"  label: [text: "B"         visible: true]  default: 3.0]
+        indicator [id: 3  type: 'numeric  name: "ind_1"   label: [text: "Resultado"  visible: true]]
     ]
     block-diagram: [
         nodes: [
-            node [id: 1  type: 'control    x: 40   y: 80   label: "A"]
-            node [id: 2  type: 'control    x: 40   y: 160  label: "B"]
-            node [id: 3  type: 'add        x: 200  y: 120  label: "Suma"]
-            node [id: 4  type: 'indicator  x: 360  y: 120  label: "Resultado"]
+            node [id: 1  type: 'control    x: 40   y: 80   name: "ctrl_1"  label: [text: "A"         visible: true]]
+            node [id: 2  type: 'control    x: 40   y: 160  name: "ctrl_2"  label: [text: "B"         visible: true]]
+            node [id: 3  type: 'add        x: 200  y: 120  name: "add_1"   label: [text: "Suma"]]
+            node [id: 4  type: 'indicator  x: 360  y: 120  name: "ind_1"   label: [text: "Resultado"  visible: true]]
         ]
         wires: [
             wire [from: 1  port: 'out  to: 3  port: 'a]
@@ -300,16 +329,16 @@ qvi-diagram: [
         output [id: 3  label: "Resultado"]
     ]
     front-panel: [
-        control   [id: 1  type: 'numeric  label: "A"         default: 0.0]
-        control   [id: 2  type: 'numeric  label: "B"         default: 0.0]
-        indicator [id: 3  type: 'numeric  label: "Resultado"]
+        control   [id: 1  type: 'numeric  name: "ctrl_1"  label: [text: "A"         visible: true]  default: 0.0]
+        control   [id: 2  type: 'numeric  name: "ctrl_2"  label: [text: "B"         visible: true]  default: 0.0]
+        indicator [id: 3  type: 'numeric  name: "ind_1"   label: [text: "Resultado"  visible: true]]
     ]
     block-diagram: [
         nodes: [
-            node [id: 1  type: 'control    x: 40   y: 80   label: "A"]
-            node [id: 2  type: 'control    x: 40   y: 160  label: "B"]
-            node [id: 3  type: 'add        x: 200  y: 120  label: "Suma"]
-            node [id: 4  type: 'indicator  x: 360  y: 120  label: "Resultado"]
+            node [id: 1  type: 'control    x: 40   y: 80   name: "ctrl_1"  label: [text: "A"         visible: true]]
+            node [id: 2  type: 'control    x: 40   y: 160  name: "ctrl_2"  label: [text: "B"         visible: true]]
+            node [id: 3  type: 'add        x: 200  y: 120  name: "add_1"   label: [text: "Suma"]]
+            node [id: 4  type: 'indicator  x: 360  y: 120  name: "ind_1"   label: [text: "Resultado"  visible: true]]
         ]
         wires: [
             wire [from: 1  port: 'out  to: 3  port: 'a]
@@ -327,16 +356,16 @@ Red [title: "Programa con sub-VI"]
 
 qvi-diagram: [
     front-panel: [
-        control   [id: 1  type: 'numeric  label: "X"       default: 10.0]
-        control   [id: 2  type: 'numeric  label: "Y"       default: 4.0]
-        indicator [id: 3  type: 'numeric  label: "Total"]
+        control   [id: 1  type: 'numeric  name: "ctrl_1"  label: [text: "X"      visible: true]  default: 10.0]
+        control   [id: 2  type: 'numeric  name: "ctrl_2"  label: [text: "Y"      visible: true]  default: 4.0]
+        indicator [id: 3  type: 'numeric  name: "ind_1"   label: [text: "Total"   visible: true]]
     ]
     block-diagram: [
         nodes: [
-            node [id: 1   type: 'control    x: 40   y: 80   label: "X"]
-            node [id: 2   type: 'control    x: 40   y: 160  label: "Y"]
-            node [id: 10  type: 'subvi      x: 200  y: 120  file: %suma-subvi.qvi]
-            node [id: 3   type: 'indicator  x: 360  y: 120  label: "Total"]
+            node [id: 1   type: 'control    x: 40   y: 80   name: "ctrl_1"   label: [text: "X"      visible: true]]
+            node [id: 2   type: 'control    x: 40   y: 160  name: "ctrl_2"   label: [text: "Y"      visible: true]]
+            node [id: 10  type: 'subvi      x: 200  y: 120  name: "subvi_1"  label: [text: "suma"]  file: %suma-subvi.qvi]
+            node [id: 3   type: 'indicator  x: 360  y: 120  name: "ind_1"    label: [text: "Total"   visible: true]]
         ]
         wires: [
             wire [from: 1   port: 'out        to: 10  port: 'A]
@@ -358,6 +387,9 @@ qvi-diagram: [
 5. **Los IDs de control/indicator en front-panel deben coincidir** con los IDs de los nodos correspondientes en block-diagram.
 6. **No crear ciclos** en el grafo de conexiones.
 7. **Un puerto de entrada solo recibe un wire.** Si necesitas el mismo valor en dos sitios, usa fan-out desde la salida.
+8. **No confundir `name` con `label`.** `name` es el identificador estático del compilador (inmutable, ej. `"ctrl_1"`). `label` es un objeto con `text` y `visible`. Nunca usar `label: "texto"` directamente — siempre `label: [text: "texto"]` o `label: [text: "texto" visible: true]`.
+9. **Los `name` deben ser únicos** dentro del VI y seguir la convención `"<tipo>_<N>"`.
+10. **Los `name` de control/indicator deben coincidir** entre front-panel y block-diagram para el mismo id.
 
 ---
 

@@ -58,13 +58,19 @@ Issues #8 y #9 están desbloqueados para implementación.
 
 ## [P2] Modelo del grafo en memoria
 
-**Estado:** PENDIENTE
+**Estado:** PARCIALMENTE RESUELTO
 
 La estructura de datos interna que representa el estado del programa mientras el usuario edita.
 
-### Preguntas abiertas
+### Preguntas resueltas (2026-03-18)
 
-1. **Estructura de datos:** ¿Qué estructura de datos representa el grafo internamente? El prototipo actual en `src/graph/model.red` define `make-node`, `make-wire`, `make-diagram` como bloques Red. ¿Es suficiente para la Fase 1 completa?
+1. **Estructura de datos — RESUELTO (DT-022, DT-023, DT-024):**
+   - Label es un objeto propio (`make-label`) con `text`, `visible`, `offset` (DT-022)
+   - Composición sobre herencia: `base-element` como prototipo + constructores (DT-023)
+   - `name` (estático, inmutable, para compilador) separado de `label/text` (libre, para UI) (DT-024)
+   - El modelo es suficiente para Fase 1. Los constructores (`make-node`, `make-wire`) se extienden sin romper la interfaz.
+
+### Preguntas abiertas (pendientes)
 
 2. **Sincronización Front Panel ↔ Block Diagram:** ¿Cómo se sincronizan en memoria? ¿Un único modelo compartido, o dos modelos con eventos de sincronización?
 

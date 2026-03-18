@@ -145,17 +145,35 @@ render-bd: func [/local d sn dn p1 p2 mx wire-color c tl ps iy oy] [
             pen off  fill-pen (c + 30.30.30)
             box (as-pair n/x n/y) (as-pair (n/x + 4) (n/y + bh)) 0
         ]
-        ; Texto: label y tipo
+        ; Texto: tipo (siempre visible) y label (según visibilidad DT-022)
         tl: switch n/type [
             control   ["CTRL"]
             indicator ["IND"]
             add       ["ADD +"]
             sub       ["SUB -"]
         ]
-        append d compose [
-            fill-pen col-text
-            text (as-pair (n/x + 10) (n/y + 10)) (n/label)
-            text (as-pair (n/x + 10) (n/y + 26)) (tl)
+        ; Label del nodo — solo si visible (DT-022)
+        either all [n/label  object? n/label  n/label/visible] [
+            append d compose [
+                fill-pen col-text
+                text (as-pair (n/x + 10) (n/y + 10)) (n/label/text)
+                text (as-pair (n/x + 10) (n/y + 26)) (tl)
+            ]
+        ][
+            ; Sin label visible o label legacy (string): mostrar lo que haya
+            either all [n/label  string? n/label] [
+                append d compose [
+                    fill-pen col-text
+                    text (as-pair (n/x + 10) (n/y + 10)) (n/label)
+                    text (as-pair (n/x + 10) (n/y + 26)) (tl)
+                ]
+            ][
+                ; Sin label visible: solo tipo
+                append d compose [
+                    fill-pen col-text
+                    text (as-pair (n/x + 10) (n/y + 14)) (tl)
+                ]
+            ]
         ]
 
         ; Puertos de entrada (izquierda)
@@ -360,6 +378,59 @@ make-canvas: func [w [integer!] h [integer!] /local f] [
                 drag-node: none
                 drag-off:  none
             ]
+            on-dbl-click: func [face event /local px py n inp-face cvs lbl-text] [
+                px: event/offset/x
+                py: event/offset/y
+                n: hit-node px py
+                if n [
+                    cvs: face
+                    inp-face: none
+                    ; Obtener texto actual de la label (DT-022: objeto o string legacy)
+                    lbl-text: either all [n/label  object? n/label] [n/label/text] [
+                        either string? n/label [n/label] [""]
+                    ]
+                    view/flags compose [
+                        title "Renombrar nodo"
+                        text "Label:" return
+                        inp-face: field 200 (lbl-text)
+                        on-enter [
+                            either empty? inp-face/text [
+                                ; Auto-ocultar: label vacía → invisible (DT-022)
+                                if all [n/label  object? n/label] [
+                                    n/label/visible: false
+                                ]
+                            ][
+                                either all [n/label  object? n/label] [
+                                    n/label/text: inp-face/text
+                                    n/label/visible: true
+                                ][
+                                    n/label: inp-face/text
+                                ]
+                            ]
+                            cvs/draw: render-bd
+                            unview
+                        ]
+                        return
+                        button "OK" [
+                            either empty? inp-face/text [
+                                if all [n/label  object? n/label] [
+                                    n/label/visible: false
+                                ]
+                            ][
+                                either all [n/label  object? n/label] [
+                                    n/label/text: inp-face/text
+                                    n/label/visible: true
+                                ][
+                                    n/label: inp-face/text
+                                ]
+                            ]
+                            cvs/draw: render-bd
+                            unview
+                        ]
+                        button "Cancelar" [unview]
+                    ] [modal]
+                ]
+            ]
         ]
     ]
     f/color: col-canvas
@@ -381,15 +452,25 @@ row-gap: 90
 sx:      40
 sy:      20
 
+; Demo usa objetos con estructura nueva (DT-022/024)
+; Label como objeto, name como identificador estático
+demo-name-ctr: 0
 repeat i 20 [
     col:   (i - 1) % cols
     row:   (i - 1) / cols
     ntype: either odd? i ['add] ['sub]
-    lbl:   rejoin [either ntype = 'add ["Add_"] ["Sub_"] i]
+    demo-name-ctr: demo-name-ctr + 1
+    lbl-text: either ntype = 'add ["Add"] ["Sub"]
+    nm: rejoin [form ntype "_" demo-name-ctr]
     append bd-nodes make object! [
         id:    gen-id
         type:  ntype
-        label: lbl
+        name:  nm
+        label: make object! [
+            text:    lbl-text
+            visible: false          ; operadores: label oculta por defecto (DT-022)
+            offset:  0x-15
+        ]
         x:     sx + (col * col-gap)
         y:     sy + (row * row-gap)
     ]
@@ -415,7 +496,7 @@ view make face! [
     pane:   reduce [
         make face! [
             type: 'base  offset: 10x8  size: 880x25  color: 200.203.212
-            draw: [pen 60.70.90  text 5x15 "Arrastra nodos | clic wire = cian | clic nodo = cian | Delete/Backspace = borrar seleccionado"]
+            draw: [pen 60.70.90  text 5x15 "Arrastra nodos | clic wire/nodo = seleccionar | doble clic nodo = renombrar | Delete/Backspace = borrar"]
         ]
         canvas
     ]

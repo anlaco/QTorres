@@ -73,12 +73,14 @@ QTorres implementa el mismo modelo de ejecución que LabVIEW: **dataflow**.
 
 Estructura de datos central. Todo el resto opera sobre este modelo.
 
-- **Nodo:** id, tipo, posición (x, y), puertos de entrada, puertos de salida, configuración
+- **Nodo:** id, tipo, posición (x, y), `name` (identificador estático para el compilador), `label` (objeto con `text`, `visible`, `offset`), puertos de entrada, puertos de salida, configuración
 - **Puerto:** id, nombre, tipo de dato, dirección (in/out)
-- **Wire:** id, puerto-origen, puerto-destino
+- **Wire:** id, puerto-origen, puerto-destino, `label` (objeto, mismo formato que el nodo)
 - **Diagrama:** lista de nodos + lista de wires + metadatos
 
-El modelo es un bloque Red (datos Red puros). No hay objetos opacos.
+`name` y `label` son independientes (DT-024): `name` es un identificador inmutable generado al crear el nodo (ej. `"ctrl_1"`, `"add_1"`), usado exclusivamente por el compilador. `label` es un objeto compuesto (DT-022) con texto visible, visibilidad y offset, editable libremente por el usuario. Renombrar una label no afecta al código generado.
+
+El modelo es un bloque Red (datos Red puros). No hay objetos opacos. Los nodos se construyen por composición (DT-023): `base-element` como prototipo + `make-label` como componente.
 
 ### 2. Canvas / Block Diagram (`ui/diagram/`)
 
@@ -132,6 +134,8 @@ view layout [
 **En ambos casos el compilador:**
 
 - Ordena los nodos topológicamente
+- Usa `name` (no `label/text`) como identificador de variable en el código generado (DT-024)
+- Usa `label/text` para los textos visibles del Front Panel (ej. `label "Temperatura (C)"`)
 - Instancia plantillas de código por tipo de nodo (dialecto `emit`)
 - Si el VI contiene sub-VIs → emite `do %sub-vi.qvi` al inicio
 - Si el VI pertenece a una `.qlib` → el código va dentro de un `context`
@@ -239,20 +243,21 @@ block add 'math [
 ```red
 qvi-diagram: [
     connector: [
-        input  [id: 1  label: "A"]
-        output [id: 3  label: "Resultado"]
+        input  [id: 1  name: "ctrl_1"  label: [text: "A"]]
+        output [id: 3  name: "ind_1"   label: [text: "Resultado"]]
     ]
     front-panel: [
-        control   [id: 1  type: 'numeric  label: "A"  default: 5.0]
-        indicator [id: 3  type: 'numeric  label: "Resultado"]
+        control   [id: 1  type: 'numeric  name: "ctrl_1"  label: [text: "A" visible: true]  default: 5.0]
+        indicator [id: 3  type: 'numeric  name: "ind_1"   label: [text: "Resultado" visible: true]]
     ]
     block-diagram: [
         nodes: [
-            node [id: 1  type: 'control  x: 40  y: 80  label: "A"]
+            node [id: 1  type: 'control  x: 40  y: 80  name: "ctrl_1"  label: [text: "A" visible: true]]
+            node [id: 2  type: 'add      x: 200 y: 120 name: "add_1"   label: [text: "Add"]]
             ...
         ]
         wires: [
-            wire [from: 1  port: 'out  to: 3  port: 'a]
+            wire [from: 1  port: 'out  to: 2  port: 'a]
             ...
         ]
     ]
@@ -265,6 +270,7 @@ qvi-diagram: [
 - `connector [<inputs y outputs>]` (opcional)
 - `control [<spec>]`, `indicator [<spec>]` — elementos del panel
 - `node [<spec>]`, `wire [<spec>]` — elementos del diagrama
+- Cada elemento lleva `name` (identificador estático, ej. `"ctrl_1"`) y `label` como bloque (`[text: "A" visible: true]`) — ver DT-022/DT-024
 
 **Por qué es un dialecto:** Aunque parece "solo datos", tiene estructura obligatoria que se valida con `parse`. El procesador sabe qué palabras son válidas, qué campos son obligatorios y qué tipos se esperan. Un bloque malformado se rechaza con error claro.
 
@@ -281,13 +287,13 @@ emit [result: a + b]
 **Cómo funciona el procesador:**
 1. El compilador toma el bloque `emit` de la definición del bloque
 2. Identifica las palabras que corresponden a puertos (`a`, `b`, `result`)
-3. Las sustituye por los nombres reales de las variables (que vienen de los wires conectados)
+3. Las sustituye por los `name` reales de los nodos conectados vía wires (DT-024)
 4. El resultado es un bloque Red válido listo para insertar en el código generado
 
 ```red
 ; emit original:     [result: a + b]
-; port bindings:     a → X, b → Y, result → Total
-; resultado:         [Total: X + Y]
+; port bindings:     a → ctrl_1, b → ctrl_2, result → ind_1
+; resultado:         [ind_1: ctrl_1 + ctrl_2]
 ```
 
 **Por qué es un dialecto:** Es código Red que el compilador manipula como datos antes de emitirlo como código. La sustitución de puertos por variables es la operación del procesador. No es interpolación de strings — es manipulación de bloques Red (homoiconicidad en acción).

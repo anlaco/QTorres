@@ -2,9 +2,13 @@ Red [
     Title:   "QTorres MVP"
     Author:  "QTorres contributors"
     Version: 0.1.0
-    Purpose: "MVP: editor visual -> .qvi ejecutable"
+    Purpose: "MVP: editor visual -> .qvi ejecutable (REFERENCIA HISTORICA - usa modelo de label anterior)"
     Needs:   'View
 ]
+
+; NOTE: Este MVP implementa el modelo anterior de label (label como string).
+; El nuevo modelo (DT-022/023/024) está en src/ y los ejemplos actualizados.
+; Este archivo se mantiene como referencia funcional pero no refleja el estado actual del diseño.
 
 ; ==================================================================================================
 ; QTorres-v2.red — Documento de código con documentación extensa

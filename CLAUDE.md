@@ -29,13 +29,14 @@ QTorres/
 ├── docs/
 │   ├── arquitectura.md     # Arquitectura de módulos
 │   ├── plan.md             # Plan por fases
-│   ├── decisiones.md       # Decisiones técnicas (DT-001 a DT-009)
+│   ├── decisiones.md       # Decisiones técnicas (DT-001 a DT-024)
 │   ├── retos.md            # Riesgos y dificultades
 │   └── tipos-de-fichero.md # Mapeo LabVIEW → QTorres
+│   └── labview-comportamiento.md # Notas de arquitectura: comportamiento de labels en LabVIEW
 ├── src/
 │   ├── qtorres.red         # Punto de entrada (stub)
 │   ├── graph/
-│   │   ├── model.red       # Estructuras: make-node, make-wire, make-diagram
+│   │   ├── model.red       # Modelo: make-label, base-element, make-node, make-wire, gen-name (DT-022/023/024)
 │   │   └── blocks.red      # Registro de bloques + dialecto block-def (stub)
 │   ├── compiler/
 │   │   └── compiler.red    # Compilador (stub documentado)
@@ -118,14 +119,37 @@ Un `.qvi` con solo `qvi-diagram` (sin código generado) es válido.
 Cualquier VI con `connector` puede ser sub-VI o top-level según cómo se invoque.
 La presencia de `connector` en `qvi-diagram` habilita el uso como sub-VI.
 
+### DT-022: Label como objeto propio
+La label es un `object!` con `text`, `visible`, `offset`. Se compone en nodos, wires y fp-items.
+Acceso: `n/label/text`, `n/label/visible`.
+
+### DT-023: Composición sobre herencia
+Prototipo `base-element` + constructores `make-node`, `make-wire`. Patrón idiomático de Red.
+
+### DT-024: Name estático + Label libre
+`name` = identificador inmutable para el compilador (tipo_N: `ctrl_1`, `add_1`).
+`label/text` = texto visual libre, editable por el usuario, duplicados OK.
+Son independientes. El compilador usa `name`, la UI usa `label/text`.
+
 ### Formato completo del qvi-diagram
 ```red
 qvi-diagram: [
     meta:         [description: "..." version: 1 author: "..." tags: [...]]
     icon:         [; Draw dialect 32x32]
     connector:    [; opcional — habilita uso como sub-VI]
-    front-panel:  [...]
-    block-diagram: [nodes: [...] wires: [...]]
+    front-panel:  [
+        control   [id: 1  type: 'numeric  name: "ctrl_1"  label: [text: "A"]  default: 5.0]
+        indicator [id: 2  type: 'numeric  name: "ind_1"   label: [text: "Resultado"]]
+    ]
+    block-diagram: [
+        nodes: [
+            node [id: 1  type: 'control  x: 40  y: 80  name: "ctrl_1"  label: [text: "A" visible: true]]
+            node [id: 3  type: 'add      x: 200 y: 120 name: "add_1"   label: [text: "Add"]]
+        ]
+        wires: [
+            wire [from: 1  port: 'out  to: 3  port: 'a]
+        ]
+    ]
 ]
 ```
 
@@ -213,3 +237,4 @@ gh issue close 1 --repo anlaco/QTorres --comment "Implementado en src/ui/diagram
 - Formato de ficheros: `docs/tipos-de-fichero.md`
 - Riesgos conocidos: `docs/retos.md`
 - Bugs GTK Linux: `docs/GTK_ISSUES.md`
+- **Comportamiento de LabVIEW:** `docs/labview-comportamiento.md` — **leer antes de tomar decisiones de arquitectura sobre UI, labels y edición de elementos**

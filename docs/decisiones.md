@@ -510,3 +510,178 @@ Un agente de IA genera un proyecto completo (`.qproj` con todos sus `.qvi`, `.qp
 El objetivo final es que desde dentro de la propia aplicación QTorres se pueda pasar una especificación y generar un primer proyecto viable. Esto requiere una capa de integración IA dentro de la app que no es prioridad ahora pero debe considerarse en la arquitectura.
 
 **Justificación:** La combinación de homoiconicidad de Red (DT-001), formatos en texto plano (DT-002), fuente de verdad en `qvi-diagram` (DT-011), metadatos descriptivos (DT-018), y diseño para tres audiencias (DT-019) crea las condiciones para que la generación por IA sea una consecuencia natural del buen diseño del sistema, no un añadido.
+
+---
+
+## DT-022: Label como objeto propio (composición)
+
+**Fecha:** 2026-03-18
+**Estado:** Adoptada
+
+**Contexto:** En LabVIEW, la label es una sub-entidad con estado y comportamiento propio: tiene texto, visibilidad, posición relativa e independencia del elemento al que pertenece. Nodos, wires, controles e indicadores comparten el mismo concepto de label. El modelo anterior de QTorres representaba la label como un campo `string!` plano en el nodo (`label: "Suma"`), lo cual impedía expresar visibilidad, posición y reutilización.
+
+**Decisión:** La label es un `object!` propio construido con `make-label`, no un campo escalar del nodo. Se compone (has-a) dentro de nodos, wires y elementos del Front Panel.
+
+**Estructura:**
+```red
+make-label: func [spec [block!]] [
+    make object! [
+        text:    any [select spec 'text     ""]
+        visible: any [select spec 'visible  true]
+        offset:  any [select spec 'offset   0x-15]
+    ]
+]
+```
+
+**Acceso:** `n/label/text`, `n/label/visible`, `n/label/offset`
+
+**Reutilización:** El mismo `make-label` se usa en nodos, wires y fp-items. No hay duplicación de lógica.
+
+**Visibilidad por defecto según tipo:**
+
+| Tipo de elemento | `label/visible` por defecto |
+|-----------------|---------------------------|
+| control         | `true`                    |
+| indicator       | `true`                    |
+| add, sub, etc.  | `false`                   |
+| wire            | `false`                   |
+
+**Serialización en qvi-diagram:**
+```red
+; Formato nuevo (bloque)
+node [id: 1  type: 'control  x: 40  y: 80  name: "ctrl_1"  label: [text: "A" visible: true]]
+
+; Campos por defecto se omiten
+node [id: 3  type: 'add  x: 200  y: 120  name: "add_1"  label: [text: "Add"]]
+```
+
+**Retrocompatibilidad:** `make-node` acepta `label: "A"` (string, formato antiguo) o `label: [text: "A"]` (bloque, formato nuevo). Los `.qvi` existentes siguen cargando sin cambios.
+
+**Razones:**
+- La label no es una propiedad escalar — tiene estado (visibilidad) y posición
+- Un solo `make-label` sirve para nodos, wires y fp-items — sin duplicación
+- En LabVIEW la label es una entidad de primera clase con hit-test y comportamiento propio
+- El coste es mínimo (un nivel de indirección) y la ganancia en extensibilidad es alta
+- Alternativa descartada: campos planos (`label`, `label-visible`, `label-offset`) — proliferan y se duplican en cada tipo de elemento
+
+---
+
+## DT-023: Composición sobre herencia — prototipos Red idiomáticos
+
+**Fecha:** 2026-03-18
+**Estado:** Adoptada
+
+**Contexto:** Red implementa objetos por prototipos (como JavaScript), no por clases (como Java). No existe `class`, `extends`, `super`, `interface` ni dispatch virtual. Se investigó si una jerarquía de herencia estilo Java era viable en Red para modelar los distintos tipos de elementos del diagrama (nodos, wires, controles).
+
+**Decisión:** El modelo de datos de QTorres usa **composición + prototipos + constructores**, el patrón idiomático de Red. No se usan jerarquías de herencia profundas.
+
+**Patrón adoptado:**
+
+1. **Prototipo base** (`base-element`): objeto con los campos comunes a todos los elementos del diagrama.
+2. **Constructores** (`make-node`, `make-wire`, etc.): funciones que extienden `base-element` con `make` y añaden campos específicos.
+3. **Componentes** (`make-label`): objetos reutilizables que se componen dentro de los elementos.
+
+```red
+; Prototipo base
+base-element: object [
+    id:    0
+    name:  ""
+    label: none
+    x:     0
+    y:     0
+]
+
+; Constructor — extiende base-element
+make-node: func [spec [block!] /local n] [
+    n: make base-element [
+        type:   select spec 'type
+        ports:  copy []
+        config: copy []
+    ]
+    ; ... asignar campos desde spec ...
+    n
+]
+```
+
+**Lo que Red soporta (equivalente funcional a Java):**
+
+| Concepto Java | Equivalente Red | Funciona |
+|--------------|----------------|----------|
+| `class B extends A` | `b: make a [campos-extra]` | Sí |
+| Campos heredados | Se copian al nuevo objeto | Sí |
+| Override de campos | `make a [campo: nuevo-valor]` | Sí |
+| `super.method()` | No existe | No |
+| Clases abstractas | No existen | No |
+| Polimorfismo de tipo | Duck typing | Parcial |
+
+**Lo que NO se usa y por qué:**
+- **Herencia profunda** (A → B → C): Red no tiene `super`, y `make` hace copia superficial de objetos internos (los sub-objetos como `label` se compartirían entre instancias si no se clonan explícitamente). Esto produce bugs sutiles.
+- **Dispatch virtual**: no existe en Red. Si cambias un método en el prototipo después de clonar, los clones no se enteran.
+
+**Razones:**
+- Red favorece funciones constructoras + prototipos simples sobre jerarquías
+- La copia superficial de `make` es una fuente de bugs si se anidan objetos sin `copy` explícito — los constructores lo manejan correctamente
+- La composición (`make-label` dentro de `make-node`) es más segura y más mantenible que la herencia
+- Duck typing (`find obj 'type`) es suficiente para distinguir tipos de elemento
+
+---
+
+## DT-024: Name estático + Label libre — identificador y display son independientes
+
+**Fecha:** 2026-03-18
+**Estado:** Adoptada
+
+**Contexto:** En el modelo anterior, `label` cumplía doble rol: nombre visual en el canvas Y nombre de variable en el código generado por el compilador. Esto funciona con labels simples ("A", "B") pero rompe si el usuario escribe "Temperatura entrada (C)" — no es un identificador válido en Red. Se investigó cómo lo resuelve LabVIEW: la label es display puro, el identificador interno es independiente.
+
+**Decisión:** Cada elemento del diagrama tiene dos campos independientes:
+
+| Campo | Propósito | Generación | Mutable | Único | Quién lo usa |
+|-------|-----------|-----------|---------|-------|-------------|
+| `name` | Identificador para el compilador | `tipo_contador` al crear | No (inmutable) | Sí (por construcción) | Compilador, code-gen |
+| `label/text` | Texto visible en pantalla | Nombre genérico del tipo | Sí (usuario edita) | No (duplicados OK) | UI, canvas, Front Panel |
+
+**Generación de `name`:**
+```red
+name-counters: make map! []
+
+gen-name: func [type [word!] /local n] [
+    n: any [select name-counters type  0]
+    n: n + 1
+    put name-counters type n
+    rejoin [form type "_" n]
+]
+```
+
+Resultados: `add_1`, `add_2`, `sub_1`, `ctrl_1`, `ind_1`, etc.
+
+**Label por defecto según tipo:**
+
+| Tipo | Label por defecto | Ejemplo de name |
+|------|------------------|----------------|
+| control | "Numeric" | ctrl_1 |
+| indicator | "Numeric" | ind_1 |
+| add | "Add" | add_1 |
+| sub | "Sub" | sub_1 |
+| subvi | nombre del fichero | subvi_1 |
+
+**Comportamiento:**
+- El usuario renombra la label libremente (incluyendo espacios, caracteres especiales)
+- El `name` nunca cambia — se genera una vez al crear el nodo
+- Dos nodos pueden tener la misma label ("Add" y "Add") pero nunca el mismo name
+- El compilador usa exclusivamente `name` para generar variables
+- El código generado usa `label/text` para los textos visibles del Front Panel (`label "Temperatura (C)"`)
+
+**Serialización en qvi-diagram:**
+```red
+node [id: 1  type: 'control  x: 40  y: 80  name: "ctrl_1"  label: [text: "Temperatura (C)"]]
+```
+
+**Al cargar un `.qvi`:** los `name-counters` se reconstruyen a partir de los `name` existentes en el fichero para evitar colisiones al crear nuevos nodos.
+
+**Razones:**
+- LabVIEW separa display de identidad interna — lo mismo hacemos
+- Desacopla la UI del compilador — renombrar una label no rompe nada
+- `name` es siempre un word válido de Red — no necesita sanitización
+- Unicidad garantizada por construcción (contador por tipo) — sin lógica de detección de colisiones
+- Para agentes IA (DT-019): generar `name` es determinista, generar `label` es creativo
+- Alternativa descartada: derivar `name` sanitizando `label/text` — crea acoplamiento y complejidad innecesaria

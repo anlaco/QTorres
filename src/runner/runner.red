@@ -25,7 +25,7 @@ run: func [
 ][
     qtorres-runtime: true
     code: compile-body diagram
-    do code
+    attempt [do code]
     qtorres-runtime: false
     true
 ]

@@ -106,7 +106,7 @@ bind-emit: func [
             set-word? item [
                 k: to-word item
                 v: select bindings k
-                append result either v [to-set-word v] [item]
+                append result either all [v  any [word? v  lit-word? v]] [to-set-word v] [item]
             ]
             block? item [
                 append/only result bind-emit item bindings
@@ -215,21 +215,17 @@ compile-diagram: func [
         if none? bdef [continue]
         case [
             bdef/category = 'input [
-                face-n: to-word rejoin ["f_" node/id]
-                append run-body to-set-word port-var node 'result
-                append run-body 'to-float
-                append run-body load rejoin [face-n "/text"]
+                face-sym: to-word rejoin ["f_" node/id]
+                append run-body compose [(to-set-word port-var node 'result) to-float (to-path reduce [face-sym 'text])]
             ]
             bdef/category = 'output [
-                face-n: to-word rejoin ["t_" node/id]
+                face-sym: to-word rejoin ["t_" node/id]
                 foreach w diagram/wires [
                     if w/to-node = node/id [
                         foreach src diagram/nodes [
                             if src/id = w/from-node [
                                 src-var: port-var src to-word w/from-port
-                                append run-body load rejoin [face-n "/text:"]
-                                append run-body 'form
-                                append run-body src-var
+                                append run-body compose [(to set-path! reduce [face-sym 'text]) form (src-var)]
                             ]
                         ]
                     ]
@@ -277,8 +273,8 @@ compile-diagram: func [
         ]
     ]
 
-    make map! [
-        headless:  headless
-        ui-layout: ui-layout
-    ]
+    result-map: make map! []
+    result-map/headless:  headless
+    result-map/ui-layout: ui-layout
+    result-map
 ]

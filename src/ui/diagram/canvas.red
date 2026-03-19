@@ -30,6 +30,11 @@ ncolor: func [node-type] [
         indicator [col-block-ind]
         add       [col-block-op]
         sub       [col-block-op]
+        mul       [col-block-op]
+        div       [col-block-op]
+        display   [col-block-op]
+        subvi     [col-block-op]
+        default   [col-block-op]
     ]
 ]
 
@@ -39,6 +44,11 @@ in-ports: func [node] [
         indicator [[in]]
         add       [[a b]]
         sub       [[a b]]
+        mul       [[a b]]
+        div       [[a b]]
+        display   [[value]]
+        subvi     [[in1 in2]]
+        default   [[]]
     ]
 ]
 
@@ -48,17 +58,24 @@ out-ports: func [node] [
         indicator [[]]
         add       [[result]]
         sub       [[result]]
+        mul       [[result]]
+        div       [[result]]
+        display   [[]]
+        subvi     [[out]]
+        default   [[]]
     ]
 ]
 
-port-xy: func [node port-name direction /local ports port-index] [
+port-xy: func [node port-name direction /local ports port-index found] [
     either direction = 'in [
         ports: in-ports node
-        port-index: index? find ports port-name
+        found: find ports port-name
+        port-index: either found [index? found] [1]
         as-pair (node/x - port-radius) (node/y + 12 + ((port-index - 1) * 20))
     ][
         ports: out-ports node
-        port-index: index? find ports port-name
+        found: find ports port-name
+        port-index: either found [index? found] [1]
         as-pair (node/x + block-width + port-radius) (node/y + 12 + ((port-index - 1) * 20))
     ]
 ]
@@ -92,7 +109,7 @@ gen-node-id: func [model /local next-id] [
 ;          bloques de primitivas Draw
 ; ══════════════════════════════════════════════════════════
 render-grid: func [canvas-width canvas-height /local cmds x y] [
-    cmds: copy [pen col-grid  fill-pen col-grid  line-width 1]
+    cmds: compose [pen (col-grid)  fill-pen (col-grid)  line-width 1]
     x: grid-size
     while [x < canvas-width] [
         y: grid-size
@@ -115,12 +132,12 @@ render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-col
     foreach wire model/wires [
         src-node: none  dst-node: none
         foreach node model/nodes [
-            if node/id = wire/from-id [src-node: node]
-            if node/id = wire/to-id   [dst-node: node]
+            if node/id = wire/from-node [src-node: node]
+            if node/id = wire/to-node   [dst-node: node]
         ]
         if all [src-node dst-node] [
-            out-xy: port-xy src-node wire/from-p 'out
-            in-xy:  port-xy dst-node wire/to-p   'in
+            out-xy: port-xy src-node wire/from-port 'out
+            in-xy:  port-xy dst-node wire/to-port   'in
             mid-x:  to-integer (out-xy/x + in-xy/x) / 2
             wire-color: either same? wire model/selected-wire [col-wire-sel] [col-wire]
             append cmds compose [
@@ -263,12 +280,12 @@ hit-wire: func [model mouse-x mouse-y /local tolerance src-node dst-node out-xy 
     foreach wire model/wires [
         src-node: none  dst-node: none
         foreach node model/nodes [
-            if node/id = wire/from-id [src-node: node]
-            if node/id = wire/to-id   [dst-node: node]
+            if node/id = wire/from-node [src-node: node]
+            if node/id = wire/to-node   [dst-node: node]
         ]
         if all [src-node dst-node] [
-            out-xy: port-xy src-node wire/from-p 'out
-            in-xy:  port-xy dst-node wire/to-p   'in
+            out-xy: port-xy src-node wire/from-port 'out
+            in-xy:  port-xy dst-node wire/to-port   'in
             mid-x:  to-integer (out-xy/x + in-xy/x) / 2
             if all [
                 (absolute (mouse-y - out-xy/y)) < tolerance
@@ -293,6 +310,21 @@ hit-wire: func [model mouse-x mouse-y /local tolerance src-node dst-node out-xy 
 ;   puedan acceder sin depender de variables globales.
 ; ══════════════════════════════════════════════════════════
 
+apply-rename-label: func [node new-text] [
+    either empty? new-text [
+        if all [node/label  object? node/label] [
+            node/label/visible: false
+        ]
+    ][
+        either all [node/label  object? node/label] [
+            node/label/text: new-text
+            node/label/visible: true
+        ][
+            node/label: new-text
+        ]
+    ]
+]
+
 ; Estado del diálogo de renombrado (view/no-wait requiere vars de módulo
 ; porque la función retorna antes de que el usuario cierre el diálogo).
 rename-dialog-node:   none
@@ -311,7 +343,7 @@ canvas-delete-selected: func [canvas /local model node-id] [
         ]
         model/selected-node [
             node-id: model/selected-node/id
-            remove-each wire model/wires [any [wire/from-id = node-id  wire/to-id = node-id]]
+            remove-each wire model/wires [any [wire/from-node = node-id  wire/to-node = node-id]]
             remove-each node model/nodes  [node/id = node-id]
             model/selected-node: none
             model/drag-node:     none
@@ -352,10 +384,10 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     ][
                         if all [hit-dir = 'in  model/wire-src/id <> hit-nd/id] [
                             append model/wires make object! [
-                                from-id: model/wire-src/id
-                                from-p:  model/wire-port
-                                to-id:   hit-nd/id
-                                to-p:    hit-port-name
+                                from-node:  model/wire-src/id
+                                from-port:  model/wire-port
+                                to-node:    hit-nd/id
+                                to-port:    hit-port-name
                             ]
                         ]
                         model/wire-src: none  model/wire-port: none  model/mouse-pos: none
@@ -442,35 +474,13 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                         text "Label:" return
                         rename-dialog-field: field 200 (label-text)
                         on-enter [
-                            either empty? rename-dialog-field/text [
-                                if all [rename-dialog-node/label  object? rename-dialog-node/label] [
-                                    rename-dialog-node/label/visible: false
-                                ]
-                            ][
-                                either all [rename-dialog-node/label  object? rename-dialog-node/label] [
-                                    rename-dialog-node/label/text: rename-dialog-field/text
-                                    rename-dialog-node/label/visible: true
-                                ][
-                                    rename-dialog-node/label: rename-dialog-field/text
-                                ]
-                            ]
+                            apply-rename-label rename-dialog-node rename-dialog-field/text
                             rename-dialog-canvas/draw: render-bd rename-dialog-canvas/extra
                             unview
                         ]
                         return
                         button "OK" [
-                            either empty? rename-dialog-field/text [
-                                if all [rename-dialog-node/label  object? rename-dialog-node/label] [
-                                    rename-dialog-node/label/visible: false
-                                ]
-                            ][
-                                either all [rename-dialog-node/label  object? rename-dialog-node/label] [
-                                    rename-dialog-node/label/text: rename-dialog-field/text
-                                    rename-dialog-node/label/visible: true
-                                ][
-                                    rename-dialog-node/label: rename-dialog-field/text
-                                ]
-                            ]
+                            apply-rename-label rename-dialog-node rename-dialog-field/text
                             rename-dialog-canvas/draw: render-bd rename-dialog-canvas/extra
                             unview
                         ]
@@ -520,35 +530,37 @@ repeat i 20 [
 
 repeat i 15 [
     append demo-model/wires make object! [
-        from-id: demo-model/nodes/:i/id
-        from-p:  'result
-        to-id:   demo-model/nodes/(i + 1)/id
-        to-p:    'a
+        from-node:  demo-model/nodes/:i/id
+        from-port:  'result
+        to-node:    demo-model/nodes/(i + 1)/id
+        to-port:    'a
     ]
 ]
 
-canvas: render-diagram demo-model 880 490
-canvas/offset: 10x38
+if system/options/script = system/script/path [
+    canvas: render-diagram demo-model 880 490
+    canvas/offset: 10x38
 
-view make face! [
-    type:   'window
-    text:   "QTorres — Canvas modular (Issue #11)"
-    size:   900x540
-    offset: 80x60
-    pane:   reduce [
-        make face! [
-            type: 'base  offset: 10x8  size: 880x25  color: 200.203.212
-            draw: [pen 60.70.90  text 5x15 "Arrastra | clic wire/nodo = seleccionar | doble clic = renombrar | Delete = borrar"]
+    view make face! [
+        type:   'window
+        text:   "QTorres — Canvas modular (Issue #11)"
+        size:   900x540
+        offset: 80x60
+        pane:   reduce [
+            make face! [
+                type: 'base  offset: 10x8  size: 880x25  color: 200.203.212
+                draw: [pen 60.70.90  text 5x15 "Arrastra | clic wire/nodo = seleccionar | doble clic = renombrar | Delete = borrar"]
+            ]
+            canvas
         ]
-        canvas
-    ]
-    actors: make object! [
-        on-key: func [face event] [
-            if any [
-                find [delete backspace] event/key
-                find [#"^(7F)" #"^H"] event/key
-            ][
-                canvas-delete-selected canvas
+        actors: make object! [
+            on-key: func [face event] [
+                if any [
+                    find [delete backspace] event/key
+                    find [#"^(7F)" #"^H"] event/key
+                ][
+                    canvas-delete-selected canvas
+                ]
             ]
         ]
     ]

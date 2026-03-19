@@ -3,6 +3,7 @@ Red [
     Author:  "QTorres contributors"
     Version: 0.0.1
     Purpose: "Entorno de programación visual tipo LabVIEW sobre Red-Lang"
+    Needs:   'View
 ]
 
 ; QTorres — punto de entrada principal

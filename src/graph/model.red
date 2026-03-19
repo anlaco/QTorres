@@ -52,7 +52,7 @@ make-label: func [
 ][
     make object! [
         text:    any [select spec 'text     ""]
-        visible: any [select spec 'visible  true]
+        visible: either none? select spec 'visible [true] [select spec 'visible]
         offset:  any [select spec 'offset   0x-15]
     ]
 ]
@@ -77,8 +77,7 @@ gen-name: func [
     rejoin [form type "_" n]
 ]
 
-reset-name-counters: does [
-    "Reinicia todos los contadores de nombres"
+reset-name-counters: func ["Reinicia todos los contadores de nombres"] [
     clear name-counters
 ]
 
@@ -93,10 +92,11 @@ sync-name-counters: func [
             ; Extraer tipo y número de "tipo_N"
             parts: split nm "_"
             if (length? parts) >= 2 [
-                type-str: copy ""
-                repeat i ((length? parts) - 1) [
-                    if i > 1 [append type-str "_"]
-                    append type-str parts/:i
+                type-str: rejoin collect [
+                    repeat i ((length? parts) - 1) [
+                        if i > 1 [keep "_"]
+                        keep parts/:i
+                    ]
                 ]
                 num-str: last parts
                 num: attempt [to-integer num-str]
@@ -141,7 +141,7 @@ default-label-visible?: func [
 ; Campos comunes a todos los elementos del diagrama.
 ; Los constructores lo extienden con `make`.
 
-base-element: object [
+base-element: context [
     id:    0
     name:  ""
     label: none
@@ -174,8 +174,7 @@ make-node: func [
     lbl-spec: select spec 'label
     n/label: case [
         block? lbl-spec [
-            ; Formato nuevo: label: [text: "Add" visible: true]
-            ; Completar visible con default si no está
+            lbl-spec: copy lbl-spec
             if none? select lbl-spec 'visible [
                 append lbl-spec compose [visible: (default-label-visible? n/type)]
             ]
@@ -204,9 +203,9 @@ make-port: func [
     spec [block!]
 ][
     make object! [
-        id:        select spec 'id
-        name:      select spec 'name
-        direction: select spec 'direction
+        id:        any [select spec 'id  0]
+        name:      any [select spec 'name  ""]
+        direction: any [select spec 'direction  'in]
         data-type: any [select spec 'type  'number]
         value:     select spec 'value
     ]

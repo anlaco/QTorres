@@ -69,11 +69,9 @@ save-vi: func [
     compiled: compile-diagram diagram
     qd: serialize-diagram diagram
 
-    content: rejoin [
-        {Red [Title: } mold diagram/name { Needs: 'View]} "^/"
-        "^/"
-        "qvi-diagram: " mold qd "^/"
-        "^/"
+    content: copy rejoin [
+        "Red [Title: " mold diagram/name " Needs: 'View]^/^/"
+        "qvi-diagram: " mold qd "^/^/"
         "; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---^/"
         "either empty? system/options/args [^/"
         "    view layout " mold compiled/ui-layout "^/"
@@ -153,7 +151,7 @@ load-vi: func [
     ]
 
     ; Sincronizar contadores de names para evitar colisiones al crear nuevos nodos
-    if not empty? names [sync-name-counters names]
+    unless empty? names [sync-name-counters names]
 
     d
 ]

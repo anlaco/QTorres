@@ -26,12 +26,13 @@ block-registry: copy []
 ;   name, category, inputs, outputs, configs, emit
 
 block: func [
-    name     [word!]       ; nombre del tipo de bloque
-    category [word!]       ; categoría (math, input, output...)
-    body     [block!]      ; cuerpo con puertos y emit
+    name     [word! lit-word!]
+    category [word! lit-word!]
+    body     [block!]
     /local entry n cat port-name port-type cfg-type cfg-default emit-body
 ][
-    n: name  cat: category
+    n: to-word name
+    cat: to-word category
     entry: context [
         name:     n
         category: cat

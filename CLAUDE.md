@@ -228,6 +228,12 @@ gh issue close 1 --repo anlaco/QTorres --comment "Implementado en src/ui/diagram
 - Los dialectos usan `parse` de Red, nunca interpolación de strings (DT-008)
 - El compilador manipula bloques Red, nunca genera strings intermedios
 
+## Skill de Red-Lang
+
+El proyecto incluye un skill completo de Red-Lang en `skills/red-lang/SKILL.md`.
+Cubre sintaxis core, View, Draw, VID, Parse, patrones idiomáticos y gotchas.
+**Consultar antes de escribir cualquier código Red**, especialmente Draw y View.
+
 ## Documentación de referencia
 
 - Arquitectura completa: `docs/arquitectura.md`

@@ -7,7 +7,7 @@ Red [
 ; ══════════════════════════════════════════════════════════
 ; CONFIG — constantes visuales, sin estado mutable
 ; ══════════════════════════════════════════════════════════
-bw: 120   bh: 50   pr: 8   grid-size: 20
+block-width: 120   block-height: 50   port-radius: 8   grid-size: 20
 
 col-canvas:     225.228.235
 col-grid:       200.203.212
@@ -24,8 +24,8 @@ col-text:       240.245.250
 ; ══════════════════════════════════════════════════════════
 ; GEOMETRÍA DE NODOS — funciones puras sin side-effects
 ; ══════════════════════════════════════════════════════════
-ncolor: func [t] [
-    switch t [
+ncolor: func [node-type] [
+    switch node-type [
         control   [col-block-ctrl]
         indicator [col-block-ind]
         add       [col-block-op]
@@ -33,8 +33,8 @@ ncolor: func [t] [
     ]
 ]
 
-in-ports: func [n] [
-    switch n/type [
+in-ports: func [node] [
+    switch node/type [
         control   [[]]
         indicator [[in]]
         add       [[a b]]
@@ -42,8 +42,8 @@ in-ports: func [n] [
     ]
 ]
 
-out-ports: func [n] [
-    switch n/type [
+out-ports: func [node] [
+    switch node/type [
         control   [[out]]
         indicator [[]]
         add       [[result]]
@@ -51,15 +51,15 @@ out-ports: func [n] [
     ]
 ]
 
-port-xy: func [n pname dir /local ps i] [
-    either dir = 'in [
-        ps: in-ports n
-        i: index? find ps pname
-        as-pair (n/x - pr) (n/y + 12 + ((i - 1) * 20))
+port-xy: func [node port-name direction /local ports port-index] [
+    either direction = 'in [
+        ports: in-ports node
+        port-index: index? find ports port-name
+        as-pair (node/x - port-radius) (node/y + 12 + ((port-index - 1) * 20))
     ][
-        ps: out-ports n
-        i: index? find ps pname
-        as-pair (n/x + bw + pr) (n/y + 12 + ((i - 1) * 20))
+        ports: out-ports node
+        port-index: index? find ports port-name
+        as-pair (node/x + block-width + port-radius) (node/y + 12 + ((port-index - 1) * 20))
     ]
 ]
 
@@ -81,207 +81,207 @@ make-diagram-model: func [] [
     ]
 ]
 
-gen-node-id: func [model /local n] [
-    n: model/next-id
+gen-node-id: func [model /local next-id] [
+    next-id: model/next-id
     model/next-id: model/next-id + 1
-    n
+    next-id
 ]
 
 ; ══════════════════════════════════════════════════════════
 ; RENDER — funciones puras que reciben modelo y devuelven
 ;          bloques de primitivas Draw
 ; ══════════════════════════════════════════════════════════
-render-grid: func [cw ch /local d x y] [
-    d: copy [pen col-grid  fill-pen col-grid  line-width 1]
+render-grid: func [canvas-width canvas-height /local cmds x y] [
+    cmds: copy [pen col-grid  fill-pen col-grid  line-width 1]
     x: grid-size
-    while [x < cw] [
+    while [x < canvas-width] [
         y: grid-size
-        while [y < ch] [
-            append d compose [circle (as-pair x y) 1]
+        while [y < canvas-height] [
+            append cmds compose [circle (as-pair x y) 1]
             y: y + grid-size
         ]
         x: x + grid-size
     ]
-    d
+    cmds
 ]
 
-render-bd: func [model /local d sn dn p1 p2 mx wire-color c tl ps iy oy n w sp] [
-    d: copy []
+render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-color block-color type-label ports in-port-y out-port-y node wire src-port-xy] [
+    cmds: copy []
 
     ; 0) Grid de fondo
-    append d render-grid 880 490
+    append cmds render-grid 880 490
 
     ; 1) Wires permanentes (ortogonales con punto medio estilo LabVIEW)
-    foreach w model/wires [
-        sn: none  dn: none
-        foreach n model/nodes [
-            if n/id = w/from-id [sn: n]
-            if n/id = w/to-id   [dn: n]
+    foreach wire model/wires [
+        src-node: none  dst-node: none
+        foreach node model/nodes [
+            if node/id = wire/from-id [src-node: node]
+            if node/id = wire/to-id   [dst-node: node]
         ]
-        if all [sn dn] [
-            p1: port-xy sn w/from-p 'out
-            p2: port-xy dn w/to-p   'in
-            mx: to-integer (p1/x + p2/x) / 2
-            wire-color: either same? w model/selected-wire [col-wire-sel] [col-wire]
-            append d compose [
+        if all [src-node dst-node] [
+            out-xy: port-xy src-node wire/from-p 'out
+            in-xy:  port-xy dst-node wire/to-p   'in
+            mid-x:  to-integer (out-xy/x + in-xy/x) / 2
+            wire-color: either same? wire model/selected-wire [col-wire-sel] [col-wire]
+            append cmds compose [
                 pen (wire-color)  line-width 2
-                line (p1) (as-pair mx p1/y) (as-pair mx p2/y) (p2)
+                line (out-xy) (as-pair mid-x out-xy/y) (as-pair mid-x in-xy/y) (in-xy)
             ]
         ]
     ]
 
     ; 2) Wire temporal (mientras el usuario elige destino)
     if all [model/wire-src model/mouse-pos] [
-        sp: port-xy model/wire-src model/wire-port 'out
-        append d compose [
+        src-port-xy: port-xy model/wire-src model/wire-port 'out
+        append cmds compose [
             pen col-wire  line-width 2
-            line (sp) (model/mouse-pos)
+            line (src-port-xy) (model/mouse-pos)
         ]
     ]
 
     ; 3) Nodos con puertos
-    foreach n model/nodes [
-        c: ncolor n/type
+    foreach node model/nodes [
+        block-color: ncolor node/type
         ; Cuerpo del bloque
-        append d compose [
-            pen (c - 20.20.20)  line-width 1  fill-pen (c)
-            box (as-pair n/x n/y) (as-pair (n/x + bw) (n/y + bh)) 5
+        append cmds compose [
+            pen (block-color - 20.20.20)  line-width 1  fill-pen (block-color)
+            box (as-pair node/x node/y) (as-pair (node/x + block-width) (node/y + block-height)) 5
         ]
         ; Banda izquierda de categoría
-        append d compose [
-            pen off  fill-pen (c + 30.30.30)
-            box (as-pair n/x n/y) (as-pair (n/x + 4) (n/y + bh)) 0
+        append cmds compose [
+            pen off  fill-pen (block-color + 30.30.30)
+            box (as-pair node/x node/y) (as-pair (node/x + 4) (node/y + block-height)) 0
         ]
         ; Texto: tipo + label (DT-022)
-        tl: switch n/type [
+        type-label: switch node/type [
             control   ["CTRL"]
             indicator ["IND"]
             add       ["ADD +"]
             sub       ["SUB -"]
         ]
-        either all [n/label  object? n/label  n/label/visible] [
-            append d compose [
+        either all [node/label  object? node/label  node/label/visible] [
+            append cmds compose [
                 fill-pen col-text
-                text (as-pair (n/x + 10) (n/y + 10)) (n/label/text)
-                text (as-pair (n/x + 10) (n/y + 26)) (tl)
+                text (as-pair (node/x + 10) (node/y + 10)) (node/label/text)
+                text (as-pair (node/x + 10) (node/y + 26)) (type-label)
             ]
         ][
-            either all [n/label  string? n/label] [
-                append d compose [
+            either all [node/label  string? node/label] [
+                append cmds compose [
                     fill-pen col-text
-                    text (as-pair (n/x + 10) (n/y + 10)) (n/label)
-                    text (as-pair (n/x + 10) (n/y + 26)) (tl)
+                    text (as-pair (node/x + 10) (node/y + 10)) (node/label)
+                    text (as-pair (node/x + 10) (node/y + 26)) (type-label)
                 ]
             ][
-                append d compose [
+                append cmds compose [
                     fill-pen col-text
-                    text (as-pair (n/x + 10) (n/y + 14)) (tl)
+                    text (as-pair (node/x + 10) (node/y + 14)) (type-label)
                 ]
             ]
         ]
 
         ; Puertos de entrada (izquierda)
-        ps: in-ports n
-        iy: n/y + 12
-        foreach p ps [
-            append d compose [
+        ports: in-ports node
+        in-port-y: node/y + 12
+        foreach port ports [
+            append cmds compose [
                 pen col-port-in  fill-pen col-port-in
-                circle (as-pair (n/x - pr) iy) (pr)
+                circle (as-pair (node/x - port-radius) in-port-y) (port-radius)
                 fill-pen col-text
-                text (as-pair (n/x - pr - 22) (iy - 7)) (form p)
+                text (as-pair (node/x - port-radius - 22) (in-port-y - 7)) (form port)
             ]
-            iy: iy + 20
+            in-port-y: in-port-y + 20
         ]
 
         ; Puertos de salida (derecha)
-        ps: out-ports n
-        oy: n/y + 12
-        foreach p ps [
-            append d compose [
+        ports: out-ports node
+        out-port-y: node/y + 12
+        foreach port ports [
+            append cmds compose [
                 pen col-port-out  fill-pen col-port-out
-                circle (as-pair (n/x + bw + pr) oy) (pr)
+                circle (as-pair (node/x + block-width + port-radius) out-port-y) (port-radius)
                 fill-pen col-text
-                text (as-pair (n/x + bw + pr + 12) (oy - 7)) (form p)
+                text (as-pair (node/x + block-width + port-radius + 12) (out-port-y - 7)) (form port)
             ]
-            oy: oy + 20
+            out-port-y: out-port-y + 20
         ]
 
         ; Borde de selección (cian)
-        if same? n model/selected-node [
-            append d compose [
+        if same? node model/selected-node [
+            append cmds compose [
                 pen col-sel  line-width 2  fill-pen off
-                box (as-pair (n/x - 3) (n/y - 3)) (as-pair (n/x + bw + 3) (n/y + bh + 3)) 6
+                box (as-pair (node/x - 3) (node/y - 3)) (as-pair (node/x + block-width + 3) (node/y + block-height + 3)) 6
                 line-width 1
             ]
         ]
     ]
-    d
+    cmds
 ]
 
 ; ══════════════════════════════════════════════════════════
 ; HIT-TEST — funciones puras, reciben modelo y coordenadas
 ; ══════════════════════════════════════════════════════════
-hit-port: func [model px py /local ps oy cx cy iy n p] [
-    foreach n model/nodes [
-        ps: out-ports n
-        oy: n/y + 12
-        foreach p ps [
-            cx: n/x + bw + pr
-            cy: oy
-            if all [(absolute (px - cx)) < 16  (absolute (py - cy)) < 16] [
-                return reduce [n p 'out]
+hit-port: func [model mouse-x mouse-y /local ports out-y center-x center-y in-y node port] [
+    foreach node model/nodes [
+        ports: out-ports node
+        out-y: node/y + 12
+        foreach port ports [
+            center-x: node/x + block-width + port-radius
+            center-y: out-y
+            if all [(absolute (mouse-x - center-x)) < 16  (absolute (mouse-y - center-y)) < 16] [
+                return reduce [node port 'out]
             ]
-            oy: oy + 20
+            out-y: out-y + 20
         ]
-        ps: in-ports n
-        iy: n/y + 12
-        foreach p ps [
-            cx: n/x - pr
-            cy: iy
-            if all [(absolute (px - cx)) < 16  (absolute (py - cy)) < 16] [
-                return reduce [n p 'in]
+        ports: in-ports node
+        in-y: node/y + 12
+        foreach port ports [
+            center-x: node/x - port-radius
+            center-y: in-y
+            if all [(absolute (mouse-x - center-x)) < 16  (absolute (mouse-y - center-y)) < 16] [
+                return reduce [node port 'in]
             ]
-            iy: iy + 20
+            in-y: in-y + 20
         ]
     ]
     none
 ]
 
-hit-node: func [model px py /local found n] [
-    found: none
-    foreach n model/nodes [
+hit-node: func [model mouse-x mouse-y /local found-node node] [
+    found-node: none
+    foreach node model/nodes [
         if all [
-            px >= n/x  px <= (n/x + bw)
-            py >= n/y  py <= (n/y + bh)
-        ] [found: n]
+            mouse-x >= node/x  mouse-x <= (node/x + block-width)
+            mouse-y >= node/y  mouse-y <= (node/y + block-height)
+        ] [found-node: node]
     ]
-    found
+    found-node
 ]
 
-hit-wire: func [model px py /local tol sn dn p1 p2 mx w n] [
-    tol: 8
-    foreach w model/wires [
-        sn: none  dn: none
-        foreach n model/nodes [
-            if n/id = w/from-id [sn: n]
-            if n/id = w/to-id   [dn: n]
+hit-wire: func [model mouse-x mouse-y /local tolerance src-node dst-node out-xy in-xy mid-x wire node] [
+    tolerance: 8
+    foreach wire model/wires [
+        src-node: none  dst-node: none
+        foreach node model/nodes [
+            if node/id = wire/from-id [src-node: node]
+            if node/id = wire/to-id   [dst-node: node]
         ]
-        if all [sn dn] [
-            p1: port-xy sn w/from-p 'out
-            p2: port-xy dn w/to-p   'in
-            mx: to-integer (p1/x + p2/x) / 2
+        if all [src-node dst-node] [
+            out-xy: port-xy src-node wire/from-p 'out
+            in-xy:  port-xy dst-node wire/to-p   'in
+            mid-x:  to-integer (out-xy/x + in-xy/x) / 2
             if all [
-                (absolute (py - p1/y)) < tol
-                px >= (min p1/x mx)  px <= (max p1/x mx)
-            ] [return w]
+                (absolute (mouse-y - out-xy/y)) < tolerance
+                mouse-x >= (min out-xy/x mid-x)  mouse-x <= (max out-xy/x mid-x)
+            ] [return wire]
             if all [
-                (absolute (px - mx)) < tol
-                py >= (min p1/y p2/y)  py <= (max p1/y p2/y)
-            ] [return w]
+                (absolute (mouse-x - mid-x)) < tolerance
+                mouse-y >= (min out-xy/y in-xy/y)  mouse-y <= (max out-xy/y in-xy/y)
+            ] [return wire]
             if all [
-                (absolute (py - p2/y)) < tol
-                px >= (min mx p2/x)  px <= (max mx p2/x)
-            ] [return w]
+                (absolute (mouse-y - in-xy/y)) < tolerance
+                mouse-x >= (min mid-x in-xy/x)  mouse-x <= (max mid-x in-xy/x)
+            ] [return wire]
         ]
     ]
     none
@@ -295,13 +295,13 @@ hit-wire: func [model px py /local tol sn dn p1 p2 mx w n] [
 
 ; Estado del diálogo de renombrado (view/no-wait requiere vars de módulo
 ; porque la función retorna antes de que el usuario cierre el diálogo).
-rename-node: none
-rename-cvs:  none
-rename-fld:  none
+rename-dialog-node:   none
+rename-dialog-canvas: none
+rename-dialog-field:  none
 
 ; Borra el elemento seleccionado (nodo o wire).
 ; Llamar desde el on-key del window padre con: canvas-delete-selected canvas
-canvas-delete-selected: func [canvas /local model nid] [
+canvas-delete-selected: func [canvas /local model node-id] [
     model: canvas/extra
     case [
         model/selected-wire [
@@ -310,9 +310,9 @@ canvas-delete-selected: func [canvas /local model nid] [
             canvas/draw: render-bd model
         ]
         model/selected-node [
-            nid: model/selected-node/id
-            remove-each w model/wires [any [w/from-id = nid  w/to-id = nid]]
-            remove-each n model/nodes  [n/id = nid]
+            node-id: model/selected-node/id
+            remove-each wire model/wires [any [wire/from-id = node-id  wire/to-id = node-id]]
+            remove-each node model/nodes  [node/id = node-id]
             model/selected-node: none
             model/drag-node:     none
             canvas/draw: render-bd model
@@ -320,100 +320,102 @@ canvas-delete-selected: func [canvas /local model nid] [
     ]
 ]
 
-; render-diagram model w h → face
+; render-diagram model canvas-width canvas-height → face
 ; Crea una face base con bloques arrastrables, creación de wires,
 ; hit-testing y renombrado por doble clic.
-render-diagram: func [model w h /local f] [
-    f: make face! [
+render-diagram: func [model canvas-width canvas-height /local canvas-face] [
+    canvas-face: make face! [
         type:  'base
-        size:  as-pair w h
+        size:  as-pair canvas-width canvas-height
         flags: [all-over]
         extra: model                    ; modelo accesible desde actores via face/extra
         actors: make object! [
 
-            on-down: func [face event /local px py m h hn hp hd n] [
-                m: face/extra
-                px: event/offset/x
-                py: event/offset/y
+            on-down: func [face event /local mouse-x mouse-y model hit-result hit-nd hit-port-name hit-dir hit-ref] [
+                model: face/extra
+                mouse-x: event/offset/x
+                mouse-y: event/offset/y
 
                 ; 1) Puerto?
-                h: hit-port m px py
-                if h [
-                    hn: h/1  hp: h/2  hd: h/3
-                    either m/wire-src = none [
-                        if hd = 'out [
-                            m/wire-src:  hn
-                            m/wire-port: hp
-                            m/mouse-pos: event/offset
-                            face/draw: render-bd m
+                hit-result: hit-port model mouse-x mouse-y
+                if hit-result [
+                    hit-nd:        hit-result/1
+                    hit-port-name: hit-result/2
+                    hit-dir:       hit-result/3
+                    either model/wire-src = none [
+                        if hit-dir = 'out [
+                            model/wire-src:  hit-nd
+                            model/wire-port: hit-port-name
+                            model/mouse-pos: event/offset
+                            face/draw: render-bd model
                         ]
                     ][
-                        if all [hd = 'in  m/wire-src/id <> hn/id] [
-                            append m/wires make object! [
-                                from-id: m/wire-src/id
-                                from-p:  m/wire-port
-                                to-id:   hn/id
-                                to-p:    hp
+                        if all [hit-dir = 'in  model/wire-src/id <> hit-nd/id] [
+                            append model/wires make object! [
+                                from-id: model/wire-src/id
+                                from-p:  model/wire-port
+                                to-id:   hit-nd/id
+                                to-p:    hit-port-name
                             ]
                         ]
-                        m/wire-src: none  m/wire-port: none  m/mouse-pos: none
-                        face/draw: render-bd m
+                        model/wire-src: none  model/wire-port: none  model/mouse-pos: none
+                        face/draw: render-bd model
                     ]
                     return none
                 ]
 
                 ; 2) Nodo? (seleccionar + drag)
-                n: hit-node m px py
-                if n [
-                    m/wire-src: none  m/wire-port: none  m/mouse-pos: none
-                    m/selected-wire: none
-                    m/selected-node: n
-                    m/drag-node: n
-                    m/drag-off: as-pair (px - n/x) (py - n/y)
-                    face/draw: render-bd m
+                hit-ref: hit-node model mouse-x mouse-y
+                if hit-ref [
+                    model/wire-src: none  model/wire-port: none  model/mouse-pos: none
+                    model/selected-wire: none
+                    model/selected-node: hit-ref
+                    model/drag-node: hit-ref
+                    model/drag-off: as-pair (mouse-x - hit-ref/x) (mouse-y - hit-ref/y)
+                    face/draw: render-bd model
                     return none
                 ]
 
                 ; 3) Wire?
-                n: hit-wire m px py
-                if n [
-                    m/selected-wire: n
-                    m/selected-node: none
-                    m/wire-src: none  m/wire-port: none  m/mouse-pos: none
-                    face/draw: render-bd m
+                hit-ref: hit-wire model mouse-x mouse-y
+                if hit-ref [
+                    model/selected-wire: hit-ref
+                    model/selected-node: none
+                    model/wire-src: none  model/wire-port: none  model/mouse-pos: none
+                    face/draw: render-bd model
                     return none
                 ]
 
                 ; 4) Clic en vacío: cancelar todo
-                m/wire-src: none  m/wire-port: none  m/mouse-pos: none
-                m/drag-node: none  m/selected-wire: none  m/selected-node: none
-                face/draw: render-bd m
+                model/wire-src: none  model/wire-port: none  model/mouse-pos: none
+                model/drag-node: none  model/selected-wire: none  model/selected-node: none
+                face/draw: render-bd model
             ]
 
-            on-over: func [face event /local px py m] [
-                m: face/extra
-                px: event/offset/x
-                py: event/offset/y
-                if all [m/drag-node m/drag-off event/down?] [
-                    m/drag-node/x: px - m/drag-off/x
-                    m/drag-node/y: py - m/drag-off/y
-                    face/draw: render-bd m
+            on-over: func [face event /local mouse-x mouse-y model] [
+                model: face/extra
+                mouse-x: event/offset/x
+                mouse-y: event/offset/y
+                if all [model/drag-node model/drag-off event/down?] [
+                    model/drag-node/x: mouse-x - model/drag-off/x
+                    model/drag-node/y: mouse-y - model/drag-off/y
+                    face/draw: render-bd model
                     return none
                 ]
-                if m/wire-src [
-                    m/mouse-pos: as-pair px py
-                    face/draw: render-bd m
+                if model/wire-src [
+                    model/mouse-pos: as-pair mouse-x mouse-y
+                    face/draw: render-bd model
                 ]
             ]
 
-            on-up: func [face event /local m] [
-                m: face/extra
-                m/drag-node: none
-                m/drag-off:  none
+            on-up: func [face event /local model] [
+                model: face/extra
+                model/drag-node: none
+                model/drag-off:  none
             ]
 
-            on-key: func [face event /local m] [
-                m: face/extra
+            on-key: func [face event /local model] [
+                model: face/extra
                 if any [
                     find [delete backspace] event/key
                     find [#"^(7F)" #"^H"] event/key
@@ -422,54 +424,54 @@ render-diagram: func [model w h /local f] [
                 ]
             ]
 
-            on-dbl-click: func [face event /local px py m n lbl-text] [
-                m: face/extra
-                px: event/offset/x
-                py: event/offset/y
-                n: hit-node m px py
-                if n [
+            on-dbl-click: func [face event /local mouse-x mouse-y model node label-text] [
+                model: face/extra
+                mouse-x: event/offset/x
+                mouse-y: event/offset/y
+                node: hit-node model mouse-x mouse-y
+                if node [
                     ; Guardar refs en vars de módulo (persisten tras view/no-wait)
-                    rename-node: n
-                    rename-cvs:  face
-                    rename-fld:  none
-                    lbl-text: either all [n/label  object? n/label] [n/label/text] [
-                        either string? n/label [n/label] [""]
+                    rename-dialog-node:   node
+                    rename-dialog-canvas: face
+                    rename-dialog-field:  none
+                    label-text: either all [node/label  object? node/label] [node/label/text] [
+                        either string? node/label [node/label] [""]
                     ]
                     view/no-wait compose [
                         title "Renombrar nodo"
                         text "Label:" return
-                        rename-fld: field 200 (lbl-text)
+                        rename-dialog-field: field 200 (label-text)
                         on-enter [
-                            either empty? rename-fld/text [
-                                if all [rename-node/label  object? rename-node/label] [
-                                    rename-node/label/visible: false
+                            either empty? rename-dialog-field/text [
+                                if all [rename-dialog-node/label  object? rename-dialog-node/label] [
+                                    rename-dialog-node/label/visible: false
                                 ]
                             ][
-                                either all [rename-node/label  object? rename-node/label] [
-                                    rename-node/label/text: rename-fld/text
-                                    rename-node/label/visible: true
+                                either all [rename-dialog-node/label  object? rename-dialog-node/label] [
+                                    rename-dialog-node/label/text: rename-dialog-field/text
+                                    rename-dialog-node/label/visible: true
                                 ][
-                                    rename-node/label: rename-fld/text
+                                    rename-dialog-node/label: rename-dialog-field/text
                                 ]
                             ]
-                            rename-cvs/draw: render-bd rename-cvs/extra
+                            rename-dialog-canvas/draw: render-bd rename-dialog-canvas/extra
                             unview
                         ]
                         return
                         button "OK" [
-                            either empty? rename-fld/text [
-                                if all [rename-node/label  object? rename-node/label] [
-                                    rename-node/label/visible: false
+                            either empty? rename-dialog-field/text [
+                                if all [rename-dialog-node/label  object? rename-dialog-node/label] [
+                                    rename-dialog-node/label/visible: false
                                 ]
                             ][
-                                either all [rename-node/label  object? rename-node/label] [
-                                    rename-node/label/text: rename-fld/text
-                                    rename-node/label/visible: true
+                                either all [rename-dialog-node/label  object? rename-dialog-node/label] [
+                                    rename-dialog-node/label/text: rename-dialog-field/text
+                                    rename-dialog-node/label/visible: true
                                 ][
-                                    rename-node/label: rename-fld/text
+                                    rename-dialog-node/label: rename-dialog-field/text
                                 ]
                             ]
-                            rename-cvs/draw: render-bd rename-cvs/extra
+                            rename-dialog-canvas/draw: render-bd rename-dialog-canvas/extra
                             unview
                         ]
                         button "Cancelar" [unview]
@@ -478,9 +480,9 @@ render-diagram: func [model w h /local f] [
             ]
         ]
     ]
-    f/color: col-canvas
-    f/draw: render-bd model
-    f
+    canvas-face/color: col-canvas
+    canvas-face/draw: render-bd model
+    canvas-face
 ]
 
 ; ══════════════════════════════════════════════════════════
@@ -490,29 +492,29 @@ render-diagram: func [model w h /local f] [
 
 demo-model: make-diagram-model
 
-cols:    4
-col-gap: 210
-row-gap: 90
-sx:      40
-sy:      20
+num-cols:    4
+col-spacing: 210
+row-spacing: 90
+start-x:     40
+start-y:     20
 
 repeat i 20 [
-    col:   (i - 1) % cols
-    row:   (i - 1) / cols
-    ntype: either odd? i ['add] ['sub]
-    lbl-text: either ntype = 'add ["Add"] ["Sub"]
-    nid: gen-node-id demo-model
+    col-idx:   (i - 1) % num-cols
+    row-idx:   (i - 1) / num-cols
+    node-type: either odd? i ['add] ['sub]
+    label-text: either node-type = 'add ["Add"] ["Sub"]
+    node-id: gen-node-id demo-model
     append demo-model/nodes make object! [
-        id:    nid
-        type:  ntype
-        name:  rejoin [form ntype "_" nid]
+        id:    node-id
+        type:  node-type
+        name:  rejoin [form node-type "_" node-id]
         label: make object! [
-            text:    lbl-text
+            text:    label-text
             visible: false
             offset:  0x-15
         ]
-        x:     sx + (col * col-gap)
-        y:     sy + (row * row-gap)
+        x:     start-x + (col-idx * col-spacing)
+        y:     start-y + (row-idx * row-spacing)
     ]
 ]
 

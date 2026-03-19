@@ -88,6 +88,27 @@ Cuando Red migre a 64-bit, este problema desaparece. QTorres debe seguir ese roa
 | GTK-004 Bug locale float | — | Pendiente de crear |
 | GTK-005 Colors `none` | — | Pendiente de crear |
 | GTK-006 32-bit / i386 | Upstream roadmap | Pendiente de migración 64-bit |
+| GTK-007 Modal pierde foco teclado | — | Pendiente de crear |
+
+---
+
+### GTK-007: `view/flags [modal]` pierde foco de teclado del window padre
+
+**Severidad:** Alta
+**Impacto en QTorres:** Tras cerrar un diálogo modal, `on-key` deja de dispararse en la ventana principal. Delete, Backspace y cualquier tecla dejan de funcionar permanentemente.
+
+**Descripción:**
+Al cerrar un diálogo creado con `view/flags [modal]`, el window padre pierde el foco de teclado GTK. Los eventos de ratón siguen funcionando (clicks, drag), pero los eventos de teclado no llegan al `on-key` del window. El bug es permanente: ni clics ni `show` restauran el foco.
+
+La causa probable es que Red/View no llama a `gtk_window_set_transient_for()` o `gtk_window_present()` correctamente al destruir el diálogo modal.
+
+**Notas:**
+- `system/view/focal-face` es read-only, no se puede reasignar para forzar el foco.
+- No es un bug de GTK en general: apps GTK nativas (GIMP, Inkscape, Gedit) manejan modales correctamente.
+
+**Workaround temporal:** Usar `view/no-wait` en vez de `view/flags [modal]`. El diálogo no es modal pero preserva el foco. Requiere variables de módulo en vez de `/local` porque la función retorna antes de que se cierre el diálogo.
+
+**Test reproducible:** `tests/test-focus-modal.red` — V1 reproduce el bug, V2 muestra el workaround.
 
 ---
 

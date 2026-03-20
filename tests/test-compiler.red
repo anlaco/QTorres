@@ -79,6 +79,9 @@ lnode3: loaded/nodes/3
 lwire1: first loaded/wires
 lwire3: loaded/wires/3
 
+; Cleanup del fichero temporal
+if exists? test-file [delete test-file]
+
 assert "nodo 1: id correcto"               (1 = lnode1/id)
 assert "nodo 1: tipo correcto"             ('const = lnode1/type)
 assert "nodo 1: name correcto"             ("const_A" = lnode1/name)
@@ -110,8 +113,6 @@ append rd/wires make-wire [from: 10  from-port: 'result  to: 12  to-port: 'a]
 append rd/wires make-wire [from: 11  from-port: 'result  to: 12  to-port: 'b]
 append rd/wires make-wire [from: 12  from-port: 'result  to: 13  to-port: 'value]
 
-dbg-body: compile-body rd
-print rejoin ["  [DBG] code: " mold dbg-body]
 run-err: try [run rd]
 if error? run-err [print rejoin ["  Error en runner: " run-err/arg1]]
 assert "runner ejecuta sin error"   (not error? run-err)

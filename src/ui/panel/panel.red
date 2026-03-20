@@ -341,8 +341,8 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                 mouse-x: event/offset/x
                 mouse-y: event/offset/y
                 hit: hit-fp-item face/extra mouse-x mouse-y
-
-                if hit [
+                ; Solo los controles son editables — indicadores son read-only
+                if all [hit  hit/type = 'control] [
                     open-edit-dialog hit face face/extra
                 ]
             ]
@@ -352,10 +352,10 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                 mouse-y: event/offset/y
                 hit: hit-fp-item face/extra mouse-x mouse-y
 
-                either hit [
-                    open-edit-dialog hit face face/extra
-                ][
-                    open-fp-palette face mouse-x mouse-y
+                case [
+                    all [hit  hit/type = 'control]   [open-edit-dialog hit face face/extra]
+                    none? hit                         [open-fp-palette face mouse-x mouse-y]
+                    ; indicador: no hacer nada
                 ]
             ]
 

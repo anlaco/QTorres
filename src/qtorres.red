@@ -35,6 +35,9 @@ block 'indicator 'output [
     emit [print value]
 ]
 
+; ── Mapa de resultados de ejecución (global, accesible desde do code) ───
+_run-results: make map! []
+
 ; ── Modelo unificado BD + FP ─────────────────────────────────────
 app-model: make-diagram-model
 app-model: make app-model [
@@ -72,7 +75,7 @@ btn-run: make face! [
     draw:   [fill-pen 240.245.250  text 15x5 "Run"]
     extra:  app-model
     actors: make object! [
-        on-down: func [face event /local model n bdef wire src result-var val _pref] [
+        on-down: func [face event /local model n bdef wire src code result-var _pref] [
             model: face/extra
 
             ; 1. Sincronizar valores de controles FP → config del nodo BD
@@ -87,10 +90,14 @@ btn-run: make face! [
                 ]
             ]
 
-            ; 2. Ejecutar cálculo headless
-            attempt [do compile-body model]
+            ; 2. Compilar código headless
+            code: attempt [compile-body model]
+            unless block? code [exit]
 
-            ; 3. Leer resultados → indicadores FP
+            ; 3. Añadir capturas de resultados al bloque de código:
+            ;    put _run-results "indicator_1" <var-resultado>
+            ;    _run-results es global → accesible desde do
+            clear _run-results
             foreach n model/nodes [
                 bdef: find-block n/type
                 if all [bdef  bdef/category = 'output] [
@@ -99,11 +106,8 @@ btn-run: make face! [
                             foreach src model/nodes [
                                 if src/id = wire/from-node [
                                     result-var: port-var src to-word wire/from-port
-                                    val: attempt [get result-var]
-                                    if val [
-                                        foreach item model/front-panel [
-                                            if item/name = n/name [item/value: val]
-                                        ]
+                                    append code compose [
+                                        put _run-results (n/name) (result-var)
                                     ]
                                 ]
                             ]
@@ -112,7 +116,19 @@ btn-run: make face! [
                 ]
             ]
 
-            ; 4. Refrescar Front Panel
+            ; 4. Ejecutar
+            attempt [do code]
+
+            ; 5. Leer _run-results → actualizar indicadores FP
+            foreach item model/front-panel [
+                if item/type = 'indicator [
+                    if val: select _run-results item/name [
+                        item/value: val
+                    ]
+                ]
+            ]
+
+            ; 6. Refrescar Front Panel
             _pref: select model 'panel-ref
             if _pref [
                 _pref/draw: render-fp-panel model model/size/x model/size/y

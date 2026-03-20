@@ -9,16 +9,25 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+
+      - name: Cache Red binary
+        id: cache-red
+        uses: actions/cache@v4
+        with:
+          path: red-view
+          key: red-view-linux-latest
 
       - name: Install dependencies
         run: |
           sudo dpkg --add-architecture i386
           sudo apt-get update
-          sudo apt-get install -y libc6:i386 libcurl4:i386 libgtk-3-0:i386
+          sudo apt-get install -y libc6:i386 libcurl4:i386 libgtk-3-0:i386 xvfb
 
       - name: Download Red binary
+        if: steps.cache-red.outputs.cache-hit != 'true'
         run: |
           curl -sL -o red-view "https://static.red-lang.org/dl/linux/red-view?reload=true"
           chmod +x red-view
@@ -26,4 +35,4 @@ jobs:
       - name: Run tests
         working-directory: tests
         run: |
-          ../red-view run-all.red
+          xvfb-run ../red-view run-all.red

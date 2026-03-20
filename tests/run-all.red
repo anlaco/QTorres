@@ -36,5 +36,9 @@ do %test-compiler.red
 ; ── Resumen ──────────────────────────────────────────────────────────
 total: pass-count + fail-count
 print rejoin ["^/--- " total " tests, " pass-count " passed, " fail-count " failed"]
-if fail-count > 0 [print "RESULTADO: FALLO"]
-if fail-count = 0 [print "RESULTADO: OK"]
+either fail-count > 0 [
+    print "RESULTADO: FALLO"
+    quit/return 1
+][
+    print "RESULTADO: OK"
+]

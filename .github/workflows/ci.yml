@@ -18,7 +18,7 @@ jobs:
         run: |
           sudo dpkg --add-architecture i386
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends libc6:i386 libcurl4:i386
+          sudo apt-get install -y --no-install-recommends libc6:i386 libcurl4:i386 libgtk-3-0:i386
 
       - name: Run tests
         working-directory: tests

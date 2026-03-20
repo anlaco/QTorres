@@ -236,7 +236,7 @@ fp-palette-panel: none
 fp-palette-x:     0
 fp-palette-y:     0
 
-fp-palette-add-item: func [item-type /local new-id item model w h] [
+fp-palette-add-item: func [item-type /local new-id item model w h _cref nid bd-y] [
     model:  fp-palette-panel/extra
     w:      model/size/x
     h:      model/size/y
@@ -252,6 +252,21 @@ fp-palette-add-item: func [item-type /local new-id item model w h] [
     append model/front-panel item
     fp-palette-panel/draw: render-fp-panel model w h
     show fp-palette-panel
+    ; Sync BD: crear nodo correspondiente
+    _cref: select model 'canvas-ref
+    if _cref [
+        nid:  gen-node-id model
+        bd-y: 20 + ((length? model/nodes) * 75)
+        append model/nodes make-node compose [
+            id:   (nid)
+            type: (item-type)
+            name: (item/name)
+            x:    20
+            y:    (bd-y)
+        ]
+        _cref/draw: render-bd model
+        show _cref
+    ]
     unview
 ]
 
@@ -344,13 +359,25 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                 ]
             ]
 
-            on-key: func [face event /local model hit w h] [
+            on-key: func [face event /local model hit w h _cref bd-node] [
                 model: face/extra
                 hit: model/selected-fp
                 w: model/size/x
                 h: model/size/y
 
                 if all [hit  any [find [delete backspace] event/key  find [#"^(7F)" #"^H"] event/key]] [
+                    ; Sync BD: borrar nodo y sus wires
+                    _cref: select model 'canvas-ref
+                    if _cref [
+                        bd-node: none
+                        foreach n model/nodes [if n/name = hit/name [bd-node: n]]
+                        if bd-node [
+                            remove-each wire model/wires [any [wire/from-node = bd-node/id  wire/to-node = bd-node/id]]
+                            remove-each n model/nodes [n/name = hit/name]
+                        ]
+                        _cref/draw: render-bd model
+                        show _cref
+                    ]
                     remove-each item model/front-panel [item/id = hit/id]
                     model/selected-fp: none
                     face/draw: render-fp-panel model w h

@@ -385,11 +385,22 @@ canvas-delete-selected: func [canvas /local model node-id] [
             canvas/draw: render-bd model
         ]
         model/selected-node [
-            node-id: model/selected-node/id
+            node-id:   model/selected-node/id
+            node-name: model/selected-node/name
+            node-type: model/selected-node/type
             remove-each wire model/wires [any [wire/from-node = node-id  wire/to-node = node-id]]
             remove-each node model/nodes  [node/id = node-id]
             model/selected-node: none
             model/drag-node:     none
+            ; Sync FP: borrar item correspondiente si es control/indicator
+            if all [
+                find [control indicator] node-type
+                _pref: select model 'panel-ref
+            ][
+                remove-each item model/front-panel [item/name = node-name]
+                _pref/draw: render-fp-panel model model/size/x model/size/y
+                show _pref
+            ]
             canvas/draw: render-bd model
         ]
     ]

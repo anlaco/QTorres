@@ -38,8 +38,10 @@ block 'indicator 'output [
 ; ── Modelo unificado BD + FP ─────────────────────────────────────
 app-model: make-diagram-model
 app-model: make app-model [
-    name: "untitled"
-    size: 380x490
+    name:       "untitled"
+    size:       380x490
+    canvas-ref: none        ; face del BD — para refrescar desde panel.red
+    panel-ref:  none        ; face del FP — para refrescar desde canvas.red
 ]
 
 ; ── save-vi-full: serializa BD + FP juntos ───────────────────────
@@ -121,9 +123,11 @@ btn-load: make face! [
 ; ── Faces principales ─────────────────────────────────────────────
 canvas-face: render-diagram app-model 880 490
 canvas-face/offset: 5x38
+app-model/canvas-ref: canvas-face
 
 panel-face: render-panel app-model 380 350
 panel-face/offset: 5x5
+app-model/panel-ref: panel-face
 
 ; ── Ventana Front Panel (no-wait — coexiste con BD) ──────────────
 view/no-wait make face! [

@@ -339,6 +339,41 @@ rename-dialog-node:   none
 rename-dialog-canvas: none
 rename-dialog-field:  none
 
+; ── Paleta de bloques ────────────────────────────────────────────
+; vars de módulo para el diálogo de paleta (mismo patrón que rename)
+palette-canvas: none
+palette-pos-x:  0
+palette-pos-y:  0
+
+palette-add-node: func [node-type /local n] [
+    n: make-node compose [type: (node-type) x: (palette-pos-x) y: (palette-pos-y)]
+    append palette-canvas/extra/nodes n
+    palette-canvas/draw: render-bd palette-canvas/extra
+    show palette-canvas
+    unview
+]
+
+open-palette: func [face x y] [
+    palette-canvas: face
+    palette-pos-x:  x
+    palette-pos-y:  y
+    view/no-wait [
+        title "Añadir bloque"
+        text "Datos:"  return
+        button 80 "Control"   [palette-add-node 'control]
+        button 80 "Indicator" [palette-add-node 'indicator]  return
+        text "Aritmética:"  return
+        button 80 "Add +"    [palette-add-node 'add]
+        button 80 "Sub -"    [palette-add-node 'sub]         return
+        button 80 "Mul *"    [palette-add-node 'mul]
+        button 80 "Div /"    [palette-add-node 'div]         return
+        text "Constante / salida:"  return
+        button 80 "Const"    [palette-add-node 'const]
+        button 80 "Display"  [palette-add-node 'display]     return
+        button "Cancelar"    [unview]
+    ]
+]
+
 ; Borra el elemento seleccionado (nodo o wire).
 ; Llamar desde el on-key del window padre con: canvas-delete-selected canvas
 canvas-delete-selected: func [canvas /local model node-id] [
@@ -471,8 +506,8 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 mouse-x: event/offset/x
                 mouse-y: event/offset/y
                 node: hit-node model mouse-x mouse-y
-                if node [
-                    ; Guardar refs en vars de módulo (persisten tras view/no-wait)
+                either node [
+                    ; Nodo existente → diálogo de renombrado
                     rename-dialog-node:   node
                     rename-dialog-canvas: face
                     rename-dialog-field:  none
@@ -496,6 +531,9 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                         ]
                         button "Cancelar" [unview]
                     ]
+                ][
+                    ; Espacio vacío → paleta para añadir nuevo bloque
+                    open-palette face mouse-x mouse-y
                 ]
             ]
         ]

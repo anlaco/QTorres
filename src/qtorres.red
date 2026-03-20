@@ -7,13 +7,17 @@ Red [
 ]
 
 ; ── Módulos — orden de dependencia ───────────────────────────────
-do %src/graph/model.red
-do %src/graph/blocks.red
-do %src/compiler/compiler.red
-do %src/runner/runner.red
-do %src/io/file-io.red
-do %src/ui/diagram/canvas.red
-do %src/ui/panel/panel.red
+; Cambiar al directorio del script para que los do % relativos funcionen
+; independientemente del CWD desde donde se invoque red-view.
+change-dir first split-path system/options/script
+
+do %graph/model.red
+do %graph/blocks.red
+do %compiler/compiler.red
+do %runner/runner.red
+do %io/file-io.red
+do %ui/diagram/canvas.red
+do %ui/panel/panel.red
 
 ; ── Shim C: registrar control e indicator en el block-registry ───
 ; compile-diagram falla si encuentra nodos de tipo control/indicator

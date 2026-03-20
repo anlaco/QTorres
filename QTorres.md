@@ -57,8 +57,6 @@ qtorres-diagram [
    
 Cargar un diagrama es load %mi-diagrama.qtorres. No hay parser que mantener.  
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANklEQVR4nO3OQQmAABRAsScYxpg/i2XMYARvRrCCNxG2BFtmZquOAAD4i3Ot7mr/egIAwGvXA22YBcnkstSpAAAAAElFTkSuQmCC)  
-**MVP — producto mínimo viable**  
-El MVP demuestra el ciclo completo: dibujar → ejecutar → ver resultado.  
 **Bloques primitivos**  
 | | | |  
 |-|-|-|  
@@ -69,14 +67,13 @@ El MVP demuestra el ciclo completo: dibujar → ejecutar → ver resultado.
 | Multiplicación | operación | resultado: a * b |   
 | Display | salida | print valor |   
    
-**Funcionalidades del MVP**  
+**Funcionalidades**  
 - Canvas interactivo con bloques arrastrables (drag & drop)  
 - Conexión de bloques mediante wires dibujados a mano  
-- Front Panel con controles numéricos de entrada y displays de salida  
-- Botón Run que ejecuta el diagrama  
-- Botón Compile que genera el fichero .red  
-- Guardar y cargar diagramas en formato .qtorres  
-**Fuera del MVP**  
+- Hit testing sobre bloques, puertos y wires  
+- Renombrado de nodos con doble clic  
+- Borrado de nodos y wires con Delete  
+**Futuro**  
 - Bucles y estructuras de control  
 - Bloques de string y booleanos  
 - Bloques de I/O (ficheros, puertos serie, red)  

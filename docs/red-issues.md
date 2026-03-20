@@ -179,17 +179,70 @@ Corrección aplicada: Añadido `Needs: 'View` al header.
 
 ---
 
+---
+
+## 0021 — BUG · `src/ui/diagram/canvas.red:339–341` ✅ RESUELTO
+
+**`remove find model/wires model/selected-wire` falla si `find` devuelve `none`**
+
+Corrección aplicada:
+```red
+if found: find model/wires model/selected-wire [
+    remove found
+]
+```
+
+---
+
+## 0022 — BUG · `src/compiler/compiler.red:228` ✅ RESUELTO
+
+**`to set-path!` es sintaxis inválida — datatype correcto es `path!`**
+
+Corrección aplicada:
+```red
+append run-body compose [(to path! reduce [face-sym 'text]) form (src-var)]
+```
+
+---
+
+## 0023 — BUG · `src/graph/model.red:84–112` ✅ RESUELTO
+
+**`sync-name-counters` usa `repeat i` con acceso `parts/:i` — frágil para types con `_` embedded**
+
+Corrección aplicada: Cambiado `keep parts/:i` por `append type-str parts/:i` con cadena mutable.
+
+---
+
+## 0024 — BUG · `src/io/file-io.red:140–151` ✅ RESUELTO
+
+**`load-vi` busca `from-port`/`to-port` pero los ejemplos usan formato corto `port`**
+
+Los ejemplos `.qvi` usan: `wire [from: 1 port: 'out to: 3 port: 'a]`
+`load-vi` buscaba: `wire [from: 1 from-port: 'out to: 3 to-port: 'a]`
+
+Corrección aplicada: Soporta ambos formatos con `any [select wire-spec 'from-port select wire-spec 'port]`.
+
+---
+
+## 0025 — WARN · `src/ui/diagram/canvas.red:173–178` ✅ RESUELTO
+
+**`switch` para `type-label` sin casos para `mul`, `div`, `display`, `subvi`**
+
+Corrección aplicada: Añadidos los casos `mul ["MUL *"]`, `div ["DIV /"]`, `display ["DISP"]`, `subvi ["SUBVI"]` y `default`.
+
+---
+
 ## Resumen
 
 | Fichero | BUG | WARN | STYLE | Total |
 |---------|-----|------|-------|-------|
-| `src/graph/model.red` | 1 | 4 | 0 | 5 |
-| `src/ui/diagram/canvas.red` | 2 | 2 | 2 | 6 |
-| `src/compiler/compiler.red` | 1 | 1 | — | 2 |
+| `src/graph/model.red` | 2 | 4 | 0 | 6 |
+| `src/ui/diagram/canvas.red` | 2 | 3 | 2 | 7 |
+| `src/compiler/compiler.red` | 2 | 1 | — | 3 |
 | `src/graph/blocks.red` | 1 | — | — | 1 |
-| `src/io/file-io.red` | — | 1 | 1 | 2 |
+| `src/io/file-io.red` | 1 | 1 | 1 | 3 |
 | `src/runner/runner.red` | — | 1 | — | 1 |
 | `src/qtorres.red` | — | — | 1 | 1 |
-| **Total** | **5** | **9** | **4** | **18** |
+| **Total** | **8** | **10** | **4** | **22** |
 
 Todos los issues resueltos. ✅

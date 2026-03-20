@@ -175,6 +175,11 @@ render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-col
             indicator ["IND"]
             add       ["ADD +"]
             sub       ["SUB -"]
+            mul       ["MUL *"]
+            div       ["DIV /"]
+            display   ["DISP"]
+            subvi     ["SUBVI"]
+            default   [uppercase form node/type]
         ]
         either all [node/label  object? node/label  node/label/visible] [
             append cmds compose [
@@ -337,7 +342,9 @@ canvas-delete-selected: func [canvas /local model node-id] [
     model: canvas/extra
     case [
         model/selected-wire [
-            remove find model/wires model/selected-wire
+            if found: find model/wires model/selected-wire [
+                remove found
+            ]
             model/selected-wire: none
             canvas/draw: render-bd model
         ]

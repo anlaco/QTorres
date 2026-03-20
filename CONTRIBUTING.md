@@ -16,9 +16,8 @@ Todo el código de QTorres está en Red-Lang. Ver [`CLAUDE.md`](CLAUDE.md) para 
 **Flujo de trabajo:**
 1. Crea un branch desde `main`
 2. Implementa en el módulo correspondiente de `src/`
-3. Usa `MVP/QTorres-mvp.red` como referencia de implementación existente
-4. Verifica con los ejemplos de `examples/`
-5. Abre un Pull Request
+3. Verifica con los ejemplos de `examples/`
+4. Abre un Pull Request
 
 ### 2. Contribuciones al backend GTK de Red (crítico para Linux)
 

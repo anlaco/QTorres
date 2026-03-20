@@ -39,21 +39,21 @@ Registro de decisiones clave del proyecto. Cada decisión documentada para refer
 
 ---
 
-## DT-003: MVP solo con tipos numéricos
+## DT-003: Tipos numéricos como punto de partida
 
 **Fecha:** 2026-03-14  
 **Estado:** Adoptada  
 
-**Contexto:** Definir el alcance mínimo del sistema de tipos para el MVP.
+**Contexto:** Definir el alcance mínimo del sistema de tipos.
 
-**Decisión:** El MVP solo maneja valores numéricos (`float!`). Un solo tipo de wire.
+**Decisión:** QTorres empieza manejando valores numéricos (`float!`). Un solo tipo de wire.
 
 **Razones:**
 - Simplifica el compilador (no hay conversiones de tipo)
 - Simplifica el canvas (un solo color de wire)
 - Suficiente para demostrar el concepto
 
-**Consecuencia:** La estructura de datos de puertos y wires DEBE incluir un campo `type` desde el inicio, aunque en el MVP siempre sea `'number`. Esto evita refactoring cuando se añadan strings y booleanos.
+**Consecuencia:** La estructura de datos de puertos y wires DEBE incluir un campo `type` desde el inicio, aunque en esta fase siempre sea `'number`. Esto evita refactoring cuando se añadan strings y booleanos.
 
 ---
 
@@ -72,7 +72,7 @@ Registro de decisiones clave del proyecto. Cada decisión documentada para refer
 - Al abrir cualquier fichero, en vez de un binario se encuentra Red legible
 - La extensión `.qtorres` genérica se reemplaza por extensiones con significado semántico (`.qvi`, `.qproj`, etc.)
 
-**MVP:** Solo `.qvi` y `.qproj`. Los demás tipos se añaden en fases posteriores.
+**Implementación inicial:** Solo `.qvi` y `.qproj`. Los demás tipos se añaden en fases posteriores.
 
 ---
 
@@ -188,7 +188,6 @@ view layout [
 - El compilador debe generar Red/View, no solo código imperativo
 - Los controles del Front Panel se convierten en `field` y `button` de Red/View
 - Los indicadores se convierten en `text` reactivos que se actualizan al pulsar Run
-- Esta es la diferencia más significativa respecto al MVP actual
 
 ---
 
@@ -480,7 +479,7 @@ meta: [
 
 **Decisión:** QTorres se diseña para que agentes de IA externos puedan generar ficheros del ecosistema QTorres a partir de descripciones en lenguaje natural o especificaciones técnicas. Esto se desarrolla en dos niveles de madurez:
 
-### Nivel 1 — Vibe coding (MVP)
+### Nivel 1 — Vibe coding
 
 Un agente de IA externo (Claude Code, Kilo Code, Ollama, o cualquier herramienta) genera ficheros `.qvi` individuales a partir de una descripción en lenguaje natural. El agente solo trabaja con la sección `qvi-diagram` — el compilador de QTorres genera el código ejecutable.
 

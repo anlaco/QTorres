@@ -20,7 +20,7 @@
 
 **Riesgo:** Red/View + Draw no tienen primitivas de alto nivel para editores gráficos (hit testing, z-order, layout automático de wires). Hay que construirlas.
 
-**Impacto:** Construir el canvas puede consumir la mayor parte del esfuerzo del MVP.
+**Impacto:** Construir el canvas puede consumir la mayor parte del esfuerzo en Fase 1.
 
 **Mitigación:**
 - Spike técnico (Fase 0) antes de cualquier otra cosa
@@ -36,7 +36,7 @@
 **Impacto:** Un diagrama ilegible hace que QTorres sea inutilizable incluso si todo funciona.
 
 **Mitigación:**
-- MVP con wires rectos (línea directa entre puertos)
+- Fase 1 con wires rectos (línea directa entre puertos)
 - Routing ortogonal (estilo LabVIEW) como mejora posterior
 - Estudiar algoritmos existentes de routing en editores de grafos
 
@@ -47,7 +47,7 @@
 **Impacto:** Bucles y condicionales pueden requerir un rediseño del compilador si no se anticipan.
 
 **Mitigación:**
-- El MVP solo tiene aritmética lineal (sort topológico trivial)
+- Fase 1 solo tiene aritmética lineal (sort topológico trivial)
 - Diseñar la representación intermedia del grafo pensando en que habrá estructuras de control
 - Estudiar cómo LabVIEW internamente compila sus diagramas
 
@@ -58,14 +58,14 @@
 **Impacto:** Usabilidad baja → abandonan QTorres.
 
 **Mitigación:**
-- Definir desde el MVP qué errores se detectan: tipos incompatibles, ciclos, puertos sin conectar
+- Definir desde el inicio qué errores se detectan: tipos incompatibles, ciclos, puertos sin conectar
 - Mostrar errores visualmente en el diagrama (wire rojo, bloque resaltado), no solo en texto
 
 ## Riesgo bajo (pero a tener en cuenta)
 
 ### Tipado de wires
 
-Los wires en LabVIEW tienen tipo (numérico, string, booleano, cluster, array). El color del wire indica el tipo. Esto hay que diseñarlo desde el inicio aunque el MVP solo use numéricos, para no tener que refactorizar la estructura de datos del grafo.
+Los wires en LabVIEW tienen tipo (numérico, string, booleano, cluster, array). El color del wire indica el tipo. Esto hay que diseñarlo desde el inicio aunque en Fase 1 solo use numéricos, para no tener que refactorizar la estructura de datos del grafo.
 
 ### Rendimiento del canvas
 
@@ -73,7 +73,7 @@ Con pocos bloques no hay problema. Con 50+ bloques y wires, el redibujo del canv
 
 ### Undo/Redo
 
-No está en el MVP pero es imprescindible para cualquier editor. La arquitectura del modelo de datos debe contemplarlo (command pattern o similar) desde el diseño.
+No está en Fase 1 pero es imprescindible para cualquier editor. La arquitectura del modelo de datos debe contemplarlo (command pattern o similar) desde el diseño.
 
 ## Preguntas abiertas
 

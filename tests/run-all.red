@@ -41,4 +41,5 @@ either fail-count > 0 [
     quit/return 1
 ][
     print "RESULTADO: OK"
+    quit/return 0
 ]

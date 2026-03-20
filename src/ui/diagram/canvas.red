@@ -345,8 +345,9 @@ palette-canvas: none
 palette-pos-x:  0
 palette-pos-y:  0
 
-palette-add-node: func [node-type /local n] [
-    n: make-node compose [type: (node-type) x: (palette-pos-x) y: (palette-pos-y)]
+palette-add-node: func [node-type /local n nid] [
+    nid: gen-node-id palette-canvas/extra
+    n: make-node compose [id: (nid) type: (node-type) x: (palette-pos-x) y: (palette-pos-y)]
     append palette-canvas/extra/nodes n
     palette-canvas/draw: render-bd palette-canvas/extra
     show palette-canvas

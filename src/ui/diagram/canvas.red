@@ -544,7 +544,7 @@ repeat i 15 [
     ]
 ]
 
-if system/options/script = system/script/path [
+if find form system/options/script "canvas.red" [
     canvas: render-diagram demo-model 880 490
     canvas/offset: 10x38
 

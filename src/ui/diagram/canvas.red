@@ -87,10 +87,13 @@ make-diagram-model: func [] [
     make object! [
         nodes:         copy []
         wires:         copy []
+        front-panel:   copy []
         next-id:       1
         selected-node: none
         selected-wire: none
+        selected-fp:   none
         drag-node:     none
+        drag-fp:       none
         drag-off:      none
         wire-src:      none
         wire-port:     none

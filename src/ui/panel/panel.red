@@ -230,6 +230,44 @@ open-edit-dialog: func [item panel-face model /local label-text default-text] [
 ]
 
 ; ══════════════════════════════════════════════════════════
+; PALETA DEL FRONT PANEL — doble clic en espacio vacío
+; ══════════════════════════════════════════════════════════
+fp-palette-panel: none
+fp-palette-x:     0
+fp-palette-y:     0
+
+fp-palette-add-item: func [item-type /local new-id item model w h] [
+    model:  fp-palette-panel/extra
+    w:      model/size/x
+    h:      model/size/y
+    new-id: 1 + length? model/front-panel
+    item: make-fp-item compose [
+        id:      (new-id)
+        type:    (item-type)
+        name:    (rejoin [form item-type "_" new-id])
+        label:   [text: (fp-default-label item-type) visible: true]
+        default: 0.0
+        offset:  (as-pair fp-palette-x fp-palette-y)
+    ]
+    append model/front-panel item
+    fp-palette-panel/draw: render-fp-panel model w h
+    show fp-palette-panel
+    unview
+]
+
+open-fp-palette: func [face x y] [
+    fp-palette-panel: face
+    fp-palette-x:     x
+    fp-palette-y:     y
+    view/no-wait [
+        title "Añadir al Front Panel"
+        button 100 "Control"   [fp-palette-add-item 'control]    return
+        button 100 "Indicator" [fp-palette-add-item 'indicator]  return
+        button      "Cancelar" [unview]
+    ]
+]
+
+; ══════════════════════════════════════════════════════════
 ; CANVAS FACTORY — render-panel returns a functional face
 ; ══════════════════════════════════════════════════════════
 ; Model stored in face/extra includes: front-panel, selected-fp, drag-fp, drag-off, size
@@ -299,8 +337,10 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                 mouse-y: event/offset/y
                 hit: hit-fp-item face/extra mouse-x mouse-y
 
-                if hit [
+                either hit [
                     open-edit-dialog hit face face/extra
+                ][
+                    open-fp-palette face mouse-x mouse-y
                 ]
             ]
 

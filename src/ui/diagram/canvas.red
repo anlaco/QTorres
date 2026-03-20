@@ -359,17 +359,14 @@ open-palette: func [face x y] [
     palette-pos-y:  y
     view/no-wait [
         title "Añadir bloque"
-        text "Datos:"  return
-        button 80 "Control"   [palette-add-node 'control]
-        button 80 "Indicator" [palette-add-node 'indicator]  return
         text "Aritmética:"  return
         button 80 "Add +"    [palette-add-node 'add]
-        button 80 "Sub -"    [palette-add-node 'sub]         return
+        button 80 "Sub -"    [palette-add-node 'sub]    return
         button 80 "Mul *"    [palette-add-node 'mul]
-        button 80 "Div /"    [palette-add-node 'div]         return
+        button 80 "Div /"    [palette-add-node 'div]    return
         text "Constante / salida:"  return
         button 80 "Const"    [palette-add-node 'const]
-        button 80 "Display"  [palette-add-node 'display]     return
+        button 80 "Display"  [palette-add-node 'display]  return
         button "Cancelar"    [unview]
     ]
 ]
@@ -485,8 +482,26 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 ]
             ]
 
-            on-up: func [face event /local model] [
+            on-up: func [face event /local model hit-result] [
                 model: face/extra
+                ; Completar wire si se suelta sobre un puerto de entrada (drag-to-connect)
+                if model/wire-src [
+                    hit-result: hit-port model event/offset/x event/offset/y
+                    if all [
+                        hit-result
+                        hit-result/3 = 'in
+                        model/wire-src/id <> hit-result/1/id
+                    ][
+                        append model/wires make object! [
+                            from-node:  model/wire-src/id
+                            from-port:  model/wire-port
+                            to-node:    hit-result/1/id
+                            to-port:    hit-result/2
+                        ]
+                        model/wire-src: none  model/wire-port: none  model/mouse-pos: none
+                        face/draw: render-bd model
+                    ]
+                ]
                 model/drag-node: none
                 model/drag-off:  none
             ]

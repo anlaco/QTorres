@@ -120,21 +120,33 @@ btn-load: make face! [
 
 ; ── Faces principales ─────────────────────────────────────────────
 canvas-face: render-diagram app-model 880 490
-canvas-face/offset: 10x38
+canvas-face/offset: 5x38
 
-panel-face: render-panel app-model 380 490
-panel-face/offset: 900x38
+panel-face: render-panel app-model 380 350
+panel-face/offset: 5x5
 
-; ── Ventana principal ─────────────────────────────────────────────
+; ── Ventana Front Panel (no-wait — coexiste con BD) ──────────────
+view/no-wait make face! [
+    type:   'window
+    text:   "Front Panel — untitled"
+    size:   400x375
+    offset: 960x60
+    pane:   reduce [panel-face]
+]
+
+; ── Ventana Block Diagram (blocking — mantiene el event loop) ────
 view make face! [
     type:   'window
-    text:   "QTorres v0.0.1"
-    size:   1295x540
-    offset: 80x60
-    pane:   reduce [btn-run btn-save btn-load canvas-face panel-face]
+    text:   "Block Diagram — untitled"
+    size:   900x545
+    offset: 60x60
+    pane:   reduce [btn-run btn-save btn-load canvas-face]
     actors: make object! [
         on-key: func [face event] [
-            if find [delete backspace #"^(7F)" #"^H"] event/key [
+            if any [
+                find [delete backspace] event/key
+                find [#"^(7F)" #"^H"] event/key
+            ][
                 canvas-delete-selected canvas-face
             ]
         ]

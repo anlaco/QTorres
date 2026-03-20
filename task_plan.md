@@ -9,143 +9,145 @@
 | Inicio | 2026-03-20 |
 
 ## Goal
-Implementar `src/ui/panel/panel.red` como módulo independiente con controles e indicadores arrastrables, equivalente al canvas del Block Diagram.
+Implementar `src/ui/panel/panel.red` con **dos modos**:
+1. **Modo edición** (en QTorres): canvas tipo `base` con Draw, drag & drop de elementos
+2. **Modo ejecución** (Runner/compilado): código VID generado para el `.qvi`
 
 ## Criterios de aceptación
-- [ ] Panel muestra controles e indicadores del `qvi-diagram`
-- [ ] Controles permiten editar valores de entrada
-- [ ] Indicadores muestran valores de salida tras Run
-- [ ] Elementos arrastrables para reposicionar
-- [ ] Posiciones se persisten en `qvi-diagram`
+- [ ] Modo edición: Panel muestra controles e indicadores como shapes Draw arrastrables
+- [ ] Modo edición: Clic en control → field editable temporal (no VID layout)
+- [ ] Modo compilación: `compile-panel` genera `view layout [field ... button ... text ...]`
+- [ ] Elementos arrastrables para reposicionar (offset actualizado)
+- [ ] Posiciones se persisten en `front-panel:` del `qvi-diagram`
+
+## Distinción clave (DT-009)
+- **Edición:** face tipo `base` con Draw (como `canvas.red`) → drag, hit-test, posición
+- **Ejecución:** VID layout con `field`/`text`/`button` reales → DT-009
 
 ---
 
-## Phase 1 — Diseño del modelo de datos del Front Panel
+## Phase 1 — Modelo fp-item + make-fp-item
 **Responsable:** Modelo  
-**Duración:** Estimada  
 **Estado:** pending
 
 ### Tasks
-- [ ] Diseñar estructura `fp-item` (control/indicator) análoga a `base-element` (DT-022/DT-023)
-- [ ] Definir campos: `id`, `type`, `name`, `label` (objeto), `default`, `value`, `offset`
-- [ ] Diseñar `make-fp-item` constructor
-- [ ] Añadir `front-panel` al modelo del diagrama (`make-diagram-model` ya existe)
+- [ ] Definir `fp-item` como `object!` con campos: `id`, `type` ('control/'indicator), `name`, `label` (objeto DT-022), `default`, `value`, `offset` (pair!)
+- [ ] Constructor `make-fp-item spec` siguiendo patrón DT-023 (composición sobre herencia)
+- [ ] Añadir `front-panel: []` a `make-diagram-model` (lista de fp-items)
+- [ ] Campo `offset` para posición arrastrable (x/y en canvas de panel)
 
 ### Entregable
-Estructura de datos para items del front panel.
+Estructura de datos en `src/graph/model.red`.
 
 ---
 
-## Phase 2 — Parser del `front-panel:` en qvi-diagram
-**Responsable:** File I/O  
-**Duração:** Estimada  
-**Estado:** pending
-
-### Tasks
-- [ ] Procesar bloque `front-panel:` del `qvi-diagram`
-- [ ] Reconstruir lista de `fp-item` desde la spec
-- [ ] Integrar con `make-diagram-model`
-
-### Entregable
-Lectura de front-panel desde qvi-diagram.
-
----
-
-## Phase 3 — render-panel: cara visual Red/View
+## Phase 2 — render-panel (modo edición, Draw canvas)
 **Responsable:** UI/Panel  
-**Duração:** Estimada  
 **Estado:** pending
 
 ### Tasks
-- [ ] Función `render-panel model panel-width panel-height → face`
-- [ ] Generar `field` para cada control (numérico)
-- [ ] Generar `text` para cada indicador (numérico)
-- [ ] Generar `label` con el texto de `label/text`
-- [ ] Botón Run visible
-- [ ] Drag & drop de elementos (patrón análogo a `render-diagram`)
+- [ ] Función `render-panel model w h → face` tipo `base`
+- [ ] Draw shapes para controles/indicadores: rectángulo + label + valor
 - [ ] Hit-testing para seleccionar elementos
-- [ ] Actualizar `offset` de `fp-item` tras drag
+- [ ] Drag & drop actualiza `fp-item/offset` y redraw (patrón canvas.red)
+- [ ] Clic en control → abre field temporal sobre el shape (edit inline)
+- [ ] Botón "Run" visual (placeholder, no funcional aún)
 
 ### Entregable
-Face funcional con controles arrastrables.
+Face funcional con Draw, drag & drop, hit-testing.
 
 ---
 
-## Phase 4 — Binding de valores con el modelo
-**Responsable:** UI/Panel + Runner  
-**Duração:** Estimada  
+## Phase 3 — Parser front-panel desde qvi-diagram
+**Responsable:** File I/O (stub)  
 **Estado:** pending
 
 ### Tasks
-- [ ] Binding bidireccional: control → modelo (al editar)
-- [ ] Binding unidireccional: modelo → indicador (tras Run)
+- [ ] Al cargar un `.qvi`, parsear bloque `front-panel:` del `qvi-diagram`
+- [ ] Crear `fp-item` por cada `control` y `indicator`
+- [ ] Rellenar `offset` desde las specs (si existen) o usar defaults (auto-layout inicial)
+- [ ] Añadir a `model/front-panel`
 
 ### Entregable
-Valores fluyen entre panel y modelo.
+Carga de front-panel desde `.qvi`.
 
 ---
 
-## Phase 5 — Persistencia de posiciones
-**Responsable:** File I/O  
-**Duração:** Estimada  
+## Phase 4 — Persistencia de posiciones en qvi-diagram
+**Responsable:** File I/O (stub)  
 **Estado:** pending
 
 ### Tasks
-- [ ] Guardar posiciones de `fp-item` en `front-panel:` del `qvi-diagram`
-- [ ] Cargar posiciones al abrir VI
+- [ ] Al guardar, serializar `model/front-panel` a formato `front-panel: [...]`
+- [ ] Incluir `offset` de cada fp-item
+- [ ] Orden: control primero, luego indicator (determinista)
 
 ### Entregable
-Layout persiste entre sesiones.
+`.qvi` guarda y carga layout del panel.
 
 ---
 
-## Phase 6 — Test standalone del módulo panel
+## Phase 5 — compile-panel (generación VID para .qvi ejecutable)
+**Responsable:** Compiler (stub)  
+**Estado:** pending
+
+### Tasks
+- [ ] Función `compile-panel model → block!` que genera VID layout
+- [ ] Por cada control: `label "nombre" field "default"`
+- [ ] Por cada indicador: `label "nombre" text "valor"`
+- [ ] Botón `button "Run" [...]` con lógica del diagrama
+- [ ] Sección `qvi-diagram: [...]` + código generado `view layout [...]`
+
+### Entregable
+Código Red/View completo (DT-009).
+
+---
+
+## Phase 6 — Demo standalone (sin integración en qtorres.red)
 **Responsable:** QA  
-**Duração:** Estimada  
 **Estado:** pending
 
 ### Tasks
-- [ ] Verificar controles e indicadores se renderizan
-- [ ] Verificar arrastrar controles
-- [ ] Verificar Run actualiza indicadores
-- [ ] Verificar persistencia de layout
+- [ ] `demo-panel-model` con 2 controles, 1 indicator
+- [ ] Ejecutar `red src/ui/panel/panel.red` → ventana con panel editable
+- [ ] Verificar drag & drop
+- [ ] Verificar edición inline de controles
+- [ ] Verificar persistencia de offset
 
 ### Entregable
-Módulo panel funcional standalone.
+Issue #7 cerrado. Integración en app principal = Issue #8.
 
 ---
 
 ## Phase 7 — Integración en qtorres.red (Issue #8)
 **Responsable:** App  
-**Duração:** Estimada  
 **Estado:** pending (belongs to Issue #8)
 
 ### Tasks
 - [ ] Cargar `panel.red` desde `qtorres.red`
-- [ ] Crear `render-panel` junto a `render-diagram`
-- [ ] Gestionar visibilidad de ambos paneles
+- [ ] Vista dividida: Block Diagram + Front Panel
+- [ ] Sincronización modelo único
 
 ### Entregable
-App completa con Block Diagram + Front Panel (Issue #8).
+App con ambos paneles (Issue #8).
 
 ---
 
-## Phase 8 — Test y verificación final
-**Responsable:** QA  
-**Duração:** Estimada  
-**Estado:** pending
+## Notas arquitectónicas
 
-### Tasks
-- [ ] Verificar con `examples/suma-basica.qvi` (panel standalone)
-- [ ] Verificar arrastrar controles/indicadores
-- [ ] Verificar layout persiste entre cargas
-- [ ] Nota: "Run actualiza indicadores" requiere Runner (Issue #10)
+| Modo | Tecnología | Propósito |
+|------|------------|-----------|
+| Edición (QTorres) | `base` + Draw | Drag, hit-test, posición |
+| Ejecución (.qvi) | VID layout (`view [...]`) | `field`/`text` interactivos |
 
-### Entregable
-Issue #7 cerrado.
+**Binding de valores:**
+- Edición: valor temporal en `fp-item/value`, se usa al compilar
+- Ejecución: el usuario edita `field`, pulsa Run, `text` muestra resultado
 
-## Notes
-- Integración completa (Issue #7 + #8) es para test final
-- Runner (Issue #10) es independiente — needed for "Run shows results"
-- Drag & drop ya existente en `canvas.red` — reutilizar patrón
-- `base-element` + `make-label` (DT-022/023) es el patrón a seguir
+**Separación Issue #7 vs #8:**
+- #7 = módulo panel standalone (fases 1-6)
+- #8 = integración en app principal (fase 7)
+
+**Dependencias cruzadas:**
+- Runner (Issue #10) necesita `compile-panel` para ejecutar
+- File I/O (Issue #9) necesita fase 3 y 4

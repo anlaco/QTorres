@@ -243,3 +243,83 @@ make-diagram: func [
         indicators: copy []
     ]
 ]
+
+; ══════════════════════════════════════════════════
+; FRONT PANEL ITEM (DT-022/023)
+; ══════════════════════════════════════════════════
+; fp-item = control o indicator del Front Panel.
+; Compartilha make-label com nodos y wires (DT-022).
+; Se arrastra en el canvas del panel para reposition.
+
+fp-default-width:  100
+fp-default-height:  30
+fp-control-color:   50.100.180
+fp-indicator-color: 175.125.20
+fp-text-color:      240.245.250
+
+fp-color: func [item-type] [
+    either item-type = 'control [fp-control-color] [fp-indicator-color]
+]
+
+make-fp-item: func [
+    "Crea un item del Front Panel (control o indicator)"
+    spec [block!]
+    /local item lbl-spec
+][
+    item: make object! [
+        id:      any [select spec 'id      0]
+        type:    any [select spec 'type    'control]
+        name:    any [select spec 'name    ""]
+        label:   none
+        default: any [select spec 'default  0.0]
+        value:   any [select spec 'value   any [select spec 'default  0.0]]
+        offset:  any [select spec 'offset  0x0]
+    ]
+
+    ; Name: usar explícito, o generar automáticamente
+    item/name: any [select spec 'name  gen-name to-word item/type]
+
+    ; Label: acepta bloque [text: "..." ...] o string
+    lbl-spec: select spec 'label
+    item/label: case [
+        block? lbl-spec [
+            lbl-spec: copy lbl-spec
+            if none? select lbl-spec 'visible [
+                append lbl-spec compose [visible: true]
+            ]
+            make-label lbl-spec
+        ]
+        string? lbl-spec [
+            make-label compose [text: (lbl-spec) visible: true]
+        ]
+        true [
+            make-label compose [
+                text: (default-label-text item/type)
+                visible: true
+            ]
+        ]
+    ]
+
+    ; Offset: usar explícito o auto-layout (sequential vertical)
+    either none? select spec 'offset [
+        item/offset: 0x0
+    ][
+        item/offset: select spec 'offset
+    ]
+
+    item
+]
+
+; Helper: calcula position visual del item (x/y + dimensions)
+fp-item-rect: func [item /local w h] [
+    w: fp-default-width
+    h: fp-default-height
+    compose [
+        x: (item/offset/x) y: (item/offset/y)
+        w: (w) h: (h)
+    ]
+]
+
+fp-value-text: func [item] [
+    form item/value
+]

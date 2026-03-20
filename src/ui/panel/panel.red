@@ -200,30 +200,27 @@ hit-fp-item: func [model mouse-x mouse-y /local found] [
 edit-dialog-item:  none
 edit-dialog-panel: none
 edit-dialog-model: none
+edit-dialog-fval:  none
 
-open-edit-dialog: func [item panel-face model /local label-text] [
+open-edit-dialog: func [item panel-face model /local label-text default-text] [
     edit-dialog-item:  item
     edit-dialog-panel: panel-face
     edit-dialog-model: model
+    edit-dialog-fval:  none
 
-    label-text: either all [item/label  object? item/label] [item/label/text] [form item/value]
+    label-text:   either all [item/label  object? item/label] [item/label/text] [form item/value]
+    default-text: form item/value
 
-    view/no-wait compose [
+    view/no-wait [
         title "Editar valor"
         text "Label:" return
-        field 200 (label-text)
+        flabel: field 200 label-text
         return
         text "Valor:" return
-        fval: field 200 (form item/value)
-        on-enter [
-            edit-dialog-item/value: attempt [to-float fval/text]
-            if none? edit-dialog-item/value [edit-dialog-item/value: edit-dialog-item/default]
-            edit-dialog-panel/draw: render-fp-panel edit-dialog-model (edit-dialog-model/size/x) (edit-dialog-model/size/y)
-            unview
-        ]
+        edit-dialog-fval: field 200 default-text
         return
         button "OK" [
-            edit-dialog-item/value: attempt [to-float fval/text]
+            edit-dialog-item/value: attempt [to-float edit-dialog-fval/text]
             if none? edit-dialog-item/value [edit-dialog-item/value: edit-dialog-item/default]
             edit-dialog-panel/draw: render-fp-panel edit-dialog-model (edit-dialog-model/size/x) (edit-dialog-model/size/y)
             unview

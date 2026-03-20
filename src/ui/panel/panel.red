@@ -4,8 +4,6 @@ Red [
     Needs:   'View
 ]
 
-do %../../graph/model.red
-
 ; ══════════════════════════════════════════════════════════
 ; CONSTANTS — visual configuration
 ; ══════════════════════════════════════════════════════════
@@ -37,6 +35,74 @@ fp-type-label?: func [item-type] [
 ]
 
 ; ══════════════════════════════════════════════════════════
+; FP-ITEM — Constructor following DT-022/023 pattern
+; ══════════════════════════════════════════════════════════
+fp-default-label: func [item-type] [
+    either item-type = 'control ["Numeric"] ["Numeric"]
+]
+
+make-fp-item: func [
+    "Crea un item del Front Panel (control o indicator)"
+    spec [block!]
+    /local item lbl-spec
+][
+    item: make object! [
+        id:      any [select spec 'id      0]
+        type:    any [select spec 'type    'control]
+        name:    any [select spec 'name    ""]
+        label:   none
+        default: any [select spec 'default  0.0]
+        value:   any [select spec 'value   any [select spec 'default  0.0]]
+        offset:  any [select spec 'offset  0x0]
+    ]
+
+    ; Name: usar explícito, o generar automáticamente
+    item/name: any [select spec 'name  rejoin [form item/type "_" item/id]]
+
+    ; Label: acepta bloque [text: "..." ...] o string
+    lbl-spec: select spec 'label
+    item/label: case [
+        block? lbl-spec [
+            lbl-spec: copy lbl-spec
+            if none? select lbl-spec 'text [
+                append lbl-spec compose [text: (fp-default-label item/type)]
+            ]
+            if none? select lbl-spec 'visible [
+                append lbl-spec compose [visible: true]
+            ]
+            make object! [
+                text:    any [select lbl-spec 'text    ""]
+                visible: any [select lbl-spec 'visible true]
+                offset:  any [select lbl-spec 'offset  0x0]
+            ]
+        ]
+        string? lbl-spec [
+            make object! [
+                text:    lbl-spec
+                visible: true
+                offset:  0x0
+            ]
+        ]
+        true [
+            make object! [
+                text:    fp-default-label item/type
+                visible: true
+                offset:  0x0
+            ]
+        ]
+    ]
+
+    ; Offset: usar explícito o default
+    item/offset: any [select spec 'offset  0x0]
+
+    item
+]
+
+fp-value-text: func [item] [
+    form item/value
+]
+
+; ══════════════════════════════════════════════════════════
 ; RENDER DRAW — pure functions, receive model, return Draw block
 ; ══════════════════════════════════════════════════════════
 render-fp-grid: func [w h /local cmds gx gy] [
@@ -53,7 +119,7 @@ render-fp-grid: func [w h /local cmds gx gy] [
     cmds
 ]
 
-render-fp-item: func [item selected? /local cmds col border-col type-lbl] [
+render-fp-item: func [item selected? /local cmds col border-col type-lbl text-x text-y] [
     cmds: copy []
     col: fp-color? item/type
     border-col: fp-border-color? item/type
@@ -65,22 +131,25 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl] [
     ]
 
     type-lbl: fp-type-label? item/type
+    text-x: item/offset/x + 8
+    text-y: item/offset/y + 14
 
     either all [item/label  object? item/label  item/label/visible] [
         append cmds compose [
-            fill-pen (fp-text-color - 20.20.20)
-            text (as-pair (item/offset/x + 8) (item/offset/y + 6)) (item/label/text)
-            text (as-pair (item/offset/x + 8) (item/offset/y + 22)) (type-lbl)
+            fill-pen 220.230.240
+            text (as-pair text-x (text-y - 8)) (item/label/text)
+            fill-pen 180.190.200
+            text (as-pair text-x (text-y + 8)) (type-lbl)
         ]
     ][
         append cmds compose [
-            fill-pen (fp-text-color - 20.20.20)
-            text (as-pair (item/offset/x + 8) (item/offset/y + 14)) (type-lbl)
+            fill-pen 220.230.240
+            text (as-pair text-x text-y) (type-lbl)
         ]
     ]
 
     append cmds compose [
-        fill-pen fp-text-color
+        fill-pen 255.255.255
         text (as-pair (item/offset/x + 8) (item/offset/y + fp-item-height - 16))
              (fp-value-text item)
     ]
@@ -96,7 +165,7 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl] [
     cmds
 ]
 
-render-fp-panel: func [model w h /local cmds] [
+render-fp-panel: func [model w h /local cmds item selected?] [
     cmds: copy []
 
     append cmds render-fp-grid w h
@@ -130,38 +199,33 @@ hit-fp-item: func [model mouse-x mouse-y /local found] [
 ; ══════════════════════════════════════════════════════════
 edit-dialog-item:  none
 edit-dialog-panel: none
-edit-dialog-field: none
-edit-dialog-face:  none
-
-apply-edit-value: func [item field-result] [
-    item/value: attempt [to-float field-result]
-    if none? item/value [item/value: item/default]
-]
+edit-dialog-model: none
 
 open-edit-dialog: func [item panel-face model /local label-text] [
     edit-dialog-item:  item
     edit-dialog-panel: panel-face
-    edit-dialog-field: none
-    edit-dialog-face:  model
+    edit-dialog-model: model
 
     label-text: either all [item/label  object? item/label] [item/label/text] [form item/value]
 
     view/no-wait compose [
         title "Editar valor"
         text "Label:" return
-        edit-dialog-field: field 200 (label-text)
+        field 200 (label-text)
         return
         text "Valor:" return
-        field 200 (form item/value)
+        fval: field 200 (form item/value)
         on-enter [
-            apply-edit-value edit-dialog-item edit-dialog-field/text
-            edit-dialog-panel/draw: render-fp-panel edit-dialog-face (edit-dialog-face/extra/size/x) (edit-dialog-face/extra/size/y)
+            edit-dialog-item/value: attempt [to-float fval/text]
+            if none? edit-dialog-item/value [edit-dialog-item/value: edit-dialog-item/default]
+            edit-dialog-panel/draw: render-fp-panel edit-dialog-model (edit-dialog-model/size/x) (edit-dialog-model/size/y)
             unview
         ]
         return
         button "OK" [
-            apply-edit-value edit-dialog-item edit-dialog-field/text
-            edit-dialog-panel/draw: render-fp-panel edit-dialog-face (edit-dialog-face/extra/size/x) (edit-dialog-face/extra/size/y)
+            edit-dialog-item/value: attempt [to-float fval/text]
+            if none? edit-dialog-item/value [edit-dialog-item/value: edit-dialog-item/default]
+            edit-dialog-panel/draw: render-fp-panel edit-dialog-model (edit-dialog-model/size/x) (edit-dialog-model/size/y)
             unview
         ]
         button "Cancelar" [unview]
@@ -171,8 +235,12 @@ open-edit-dialog: func [item panel-face model /local label-text] [
 ; ══════════════════════════════════════════════════════════
 ; CANVAS FACTORY — render-panel returns a functional face
 ; ══════════════════════════════════════════════════════════
+; Model stored in face/extra includes: front-panel, selected-fp, drag-fp, drag-off, size
 
 render-panel: func [model panel-width panel-height /local panel-face] [
+    ; Store dimensions in model for actor access
+    model/size: as-pair panel-width panel-height
+
     panel-face: make face! [
         type:    'base
         size:    as-pair panel-width panel-height
@@ -183,30 +251,34 @@ render-panel: func [model panel-width panel-height /local panel-face] [
         draw:    render-fp-panel model panel-width panel-height
         actors:  make object! [
 
-            on-down: func [face event /local mouse-x mouse-y hit] [
+            on-down: func [face event /local mouse-x mouse-y hit w h] [
                 mouse-x: event/offset/x
                 mouse-y: event/offset/y
+                w: face/extra/size/x
+                h: face/extra/size/y
                 hit: hit-fp-item face/extra mouse-x mouse-y
 
                 either hit [
                     face/extra/selected-fp: hit
                     face/extra/drag-fp: hit
                     face/extra/drag-off: as-pair (mouse-x - hit/offset/x) (mouse-y - hit/offset/y)
-                    face/draw: render-fp-panel face/extra panel-width panel-height
+                    face/draw: render-fp-panel face/extra w h
                 ][
                     face/extra/selected-fp: none
-                    face/draw: render-fp-panel face/extra panel-width panel-height
+                    face/draw: render-fp-panel face/extra w h
                 ]
             ]
 
-            on-over: func [face event /local mouse-x mouse-y] [
+            on-over: func [face event /local mouse-x mouse-y w h] [
                 mouse-x: event/offset/x
                 mouse-y: event/offset/y
+                w: face/extra/size/x
+                h: face/extra/size/y
 
                 if all [face/extra/drag-fp  face/extra/drag-off  event/down?] [
                     face/extra/drag-fp/offset: as-pair (mouse-x - face/extra/drag-off/x)
                                                          (mouse-y - face/extra/drag-off/y)
-                    face/draw: render-fp-panel face/extra panel-width panel-height
+                    face/draw: render-fp-panel face/extra w h
                 ]
             ]
 
@@ -221,11 +293,7 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                 hit: hit-fp-item face/extra mouse-x mouse-y
 
                 if hit [
-                    either hit/type = 'control [
-                        open-edit-dialog hit face face/extra
-                    ][
-                        open-edit-dialog hit face face/extra
-                    ]
+                    open-edit-dialog hit face face/extra
                 ]
             ]
 
@@ -239,20 +307,16 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                 ]
             ]
 
-            on-key: func [face event /local model hit] [
+            on-key: func [face event /local model hit w h] [
                 model: face/extra
                 hit: model/selected-fp
+                w: model/size/x
+                h: model/size/y
 
-                if all [hit  find [delete backspace] event/key] [
-                    either find [#"^(7F)" #"^H"] event/key [
-                        remove-each item model/front-panel [item/id = hit/id]
-                        model/selected-fp: none
-                        face/draw: render-fp-panel model panel-width panel-height
-                    ][
-                        model/selected-fp: none
-                        remove-each item model/front-panel [item/id = hit/id]
-                        face/draw: render-fp-panel model panel-width panel-height
-                    ]
+                if all [hit  any [find [delete backspace] event/key  find [#"^(7F)" #"^H"] event/key]] [
+                    remove-each item model/front-panel [item/id = hit/id]
+                    model/selected-fp: none
+                    face/draw: render-fp-panel model w h
                 ]
             ]
         ]
@@ -273,7 +337,7 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
             any [
                 'control set fp-item-spec block! (
                     item: make-fp-item fp-item-spec
-                    unless item/offset [
+                    if all [none? item/offset  zero? item/offset/x  zero? item/offset/y] [
                         item/offset: as-pair 20 offset-y
                         offset-y: offset-y + fp-item-height + 10
                     ]
@@ -282,7 +346,7 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
                 |
                 'indicator set fp-item-spec block! (
                     item: make-fp-item fp-item-spec
-                    unless item/offset [
+                    if all [none? item/offset  zero? item/offset/x  zero? item/offset/y] [
                         item/offset: as-pair 20 offset-y
                         offset-y: offset-y + fp-item-height + 10
                     ]
@@ -298,16 +362,29 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
 ; PERSISTENCE — save front-panel to qvi-diagram format (Phase 4)
 ; ══════════════════════════════════════════════════════════
 save-panel-to-diagram: func [front-panel-items /local cmds item] [
-    cmds: copy [front-panel: []]
+    cmds: compose [front-panel:]
     foreach item front-panel-items [
-        append/only cmds compose/only [
-            (to-set-word item/type)
-            [
-                id: (item/id)
-                name: (item/name)
-                label: [(text: (item/label/text) visible: (item/label/visible))]
-                default: (item/default)
-                offset: (item/offset)
+        append/only cmds either item/type = 'control [
+            compose/deep [
+                control [
+                    id: (item/id)
+                    type: 'numeric
+                    name: (item/name)
+                    label: [text: (item/label/text) visible: (item/label/visible)]
+                    default: (item/default)
+                    offset: (item/offset)
+                ]
+            ]
+        ][
+            compose/deep [
+                indicator [
+                    id: (item/id)
+                    type: 'numeric
+                    name: (item/name)
+                    label: [text: (item/label/text) visible: (item/label/visible)]
+                    default: (item/default)
+                    offset: (item/offset)
+                ]
             ]
         ]
     ]
@@ -316,7 +393,6 @@ save-panel-to-diagram: func [front-panel-items /local cmds item] [
 
 ; ══════════════════════════════════════════════════════════
 ; COMPILE PANEL — generate VID layout for .qvi executable (Phase 5)
-; Generates Red/View code: field controls, text indicators, Run button
 ; ══════════════════════════════════════════════════════════
 gen-panel-var-name: func [item] [
     to-word rejoin ["f" capitalize item/name]
@@ -358,7 +434,7 @@ make-demo-model: func [] [
         selected-fp: none
         drag-fp:     none
         drag-off:    none
-        size:        as-pair 400 300
+        size:        400x300
     ]
 ]
 
@@ -390,20 +466,16 @@ add-demo-items: func [model /local ctrl1 ctrl2 ind1] [
 gen-standalone-code: func [model /local vid-code] [
     vid-code: compile-panel model
     rejoin [
-        "Red [title: {QTorres Panel Demo} Needs: 'View]"
-        newline
-        "qvi-diagram: []"
-        newline
-        "view layout ["
-        newline
-        "    "
-        mold vid-code
-        newline
+        "Red [title: {QTorres Panel Demo} Needs: 'View]" newline
+        "qvi-diagram: []" newline
+        "view layout [" newline
+        "    " mold vid-code newline
         "]"
     ]
 ]
 
-if system/options/script = system/script/path [
+if find form system/options/script "panel.red" [
+    ; Use same pattern as canvas.red for demo execution
     demo-model: make-demo-model
     add-demo-items demo-model
 
@@ -418,7 +490,7 @@ if system/options/script = system/script/path [
         pane:   reduce [
             make face! [
                 type: 'base  offset: 10x8  size: 400x25  color: 200.203.212
-                draw: [pen 60.70.90  text 5x15 "Drag items | click/dbl-click = edit value | Delete = remove"]
+                draw: [pen 60.70.90  text 5x15 "Drag items | dbl-click = edit value | Delete = remove"]
             ]
             panel
         ]
@@ -430,12 +502,12 @@ if system/options/script = system/script/path [
                 ][
                     demo-model/selected-fp: none
                     remove-each item demo-model/front-panel [none? item]
-                    panel/draw: render-fp-panel demo-model 400 300
+                    panel/draw: render-fp-panel demo-model (demo-model/size/x) (demo-model/size/y)
                 ]
             ]
         ]
     ]
 
     print ["Generated VID code:"]
-    print mold gen-standalone-code demo-model
+    print mold compile-panel demo-model
 ]

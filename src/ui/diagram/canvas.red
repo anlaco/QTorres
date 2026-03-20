@@ -41,7 +41,7 @@ ncolor: func [node-type] [
 in-ports: func [node] [
     switch node/type [
         control   [[]]
-        indicator [[in]]
+        indicator [[value]]
         add       [[a b]]
         sub       [[a b]]
         mul       [[a b]]
@@ -54,7 +54,7 @@ in-ports: func [node] [
 
 out-ports: func [node] [
     switch node/type [
-        control   [[out]]
+        control   [[result]]
         indicator [[]]
         add       [[result]]
         sub       [[result]]

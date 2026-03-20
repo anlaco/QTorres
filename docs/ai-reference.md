@@ -2,7 +2,7 @@
 
 Este documento es una referencia de consumo para agentes de IA que necesiten generar ficheros del ecosistema QTorres. No es documentación interna del proyecto — es el contrato entre QTorres y cualquier modelo que genere ficheros para él.
 
-**Versión:** 1.1 — MVP (solo `.qvi` con tipos numéricos)
+**Versión:** 1.1 (solo `.qvi` con tipos numéricos)
 **Decisiones relacionadas:** DT-020, DT-021, DT-022, DT-023, DT-024
 
 ---
@@ -132,7 +132,7 @@ indicator [id: <int>  type: '<tipo>  name: "<name>"  label: [text: "<texto>" vis
 - `label` = objeto con `text` (editable por el usuario) y `visible` (controla si se muestra)
 - En controles e indicadores, `visible` es `true` por defecto
 
-**Tipos disponibles (MVP):** `'numeric`
+**Tipos disponibles:** `'numeric`
 
 ### Block Diagram — Nodos
 
@@ -174,7 +174,7 @@ wire [from: <id-nodo-origen>  port: '<puerto-salida>  to: <id-nodo-destino>  por
 **Reglas de conexión:**
 - Un puerto de salida puede conectarse a múltiples entradas (fan-out)
 - Un puerto de entrada solo puede recibir un wire (una sola fuente de datos)
-- Los tipos deben ser compatibles (en el MVP todo es `'number`)
+- Los tipos deben ser compatibles (todo es `'number`)
 - No se permiten ciclos en el grafo
 
 ### Connector (para sub-VIs)
@@ -395,4 +395,4 @@ qvi-diagram: [
 
 ## Nota sobre evolución
 
-Este documento refleja el estado del MVP (solo tipos numéricos). Conforme QTorres evolucione, se añadirán tipos de datos (`'boolean`, `'string`, `'array`), estructuras de control (loops, case), protocolos de hardware (Modbus, SCPI, MQTT), y nuevos bloques primitivos. La estructura del formato se mantiene — solo crece el vocabulario.
+Este documento refleja el estado actual de QTorres (tipos numéricos). Conforme evolucione, se añadirán tipos de datos (`'boolean`, `'string`, `'array`), estructuras de control (loops, case), protocolos de hardware (Modbus, SCPI, MQTT), y nuevos bloques primitivos.

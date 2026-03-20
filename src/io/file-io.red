@@ -140,9 +140,9 @@ load-vi: func [
                 'wire set wire-spec block! (
                     append d/wires make-wire compose [
                         from: (select wire-spec 'from)
-                        from-port: (select wire-spec 'from-port)
+                        from-port: (any [select wire-spec 'from-port  select wire-spec 'port])
                         to: (select wire-spec 'to)
-                        to-port: (select wire-spec 'to-port)
+                        to-port: (any [select wire-spec 'to-port  select wire-spec 'port])
                     ]
                 )
                 | skip

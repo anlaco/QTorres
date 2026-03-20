@@ -89,16 +89,14 @@ sync-name-counters: func [
     reset-name-counters
     foreach nm names [
         if string? nm [
-            ; Extraer tipo y número de "tipo_N"
             parts: split nm "_"
             if (length? parts) >= 2 [
-                type-str: rejoin collect [
-                    repeat i ((length? parts) - 1) [
-                        if i > 1 [keep "_"]
-                        keep parts/:i
-                    ]
+                type-str: copy ""
+                repeat i ((length? parts) - 1) [
+                    if i > 1 [append type-str "_"]
+                    append type-str parts/:i
                 ]
-                num-str: last parts
+                num-str: parts/(length? parts)
                 num: attempt [to-integer num-str]
                 if num [
                     cur: any [select name-counters to-word type-str  0]

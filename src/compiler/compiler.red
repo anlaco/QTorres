@@ -225,7 +225,7 @@ compile-diagram: func [
                         foreach src diagram/nodes [
                             if src/id = w/from-node [
                                 src-var: port-var src to-word w/from-port
-                                append run-body compose [(to set-path! reduce [face-sym 'text]) form (src-var)]
+                                append run-body compose [(to path! reduce [face-sym 'text]) form (src-var)]
                             ]
                         ]
                     ]

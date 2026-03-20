@@ -49,8 +49,6 @@ QTorres/
 │       │   └── canvas.red  # Block Diagram canvas (stub)
 │       └── panel/
 │           └── panel.red   # Front Panel (stub)
-├── MVP/
-│   └── QTorres-mvp.red     # MVP monolítico FUNCIONAL — referencia de implementación
 ├── examples/
 │   ├── suma-basica.qvi     # Ejemplo de VI simple
 │   ├── suma-subvi.qvi      # Ejemplo de sub-VI
@@ -67,10 +65,8 @@ QTorres/
 - Hit testing sobre bloques, puertos y wires
 - Stress test con 20 nodos y 15 wires fluido
 
-**El MVP monolítico funciona.** `MVP/QTorres-mvp.red` es referencia de implementación existente.
-
 **Los módulos `src/` son stubs documentados.** La arquitectura está diseñada pero sin implementar.
-El objetivo es implementar `src/` de forma modular usando el MVP como referencia.
+El objetivo es implementar `src/` de forma modular.
 
 **Próximo paso: Fase 1.** Empezar por Issue #22 (identidad visual) o Issue #20 (borrar wire/nodo).
 
@@ -158,8 +154,7 @@ qvi-diagram: [
 ### Cómo trabajar un Issue
 1. Leer el Issue en GitHub (`gh issue view N --repo anlaco/QTorres`)
 2. Implementar en el módulo correspondiente de `src/`
-3. Usar `MVP/QTorres-mvp.red` como referencia de implementación existente
-4. Verificar con los ejemplos de `examples/`
+3. Verificar con los ejemplos de `examples/`
 5. Cerrar el Issue cuando esté completo (`gh issue close N --repo anlaco/QTorres`)
 
 ### Orden de los Issues (backlog)
@@ -205,9 +200,6 @@ Trabajar siempre en orden de Fase. No empezar Fase 1 sin completar Fase 0.
 ## Comandos útiles
 
 ```bash
-# Ejecutar el MVP
-red MVP/QTorres-mvp.red
-
 # Ejecutar un ejemplo
 red examples/suma-basica.qvi
 

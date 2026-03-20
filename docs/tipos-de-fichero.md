@@ -370,6 +370,6 @@ qctl [
 ]
 ```
 
-## MVP
+## Tipos implementados
 
-El MVP solo implementa `.qvi` y `.qproj`. Los demás tipos (`.qlib`, `.qprim`, `.qctl`) se añaden en fases posteriores, pero el formato está definido desde el inicio para que la estructura sea consistente.
+QTorres implementa `.qvi` y `.qproj`. Los demás tipos (`.qlib`, `.qprim`, `.qctl`) se añaden en fases posteriores.

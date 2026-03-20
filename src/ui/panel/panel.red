@@ -27,10 +27,10 @@ fp-border-color?: func [item-type] [
 ]
 
 fp-type-label?: func [item-type] [
-    switch item-type [
-        control   ["CTRL"]
-        indicator ["IND"]
-        default   [uppercase form item-type]
+    case [
+        item-type = 'control   ["CTRL"]
+        item-type = 'indicator ["IND"]
+        true                   [uppercase form item-type]
     ]
 ]
 
@@ -137,14 +137,14 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl text-x 
     either all [item/label  object? item/label  item/label/visible] [
         append cmds compose [
             fill-pen 220.230.240
-            text (as-pair text-x (text-y - 8)) (item/label/text)
+            text (as-pair text-x (text-y - 8)) (any [item/label/text ""])
             fill-pen 180.190.200
-            text (as-pair text-x (text-y + 8)) (type-lbl)
+            text (as-pair text-x (text-y + 8)) (any [type-lbl ""])
         ]
     ][
         append cmds compose [
             fill-pen 220.230.240
-            text (as-pair text-x text-y) (type-lbl)
+            text (as-pair text-x text-y) (any [type-lbl ""])
         ]
     ]
 

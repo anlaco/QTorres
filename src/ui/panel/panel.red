@@ -241,7 +241,7 @@ fp-palette-add-item: func [item-type /local new-id item model w h] [
     w:      model/size/x
     h:      model/size/y
     new-id: 1 + length? model/front-panel
-    item: make-fp-item compose [
+    item: make-fp-item compose/deep [
         id:      (new-id)
         type:    (item-type)
         name:    (rejoin [form item-type "_" new-id])

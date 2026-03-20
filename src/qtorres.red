@@ -72,9 +72,52 @@ btn-run: make face! [
     draw:   [fill-pen 240.245.250  text 15x5 "Run"]
     extra:  app-model
     actors: make object! [
-        on-down: func [face event /local c] [
-            c: attempt [compile-diagram face/extra]
-            if c [view/no-wait layout c/ui-layout]
+        on-down: func [face event /local model n bdef wire src result-var val _pref] [
+            model: face/extra
+
+            ; 1. Sincronizar valores de controles FP → config del nodo BD
+            foreach n model/nodes [
+                bdef: find-block n/type
+                if all [bdef  bdef/category = 'input] [
+                    foreach item model/front-panel [
+                        if item/name = n/name [
+                            n/config: reduce ['default item/value]
+                        ]
+                    ]
+                ]
+            ]
+
+            ; 2. Ejecutar cálculo headless
+            attempt [do compile-body model]
+
+            ; 3. Leer resultados → indicadores FP
+            foreach n model/nodes [
+                bdef: find-block n/type
+                if all [bdef  bdef/category = 'output] [
+                    foreach wire model/wires [
+                        if wire/to-node = n/id [
+                            foreach src model/nodes [
+                                if src/id = wire/from-node [
+                                    result-var: port-var src to-word wire/from-port
+                                    val: attempt [get result-var]
+                                    if val [
+                                        foreach item model/front-panel [
+                                            if item/name = n/name [item/value: val]
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+
+            ; 4. Refrescar Front Panel
+            _pref: select model 'panel-ref
+            if _pref [
+                _pref/draw: render-fp-panel model model/size/x model/size/y
+                show _pref
+            ]
         ]
     ]
 ]

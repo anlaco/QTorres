@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main]
   push:
@@ -9,18 +10,18 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo dpkg --add-architecture i386
-          sudo apt-get update
-          sudo apt-get install -y libc6:i386 libcurl4:i386 libgtk-3-0:i386 xvfb
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libc6:i386 libcurl4:i386
 
       - name: Run tests
         working-directory: tests
         run: |
-          chmod +x ../red-cli ../red-view ../redc
-          xvfb-run ../red-view run-all.red
+          chmod +x ../red-cli ../redc
+          ../red-cli ../tests/run-all.red

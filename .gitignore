@@ -31,9 +31,8 @@ QTorres-mvp
 QTorres
 prueba-bd
 prueba-view
-red-view
 libRedRT.so
 libRedRT-defs.r
 libRedRT-extras.r
 libRedRT-include.red
-redc
+# red-cli, red-view y redc SÍ van en el repo (versión fijada, Linux x86_32)

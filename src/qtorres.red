@@ -7,17 +7,20 @@ Red [
 ]
 
 ; ── Módulos — orden de dependencia ───────────────────────────────
-; Cambiar al directorio del script para que los do % relativos funcionen
-; independientemente del CWD desde donde se invoque red-view.
-change-dir first split-path system/options/script
+; clean-path resuelve el directorio del script a ruta absoluta,
+; evitando la doble-concatenación cuando system/options/script
+; devuelve una ruta relativa y change-dir ya está en src/.
+; Red CLI cambia el CWD al directorio del script antes de ejecutarlo,
+; por lo que what-dir es siempre el directorio de qtorres.red (src/).
+_base: what-dir
 
-do %graph/model.red
-do %graph/blocks.red
-do %compiler/compiler.red
-do %runner/runner.red
-do %io/file-io.red
-do %ui/diagram/canvas.red
-do %ui/panel/panel.red
+do append copy _base "graph/model.red"
+do append copy _base "graph/blocks.red"
+do append copy _base "compiler/compiler.red"
+do append copy _base "runner/runner.red"
+do append copy _base "io/file-io.red"
+do append copy _base "ui/diagram/canvas.red"
+do append copy _base "ui/panel/panel.red"
 
 ; ── Shim C: registrar control e indicator en el block-registry ───
 ; compile-diagram falla si encuentra nodos de tipo control/indicator

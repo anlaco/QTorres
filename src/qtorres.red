@@ -22,18 +22,6 @@ do append copy _base "io/file-io.red"
 do append copy _base "ui/diagram/canvas.red"
 do append copy _base "ui/panel/panel.red"
 
-; ── Shim C: registrar control e indicator en el block-registry ───
-; compile-diagram falla si encuentra nodos de tipo control/indicator
-; sin definición. Se definen aquí tras cargar blocks.red.
-block 'control  'input  [
-    out result 'number
-    config default 'number 0.0
-    emit [result: default]
-]
-block 'indicator 'output [
-    in value 'number
-]
-
 ; ── Mapa de resultados de ejecución (global, accesible desde do code) ───
 _run-results: make map! []
 

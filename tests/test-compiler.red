@@ -5,6 +5,7 @@ do %../src/graph/blocks.red
 do %../src/compiler/compiler.red
 do %../src/io/file-io.red
 do %../src/runner/runner.red
+do %../src/ui/panel/panel.red
 
 ; Resetear contadores para tests predecibles
 reset-name-counters
@@ -117,3 +118,55 @@ run-err: try [run rd]
 if error? run-err [print rejoin ["  Error en runner: " run-err/arg1]]
 assert "runner ejecuta sin error"   (not error? run-err)
 assert "qtorres-runtime se resetea" (false = qtorres-runtime)
+
+; ── Tests FP round-trip ───────────────────────────────────────────────
+suite "FP round-trip (save-vi → load-vi)"
+
+; Diagrama con 2 controles + 1 indicador en FP
+reset-name-counters
+fp-td: make-diagram "fp-test"
+fp-n1: make-node [id: 20  type: 'control    name: "ctrl_1"  label: [text: "A" visible: true]   x: 20  y: 20]
+fp-n2: make-node [id: 21  type: 'control    name: "ctrl_2"  label: [text: "B" visible: true]   x: 20  y: 100]
+fp-n3: make-node [id: 22  type: 'add        name: "add_1"   label: [text: "Add" visible: false] x: 200 y: 60]
+fp-n4: make-node [id: 23  type: 'indicator  name: "ind_1"   label: [text: "R" visible: true]   x: 400 y: 60]
+append fp-td/nodes fp-n1  append fp-td/nodes fp-n2
+append fp-td/nodes fp-n3  append fp-td/nodes fp-n4
+
+; FP items con offsets conocidos
+fp-c1: make-fp-item [id: 1  type: 'control    name: "ctrl_1"  label: [text: "A" visible: true]  default: 5.0  offset: 20x30]
+fp-c2: make-fp-item [id: 2  type: 'control    name: "ctrl_2"  label: [text: "B" visible: true]  default: 3.0  offset: 20x100]
+fp-i1: make-fp-item [id: 3  type: 'indicator  name: "ind_1"   label: [text: "R" visible: true]  default: 0.0  offset: 20x170]
+append fp-td/front-panel fp-c1
+append fp-td/front-panel fp-c2
+append fp-td/front-panel fp-i1
+
+fp-test-file: %/tmp/qtorres-fp-test.qvi
+save-vi fp-test-file fp-td
+assert "save-vi FP crea el fichero"  (exists? fp-test-file)
+
+fp-loaded: load-vi fp-test-file
+if exists? fp-test-file [delete fp-test-file]
+
+assert "load-vi FP devuelve objeto"           (object? fp-loaded)
+assert "front-panel tiene 3 items"            (3 = length? fp-loaded/front-panel)
+
+fp-lc1: fp-loaded/front-panel/1
+fp-lc2: fp-loaded/front-panel/2
+fp-li1: fp-loaded/front-panel/3
+
+assert "item 1: id correcto"                  (1 = fp-lc1/id)
+assert "item 1: type control"                 ('control = fp-lc1/type)
+assert "item 1: name correcto"                ("ctrl_1" = fp-lc1/name)
+assert "item 1: label es objeto"              (object? fp-lc1/label)
+assert "item 1: label/text correcto"          ("A" = fp-lc1/label/text)
+assert "item 1: offset/x correcto"            (20 = fp-lc1/offset/x)
+assert "item 1: offset/y correcto"            (30 = fp-lc1/offset/y)
+
+assert "item 2: type control"                 ('control = fp-lc2/type)
+assert "item 2: name correcto"                ("ctrl_2" = fp-lc2/name)
+assert "item 2: offset/y correcto"            (100 = fp-lc2/offset/y)
+
+assert "item 3: type indicator"               ('indicator = fp-li1/type)
+assert "item 3: name correcto"                ("ind_1" = fp-li1/name)
+assert "item 3: label/text correcto"          ("R" = fp-li1/label/text)
+assert "item 3: offset/y correcto"            (170 = fp-li1/offset/y)

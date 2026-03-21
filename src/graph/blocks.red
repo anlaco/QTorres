@@ -81,6 +81,12 @@ block-out-ports: func [name [word!] /local b] [
     if b [collect [foreach p b/outputs [keep p/name]]]
 ]
 
+; Devuelve la categoría de un bloque ('input 'output 'math ...), o none.
+block-category: func [name [word!] /local b] [
+    b: find-block name
+    if b [b/category]
+]
+
 ; ══════════════════════════════════════════════════════════
 ; DEFINICIONES DE BLOQUES PRIMITIVOS
 ; ══════════════════════════════════════════════════════════
@@ -122,5 +128,15 @@ block 'div 'math [
 block 'display 'output [
     in value 'number
     emit [print value]
+]
+
+block 'control 'input [
+    out result 'number
+    config default 'number 0.0
+    emit [result: default]
+]
+
+block 'indicator 'output [
+    in value 'number
 ]
 

@@ -24,47 +24,21 @@ col-text:       240.245.250
 ; ══════════════════════════════════════════════════════════
 ; GEOMETRÍA DE NODOS — funciones puras sin side-effects
 ; ══════════════════════════════════════════════════════════
-ncolor: func [node-type] [
-    switch node-type [
-        control   [col-block-ctrl]
-        indicator [col-block-ind]
-        add       [col-block-op]
-        sub       [col-block-op]
-        mul       [col-block-op]
-        div       [col-block-op]
-        display   [col-block-op]
-        subvi     [col-block-op]
-        default   [col-block-op]
+; Devuelve el color de un tipo de nodo leyendo la categoría del block-registry.
+block-color: func [node-type /local cat] [
+    cat: block-category to-word node-type
+    case [
+        cat = 'input  [col-block-ctrl]
+        cat = 'output [col-block-ind]
+        true          [col-block-op]
     ]
 ]
 
-in-ports: func [node] [
-    switch node/type [
-        control   [[]]
-        indicator [[value]]
-        add       [[a b]]
-        sub       [[a b]]
-        mul       [[a b]]
-        div       [[a b]]
-        display   [[value]]
-        subvi     [[in1 in2]]
-        default   [[]]
-    ]
-]
+; Devuelve los puertos de entrada de un nodo consultando el block-registry.
+in-ports: func [node] [ any [block-in-ports to-word node/type  []] ]
 
-out-ports: func [node] [
-    switch node/type [
-        control   [[result]]
-        indicator [[]]
-        add       [[result]]
-        sub       [[result]]
-        mul       [[result]]
-        div       [[result]]
-        display   [[]]
-        subvi     [[out]]
-        default   [[]]
-    ]
-]
+; Devuelve los puertos de salida de un nodo consultando el block-registry.
+out-ports: func [node] [ any [block-out-ports to-word node/type  []] ]
 
 port-xy: func [node port-name direction /local ports port-index found] [
     either direction = 'in [
@@ -125,7 +99,7 @@ render-grid: func [canvas-width canvas-height /local cmds x y] [
     cmds
 ]
 
-render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-color block-color type-label ports in-port-y out-port-y node wire src-port-xy] [
+render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-color node-color type-label ports in-port-y out-port-y node wire src-port-xy] [
     cmds: copy []
 
     ; 0) Grid de fondo
@@ -161,15 +135,15 @@ render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-col
 
     ; 3) Nodos con puertos
     foreach node model/nodes [
-        block-color: ncolor node/type
+        node-color: block-color node/type
         ; Cuerpo del bloque
         append cmds compose [
-            pen (block-color - 20.20.20)  line-width 1  fill-pen (block-color)
+            pen (node-color - 20.20.20)  line-width 1  fill-pen (node-color)
             box (as-pair node/x node/y) (as-pair (node/x + block-width) (node/y + block-height)) 5
         ]
         ; Banda izquierda de categoría
         append cmds compose [
-            pen off  fill-pen (block-color + 30.30.30)
+            pen off  fill-pen (node-color + 30.30.30)
             box (as-pair node/x node/y) (as-pair (node/x + 4) (node/y + block-height)) 0
         ]
         ; Texto: tipo + label (DT-022)
@@ -437,11 +411,11 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                         ]
                     ][
                         if all [hit-dir = 'in  model/wire-src/id <> hit-nd/id] [
-                            append model/wires make object! [
-                                from-node:  model/wire-src/id
-                                from-port:  model/wire-port
-                                to-node:    hit-nd/id
-                                to-port:    hit-port-name
+                            append model/wires make-wire compose [
+                                from: (model/wire-src/id)
+                                from-port: (model/wire-port)
+                                to: (hit-nd/id)
+                                to-port: (hit-port-name)
                             ]
                         ]
                         model/wire-src: none  model/wire-port: none  model/mouse-pos: none
@@ -504,11 +478,11 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                         hit-result/3 = 'in
                         model/wire-src/id <> hit-result/1/id
                     ][
-                        append model/wires make object! [
-                            from-node:  model/wire-src/id
-                            from-port:  model/wire-port
-                            to-node:    hit-result/1/id
-                            to-port:    hit-result/2
+                        append model/wires make-wire compose [
+                            from: (model/wire-src/id)
+                            from-port: (model/wire-port)
+                            to: (hit-result/1/id)
+                            to-port: (hit-result/2)
                         ]
                         model/wire-src: none  model/wire-port: none  model/mouse-pos: none
                         face/draw: render-bd model
@@ -604,11 +578,11 @@ repeat i 20 [
 ]
 
 repeat i 15 [
-    append demo-model/wires make object! [
-        from-node:  demo-model/nodes/:i/id
-        from-port:  'result
-        to-node:    demo-model/nodes/(i + 1)/id
-        to-port:    'a
+    append demo-model/wires make-wire compose [
+        from: (demo-model/nodes/:i/id)
+        from-port: 'result
+        to: (demo-model/nodes/(i + 1)/id)
+        to-port: 'a
     ]
 ]
 

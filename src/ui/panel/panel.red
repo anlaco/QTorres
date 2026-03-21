@@ -230,6 +230,59 @@ open-edit-dialog: func [item panel-face model /local label-text default-text] [
 ]
 
 ; ══════════════════════════════════════════════════════════
+; PALETA DEL FRONT PANEL — doble clic en espacio vacío
+; ══════════════════════════════════════════════════════════
+fp-palette-panel: none
+fp-palette-x:     0
+fp-palette-y:     0
+
+fp-palette-add-item: func [item-type /local new-id item model w h _cref nid bd-y] [
+    model:  fp-palette-panel/extra
+    w:      model/size/x
+    h:      model/size/y
+    new-id: 1 + length? model/front-panel
+    item: make-fp-item compose/deep [
+        id:      (new-id)
+        type:    (item-type)
+        name:    (rejoin [form item-type "_" new-id])
+        label:   [text: (fp-default-label item-type) visible: true]
+        default: 0.0
+        offset:  (as-pair fp-palette-x fp-palette-y)
+    ]
+    append model/front-panel item
+    fp-palette-panel/draw: render-fp-panel model w h
+    show fp-palette-panel
+    ; Sync BD: crear nodo correspondiente
+    _cref: select model 'canvas-ref
+    if _cref [
+        nid:  gen-node-id model
+        bd-y: 20 + ((length? model/nodes) * 75)
+        append model/nodes make-node compose [
+            id:   (nid)
+            type: (item-type)
+            name: (item/name)
+            x:    20
+            y:    (bd-y)
+        ]
+        _cref/draw: render-bd model
+        show _cref
+    ]
+    unview
+]
+
+open-fp-palette: func [face x y] [
+    fp-palette-panel: face
+    fp-palette-x:     x
+    fp-palette-y:     y
+    view/no-wait [
+        title "Añadir al Front Panel"
+        button 100 "Control"   [fp-palette-add-item 'control]    return
+        button 100 "Indicator" [fp-palette-add-item 'indicator]  return
+        button      "Cancelar" [unview]
+    ]
+]
+
+; ══════════════════════════════════════════════════════════
 ; CANVAS FACTORY — render-panel returns a functional face
 ; ══════════════════════════════════════════════════════════
 ; Model stored in face/extra includes: front-panel, selected-fp, drag-fp, drag-off, size
@@ -288,8 +341,8 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                 mouse-x: event/offset/x
                 mouse-y: event/offset/y
                 hit: hit-fp-item face/extra mouse-x mouse-y
-
-                if hit [
+                ; Solo los controles son editables — indicadores son read-only
+                if all [hit  hit/type = 'control] [
                     open-edit-dialog hit face face/extra
                 ]
             ]
@@ -299,18 +352,32 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                 mouse-y: event/offset/y
                 hit: hit-fp-item face/extra mouse-x mouse-y
 
-                if hit [
-                    open-edit-dialog hit face face/extra
+                case [
+                    all [hit  hit/type = 'control]   [open-edit-dialog hit face face/extra]
+                    none? hit                         [open-fp-palette face mouse-x mouse-y]
+                    ; indicador: no hacer nada
                 ]
             ]
 
-            on-key: func [face event /local model hit w h] [
+            on-key: func [face event /local model hit w h _cref bd-node] [
                 model: face/extra
                 hit: model/selected-fp
                 w: model/size/x
                 h: model/size/y
 
                 if all [hit  any [find [delete backspace] event/key  find [#"^(7F)" #"^H"] event/key]] [
+                    ; Sync BD: borrar nodo y sus wires
+                    _cref: select model 'canvas-ref
+                    if _cref [
+                        bd-node: none
+                        foreach n model/nodes [if n/name = hit/name [bd-node: n]]
+                        if bd-node [
+                            remove-each wire model/wires [any [wire/from-node = bd-node/id  wire/to-node = bd-node/id]]
+                            remove-each n model/nodes [n/name = hit/name]
+                        ]
+                        _cref/draw: render-bd model
+                        show _cref
+                    ]
                     remove-each item model/front-panel [item/id = hit/id]
                     model/selected-fp: none
                     face/draw: render-fp-panel model w h
@@ -334,6 +401,7 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
             any [
                 'control set fp-item-spec block! (
                     item: make-fp-item fp-item-spec
+                    item/type: 'control
                     if all [none? item/offset  zero? item/offset/x  zero? item/offset/y] [
                         item/offset: as-pair 20 offset-y
                         offset-y: offset-y + fp-item-height + 10
@@ -343,6 +411,7 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
                 |
                 'indicator set fp-item-spec block! (
                     item: make-fp-item fp-item-spec
+                    item/type: 'indicator
                     if all [none? item/offset  zero? item/offset/x  zero? item/offset/y] [
                         item/offset: as-pair 20 offset-y
                         offset-y: offset-y + fp-item-height + 10
@@ -358,34 +427,24 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
 ; ══════════════════════════════════════════════════════════
 ; PERSISTENCE — save front-panel to qvi-diagram format (Phase 4)
 ; ══════════════════════════════════════════════════════════
-save-panel-to-diagram: func [front-panel-items /local cmds item] [
-    cmds: compose [front-panel:]
+save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
+    ; Todos los items van en UN único bloque: [front-panel: [control [...] indicator [...]]]
+    ; Si se generan bloques separados, select solo devuelve el primero al cargar.
+    items: copy []
     foreach item front-panel-items [
-        append/only cmds either item/type = 'control [
-            compose/deep [
-                control [
-                    id: (item/id)
-                    type: 'numeric
-                    name: (item/name)
-                    label: [text: (item/label/text) visible: (item/label/visible)]
-                    default: (item/default)
-                    offset: (item/offset)
-                ]
-            ]
-        ][
-            compose/deep [
-                indicator [
-                    id: (item/id)
-                    type: 'numeric
-                    name: (item/name)
-                    label: [text: (item/label/text) visible: (item/label/visible)]
-                    default: (item/default)
-                    offset: (item/offset)
-                ]
-            ]
+        kw:   either item/type = 'control ['control] ['indicator]
+        spec: compose/deep [
+            id: (item/id)
+            type: 'numeric
+            name: (item/name)
+            label: [text: (item/label/text) visible: (item/label/visible)]
+            default: (item/default)
+            offset: (item/offset)
         ]
+        append items kw
+        append/only items spec
     ]
-    cmds
+    reduce [to-set-word 'front-panel  items]
 ]
 
 ; ══════════════════════════════════════════════════════════

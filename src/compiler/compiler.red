@@ -248,7 +248,7 @@ compile-diagram: func [
         if bdef/category = 'input [
             face-n: to-word rejoin ["f_" node/id]
             cfg-val: any [select node/config 'default  0.0]
-            append ui-layout 'label
+            append ui-layout 'text
             ; UI layout usa label/text (display) para textos visibles (DT-024)
             append ui-layout either all [node/label  object? node/label] [node/label/text] [any [node/name ""]]
             append ui-layout to-set-word face-n
@@ -264,7 +264,7 @@ compile-diagram: func [
         if none? bdef [continue]
         if bdef/category = 'output [
             face-n: to-word rejoin ["t_" node/id]
-            append ui-layout 'label
+            append ui-layout 'text
             ; UI layout usa label/text (display) para textos visibles (DT-024)
             append ui-layout either all [node/label  object? node/label] [node/label/text] [any [node/name ""]]
             append ui-layout to-set-word face-n

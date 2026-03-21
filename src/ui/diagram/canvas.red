@@ -41,7 +41,7 @@ ncolor: func [node-type] [
 in-ports: func [node] [
     switch node/type [
         control   [[]]
-        indicator [[in]]
+        indicator [[value]]
         add       [[a b]]
         sub       [[a b]]
         mul       [[a b]]
@@ -54,7 +54,7 @@ in-ports: func [node] [
 
 out-ports: func [node] [
     switch node/type [
-        control   [[out]]
+        control   [[result]]
         indicator [[]]
         add       [[result]]
         sub       [[result]]
@@ -339,6 +339,39 @@ rename-dialog-node:   none
 rename-dialog-canvas: none
 rename-dialog-field:  none
 
+; ── Paleta de bloques ────────────────────────────────────────────
+; vars de módulo para el diálogo de paleta (mismo patrón que rename)
+palette-canvas: none
+palette-pos-x:  0
+palette-pos-y:  0
+
+palette-add-node: func [node-type /local n nid] [
+    nid: gen-node-id palette-canvas/extra
+    n: make-node compose [id: (nid) type: (node-type) x: (palette-pos-x) y: (palette-pos-y)]
+    append palette-canvas/extra/nodes n
+    palette-canvas/draw: render-bd palette-canvas/extra
+    show palette-canvas
+    unview
+]
+
+open-palette: func [face x y] [
+    palette-canvas: face
+    palette-pos-x:  x
+    palette-pos-y:  y
+    view/no-wait [
+        title "Añadir bloque"
+        text "Aritmética:"  return
+        button 80 "Add +"    [palette-add-node 'add]
+        button 80 "Sub -"    [palette-add-node 'sub]    return
+        button 80 "Mul *"    [palette-add-node 'mul]
+        button 80 "Div /"    [palette-add-node 'div]    return
+        text "Constante / salida:"  return
+        button 80 "Const"    [palette-add-node 'const]
+        button 80 "Display"  [palette-add-node 'display]  return
+        button "Cancelar"    [unview]
+    ]
+]
+
 ; Borra el elemento seleccionado (nodo o wire).
 ; Llamar desde el on-key del window padre con: canvas-delete-selected canvas
 canvas-delete-selected: func [canvas /local model node-id] [
@@ -352,11 +385,22 @@ canvas-delete-selected: func [canvas /local model node-id] [
             canvas/draw: render-bd model
         ]
         model/selected-node [
-            node-id: model/selected-node/id
+            node-id:   model/selected-node/id
+            node-name: model/selected-node/name
+            node-type: model/selected-node/type
             remove-each wire model/wires [any [wire/from-node = node-id  wire/to-node = node-id]]
             remove-each node model/nodes  [node/id = node-id]
             model/selected-node: none
             model/drag-node:     none
+            ; Sync FP: borrar item correspondiente si es control/indicator
+            if all [
+                find [control indicator] node-type
+                _pref: select model 'panel-ref
+            ][
+                remove-each item model/front-panel [item/name = node-name]
+                _pref/draw: render-fp-panel model model/size/x model/size/y
+                show _pref
+            ]
             canvas/draw: render-bd model
         ]
     ]
@@ -450,8 +494,26 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 ]
             ]
 
-            on-up: func [face event /local model] [
+            on-up: func [face event /local model hit-result] [
                 model: face/extra
+                ; Completar wire si se suelta sobre un puerto de entrada (drag-to-connect)
+                if model/wire-src [
+                    hit-result: hit-port model event/offset/x event/offset/y
+                    if all [
+                        hit-result
+                        hit-result/3 = 'in
+                        model/wire-src/id <> hit-result/1/id
+                    ][
+                        append model/wires make object! [
+                            from-node:  model/wire-src/id
+                            from-port:  model/wire-port
+                            to-node:    hit-result/1/id
+                            to-port:    hit-result/2
+                        ]
+                        model/wire-src: none  model/wire-port: none  model/mouse-pos: none
+                        face/draw: render-bd model
+                    ]
+                ]
                 model/drag-node: none
                 model/drag-off:  none
             ]
@@ -471,8 +533,8 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 mouse-x: event/offset/x
                 mouse-y: event/offset/y
                 node: hit-node model mouse-x mouse-y
-                if node [
-                    ; Guardar refs en vars de módulo (persisten tras view/no-wait)
+                either node [
+                    ; Nodo existente → diálogo de renombrado
                     rename-dialog-node:   node
                     rename-dialog-canvas: face
                     rename-dialog-field:  none
@@ -496,6 +558,9 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                         ]
                         button "Cancelar" [unview]
                     ]
+                ][
+                    ; Espacio vacío → paleta para añadir nuevo bloque
+                    open-palette face mouse-x mouse-y
                 ]
             ]
         ]

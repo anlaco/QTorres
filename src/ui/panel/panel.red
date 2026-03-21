@@ -401,6 +401,7 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
             any [
                 'control set fp-item-spec block! (
                     item: make-fp-item fp-item-spec
+                    item/type: 'control
                     if all [none? item/offset  zero? item/offset/x  zero? item/offset/y] [
                         item/offset: as-pair 20 offset-y
                         offset-y: offset-y + fp-item-height + 10
@@ -410,6 +411,7 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
                 |
                 'indicator set fp-item-spec block! (
                     item: make-fp-item fp-item-spec
+                    item/type: 'indicator
                     if all [none? item/offset  zero? item/offset/x  zero? item/offset/y] [
                         item/offset: as-pair 20 offset-y
                         offset-y: offset-y + fp-item-height + 10
@@ -425,34 +427,24 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
 ; ══════════════════════════════════════════════════════════
 ; PERSISTENCE — save front-panel to qvi-diagram format (Phase 4)
 ; ══════════════════════════════════════════════════════════
-save-panel-to-diagram: func [front-panel-items /local cmds item] [
-    cmds: compose [front-panel:]
+save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
+    ; Todos los items van en UN único bloque: [front-panel: [control [...] indicator [...]]]
+    ; Si se generan bloques separados, select solo devuelve el primero al cargar.
+    items: copy []
     foreach item front-panel-items [
-        append/only cmds either item/type = 'control [
-            compose/deep [
-                control [
-                    id: (item/id)
-                    type: 'numeric
-                    name: (item/name)
-                    label: [text: (item/label/text) visible: (item/label/visible)]
-                    default: (item/default)
-                    offset: (item/offset)
-                ]
-            ]
-        ][
-            compose/deep [
-                indicator [
-                    id: (item/id)
-                    type: 'numeric
-                    name: (item/name)
-                    label: [text: (item/label/text) visible: (item/label/visible)]
-                    default: (item/default)
-                    offset: (item/offset)
-                ]
-            ]
+        kw:   either item/type = 'control ['control] ['indicator]
+        spec: compose/deep [
+            id: (item/id)
+            type: 'numeric
+            name: (item/name)
+            label: [text: (item/label/text) visible: (item/label/visible)]
+            default: (item/default)
+            offset: (item/offset)
         ]
+        append items kw
+        append/only items spec
     ]
-    cmds
+    reduce [to-set-word 'front-panel  items]
 ]
 
 ; ══════════════════════════════════════════════════════════

@@ -32,11 +32,35 @@ block 'control  'input  [
 ]
 block 'indicator 'output [
     in value 'number
-    emit [print value]
 ]
 
 ; ── Mapa de resultados de ejecución (global, accesible desde do code) ───
 _run-results: make map! []
+
+; ── Diálogo de guardado (GTK-008 workaround: request-file/save no funciona) ──
+; GTK ignora el flag /save y siempre abre un diálogo "Open".
+; Se usa un diálogo VID propio con view/no-wait (patrón GTK-007).
+; GTK-008: request-file/save no funciona en Linux — diálogo VID propio.
+; view/no-wait retorna antes de que el usuario pulse, así que save-vi-full
+; se llama desde dentro del botón del diálogo, no desde el caller.
+_save-field: none   ; módulo para que el actor lo vea tras view/no-wait
+_save-model: none   ; ídem para el modelo
+
+show-save-dialog: func [model [object!] /local dlg default-name] [
+    _save-model: model
+    default-name: rejoin [model/name ".qvi"]
+    dlg: layout [
+        text "Guardar VI como (.qvi):"
+        _save-field: field 360 default-name
+        across
+        button "Guardar" [
+            save-vi-full to-file _save-field/text _save-model
+            unview
+        ]
+        button "Cancelar" [unview]
+    ]
+    view/no-wait dlg
+]
 
 ; ── Modelo unificado BD + FP ─────────────────────────────────────
 app-model: make-diagram-model
@@ -146,9 +170,9 @@ btn-save: make face! [
     draw:   [fill-pen 240.245.250  text 12x5 "Save"]
     extra:  app-model
     actors: make object! [
-        on-down: func [face event /local path] [
-            path: request-file/save/filter ["QTorres VI" %.qvi]
-            if path [save-vi-full path face/extra]
+        on-down: func [face event] [
+            ; GTK-008: request-file/save no funciona en Linux (ver docs/GTK_ISSUES.md)
+            show-save-dialog face/extra
         ]
     ]
 ]
@@ -162,17 +186,22 @@ btn-load: make face! [
     extra:  app-model
     actors: make object! [
         on-down: func [face event /local path loaded] [
-            path: request-file/filter ["QTorres VI" %.qvi]
+            ; GTK: %.qvi en /filter no muestra archivos — usar %*.* como workaround
+            path: request-file/title/filter "Abrir VI (.qvi)..." ["Todos" %*.*]
             if path [
                 loaded: attempt [load-vi path]
                 if loaded [
                     app-model/nodes:         loaded/nodes
                     app-model/wires:         loaded/wires
                     app-model/name:          loaded/name
+                    app-model/front-panel:   loaded/front-panel
                     app-model/selected-node: none
                     app-model/selected-wire: none
+                    app-model/selected-fp:   none
                     canvas-face/draw: render-bd app-model
                     show canvas-face
+                    panel-face/draw: render-fp-panel app-model panel-face/size/x panel-face/size/y
+                    show panel-face
                 ]
             ]
         ]

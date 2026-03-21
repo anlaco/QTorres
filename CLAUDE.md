@@ -162,7 +162,7 @@ Trabajar siempre en orden de Fase. No empezar Fase 1 sin completar Fase 0.
 
 **Fase 0 — Spike técnico ✅ COMPLETADA (Issues #1-#4 CERRADOS)**
 
-**Fase 1 — Beta funcional (Issues #5-#13, #20-#22):**
+**Fase 1 — Beta funcional (Issues #5-#13, #20-#22, #26):**
 - #20 Borrar wire/nodo con Delete ← EMPEZAR AQUÍ (edición básica)
 - #21 Renombrar nodo con doble clic
 - #22 Identidad visual: diseño de bloques moderno
@@ -175,12 +175,13 @@ Trabajar siempre en orden de Fase. No empezar Fase 1 sin completar Fase 0.
 - #11 Canvas modular
 - #12 Front Panel modular
 - #13 Conectar módulos en qtorres.red
+- #26 ⚠️ IMPORTANTE: .qvi generado — set-path bug + formato legible (bug funcional standalone + coherencia)
 
-**Fase 2 — Tipos de datos y estructuras (Issues #15-#17, #23-#27):**
+**Fase 2 — Tipos de datos y estructuras (Issues #15-#17, #23-#25, #27):**
 - #23 Tipo booleano
 - #24 Tipo string
 - #25 Array 1D
-- #26 Cluster
+- Cluster (issue pendiente de crear)
 - #27 Waveform chart y graph
 - #15 While Loop
 - #16 For Loop

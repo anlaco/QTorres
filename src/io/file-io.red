@@ -153,5 +153,8 @@ load-vi: func [
     ; Sincronizar contadores de names para evitar colisiones al crear nuevos nodos
     unless empty? names [sync-name-counters names]
 
+    ; Cargar front-panel desde qvi-diagram
+    d/front-panel: load-panel-from-diagram qd
+
     d
 ]

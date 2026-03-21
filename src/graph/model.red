@@ -235,12 +235,13 @@ make-diagram: func [
     title [string!]
 ][
     make object! [
-        name:       title
-        connector:  none
-        nodes:      copy []
-        wires:      copy []
-        controls:   copy []
-        indicators: copy []
+        name:        title
+        connector:   none
+        nodes:       copy []
+        wires:       copy []
+        controls:    copy []
+        indicators:  copy []
+        front-panel: copy []
     ]
 ]
 

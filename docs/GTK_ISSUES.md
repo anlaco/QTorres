@@ -89,6 +89,8 @@ Cuando Red migre a 64-bit, este problema desaparece. QTorres debe seguir ese roa
 | GTK-005 Colors `none` | — | Pendiente de crear |
 | GTK-006 32-bit / i386 | Upstream roadmap | Pendiente de migración 64-bit |
 | GTK-007 Modal pierde foco teclado | — | Pendiente de crear |
+| GTK-008 `request-file/save` abre diálogo de carpetas | — | Workaround: diálogo VID propio |
+| GTK-009 `request-file` no permite controlar tamaño | — | Posible: file browser VID propio |
 
 ---
 

@@ -182,10 +182,19 @@ format-qvi: func [
 save-vi: func [
     path    [file!]
     diagram [object!]
-    /local compiled qd content
+    /local compiled qd content fp-items
 ][
     compiled: compile-diagram diagram
     qd: serialize-diagram diagram
+    ; Incluir front-panel si está disponible (requiere panel.red cargado)
+    fp-items: select diagram 'front-panel
+    if all [
+        value? 'save-panel-to-diagram
+        block? fp-items
+        not empty? fp-items
+    ][
+        append qd save-panel-to-diagram fp-items
+    ]
     content: format-qvi diagram/name qd compiled
     write path content
     path

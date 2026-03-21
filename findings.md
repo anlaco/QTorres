@@ -1,96 +1,64 @@
-# Findings & Decisions — Issue #7: Front Panel modular
+# Findings — Fase 2: Tipos de datos y estructuras de control
 
-## Requirements
-<!-- Captured from issue #7 -->
-- Controles numéricos editables (`field`)
-- Indicadores numéricos (`text` que se actualiza)
-- Botón Run visible en el panel
-- Elementos arrastrables para reposicionar
-- Posiciones se persisten en `front-panel:` del `qvi-diagram`
+## Auditoría Post-Fase 1 (2026-03-21)
 
-## Critical Architectural Distinction (DT-009)
+### Problemas Críticos (resolver en Sprint 0)
 
-| Modo | Cuándo | Tecnología | Propósito |
-|------|--------|------------|-----------|
-| **Edición** | En QTorres | `base` face + Draw dialect | Drag, hit-test, posición, shapes |
-| **Ejecución** | `.qvi` compilado | VID layout (`view [...]`) | `field` editable, `text` reactivo, `button` |
+| ID | Problema | Módulos | Riesgo |
+|----|---------|---------|--------|
+| C1 | `make-fp-item` y `fp-value-text` duplicados en model.red y panel.red | model.red, panel.red | La IA editará el que no se ejecuta |
+| C2 | `in-ports`/`out-ports`/`ncolor` hardcodeados, duplican block-registry | canvas.red | Fallo silencioso al añadir tipo nuevo |
+| C3 | Wires inline sin `make-wire` (sin campo `label`) | canvas.red | Crash al acceder wire/label |
+| A3 | Shims control/indicator en qtorres.red en vez de blocks.red | qtorres.red | Tests sin qtorres.red fallan |
 
-**Implicación:** El panel tiene DOS renders:
-1. `render-panel` → face con Draw para edición (drag & drop)
-2. `compile-panel` → bloque VID para ejecución (DT-009)
+### Deuda Técnica No-Crítica
 
-## Research Findings
+| ID | Problema | Impacto |
+|----|---------|---------|
+| A1 | `compile-diagram` monolítica (80 líneas, 3 responsabilidades) | Difícil extender para nuevos tipos |
+| A2 | `format-qvi` con parser de índices manuales (`i: i + 3`) | Widget nuevo requiere entender máquina de estados |
+| M1 | Estado global mutable para diálogos (view/no-wait) | No peligroso con 1 instancia |
+| M2 | Demo code mezclado con producción en canvas.red y panel.red | Confusión lectura |
+| M3 | Sin tests de FP (make-fp-item, render, save/load) | Errores se detectan solo visual |
 
-### Red/View VID dialect para ejecución
-- Controles numéricos → `field` (editables)
-- Indicadores numéricos → `text` (solo lectura visual)
-- Labels → `label` VID word
-- Botón Run → `button`
-- Layout: VID es declarativo, generado por `compile-panel`
+### Métricas del Codebase
 
-### Red/View Draw dialect para edición
-- Usar `base` face con `draw: [...]`
-- Shapes: `box`, `text`, `circle`
-- Hit-testing con coordenadas absolutas (igual que canvas.red)
-- Drag actualiza `offset` del `fp-item`, luego redraw
+| Módulo | LOC | Complejidad | Riesgo IA |
+|--------|-----|-------------|-----------|
+| model.red | 326 | Baja | Bajo |
+| blocks.red | 126 | Baja | Bajo |
+| compiler.red | 280 | Media | Medio |
+| runner.red | 31 | Mínima | Bajo |
+| file-io.red | 287 | Alta | Alto |
+| canvas.red | 642 | Alta | Alto |
+| panel.red | 568 | Alta | Alto |
+| qtorres.red | 236 | Media | Medio |
 
-### Patrón de drag & drop en canvas.red
-- `on-down`: detecta clic, inicia drag si es elemento
-- `on-over`: actualiza posición si `event/down?`
-- `on-up`: limpia estado de drag
-- Modelo vive en `face/extra`
+**Total:** ~2,934 LOC producción + 568 LOC tests. 53 tests PASS.
 
-### Edición inline de valores
-- Clic en un control → crear `field` temporal sobre el shape
-- On-enter → guarda valor en `fp-item/value`, destruye field
-- El valor se usa cuando `compile-panel` genera el código
+## Decisiones de Arquitectura para Fase 2
 
-### Estructura existente del modelo
-- `make-diagram-model` en `canvas.red:86` — objeto con `nodes`, `wires`, `next-id`, `selected-node`, etc.
-- `base-element` + `make-label` patrón (DT-022/023)
-- Label como objeto con `text`, `visible`, `offset`
+| Decisión | Razón |
+|----------|-------|
+| Sprint 0 Cleanup antes de cualquier feature | Sin limpieza, agentes van a producir código inconsistente |
+| Boolean y String antes de control structures | Tipos son auto-contenidos; while/for/case son paradigm shift |
+| Array 1D y Charts → Fase 2b | Demasiado alcance para una fase; control structures ya son un salto |
+| `color` en block-registry | Elimina hardcoding en canvas, auto-renderiza tipos nuevos |
+| Guard de tipo en wire-connect | Prerequisito para multi-tipo, previene wires inválidos |
 
-### Formato front-panel en qvi-diagram (DT-005, DT-011)
-```red
-front-panel: [
-    control   [id: 1  type: 'numeric  name: "ctrl_1"  label: [text: "A" visible: true]  default: 5.0  offset: 50x30]
-    indicator [id: 2  type: 'numeric  name: "ind_1"   label: [text: "Resultado" visible: true]  offset: 50x150]
-]
-```
+## Contexto de Ficheros por Sprint
 
-### Código generado para ejecución (DT-009)
-```red
-view layout [
-    label "A"    fA: field "5.0"
-    label "B"    fB: field "3.0"
-    button "Run" [
-        A: to-float fA/text
-        B: to-float fB/text
-        Resultado: A + B
-        lResultado/text: form Resultado
-    ]
-    label "Resultado:"  lResultado: text "---"
-]
-```
+### Sprint 0 (Cleanup)
+Pin: model.red, blocks.red, canvas.red, panel.red, qtorres.red, test-compiler.red
 
-## Technical Decisions
-| Decision | Rationale |
-|----------|-----------|
-| Dos modos: edición vs ejecución | DT-009 exige `view layout` para .qvi ejecutable |
-| Edición = `base` + Draw | Permite drag & drop, hit-testing, mismo patrón que canvas.red |
-| Ejecución = VID layout | `field` y `text` son widgets interactivos reales |
-| `fp-item` como objeto análogo a nodo | Consistencia con DT-022/DT-023 |
-| `offset` (pair!) para posición | Red tiene tipo nativo, fácil de serializar |
-| `make-fp-item` constructor | Sigue patrón DT-023 (composición sobre herencia) |
-| Campo `value` en fp-item | Guarda valor editado durante la sesión de edición |
+### Sprint 1-3 (Types)
+Pin: blocks.red, canvas.red, compiler.red, panel.red, file-io.red
+Tests: test-blocks.red, test-compiler.red
 
-## Issues Encountered
-| Issue | Resolution |
-|-------|------------|
-| VID layout no permite drag fácil | Usar Draw para edición, VID solo para ejecución |
+### Sprint 4 (FP Standalone)
+Pin: compiler.red, panel.red, file-io.red
+Test: .qvi ejecutable manual
 
-## Resources
-- `src/ui/diagram/canvas.red` — patrón drag & drop y Draw
-- `src/ui/panel/panel.red` — stub actual
-- `docs/arquitectura.md` — sección Front Panel y Runner
-- `docs/decisiones.md` — DT-009, DT-022, DT-023, DT-024
+### Sprint 5-7 (Control Structures)
+Pin: model.red, compiler.red, canvas.red
+Research: docs/arquitectura.md (execution model), LabVIEW structure behavior

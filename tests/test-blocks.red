@@ -4,7 +4,7 @@ do %../src/graph/blocks.red
 
 suite "blocks — registro"
 
-assert "registra 6 bloques primitivos" (6 = length? block-registry)
+assert "registra 8 bloques primitivos" (8 = length? block-registry)
 assert "const está en el registro"     (not none? find-block 'const)
 assert "add está en el registro"       (not none? find-block 'add)
 assert "find-block devuelve none para bloques inexistentes" (none? find-block 'nonexistent)

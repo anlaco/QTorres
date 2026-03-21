@@ -1,62 +1,110 @@
-# Task Plan — Issue #7: Front Panel modular
+# Task Plan — Fase 2: Tipos de datos y estructuras de control
 
 ## Meta
 | Campo | Valor |
 |-------|-------|
-| Issue | [#7 — Front Panel modular](https://github.com/anlaco/QTorres/issues/7) |
-| Labels | enhancement, fase-1 |
-| Estado | OPEN |
-| Inicio | 2026-03-20 |
+| Fase  | 2 |
+| Issues | #23, #24, #28, #15, #16, #17 (core) · #25, #27 (stretch) |
+| Inicio | 2026-03-22 |
+| Prerequisito | Sprint 0 Cleanup |
 
 ## Goal
-Implementar `src/ui/panel/panel.red` con **dos modos**:
-1. **Modo edición** (en QTorres): canvas tipo `base` con Draw, drag & drop de elementos
-2. **Modo ejecución** (Runner/compilado): código VID generado para el `.qvi`
+Expandir QTorres desde un entorno solo-numérico a un sistema multi-tipo (boolean, string) con estructuras de control (while, for, case).
 
-## Criterios de aceptación
-- [x] Modo edición: Panel muestra controles e indicadores como shapes Draw arrastrables
-- [x] Modo edición: Clic en control → field editable temporal (no VID layout)
-- [x] Modo compilación: `compile-panel` genera `view layout [field ... button ... text ...]`
-- [x] Elementos arrastrables para reposicionar (offset actualizado)
-- [x] Posiciones se persisten en `front-panel:` del `qvi-diagram`
-
-## Distinción clave (DT-009)
-- **Edición:** face tipo `base` con Draw (como `canvas.red`) → drag, hit-test, posición
-- **Ejecución:** VID layout con `field`/`text`/`button` reales → DT-009
-
----
-
-## Phase 1 — Modelo fp-item + make-fp-item
-**Responsable:** Modelo  
-**Estado:** ~~pending~~ **complete**
+## Phase 0 — Sprint 0: Cleanup Anti-Alucinaciones
+**Estado:** ✅ COMPLETO (2026-03-21)
 
 ### Tasks
-- [x] Definir `fp-item` como `object!` con campos: `id`, `type` ('control/'indicator), `name`, `label` (objeto DT-022), `default`, `value`, `offset` (pair!)
-- [x] Constructor `make-fp-item spec` siguiendo patrón DT-023 (composición sobre herencia)
-- [x] Añadir `front-panel: []` a `make-diagram-model` (lista de fp-items)
-- [x] Campo `offset` para posición arrastrable (x/y en canvas de panel)
+- [x] 0.1 Eliminar `make-fp-item` y `fp-value-text` duplicados de model.red (dejar solo panel.red)
+- [x] 0.2 `in-ports`/`out-ports`/`ncolor` en canvas.red → leer de `block-registry` via `block-color`/`block-in-ports`/`block-out-ports`
+- [x] 0.3 Wires en actores canvas.red → usan `make-wire` de model.red (3 sitios: on-down, on-up, demo)
+- [x] 0.4 Mover shims `control`/`indicator` de qtorres.red a blocks.red
+- [x] 0.5 Añadir tests FP round-trip (save-vi→load-vi con front-panel, 17 asserts nuevos)
 
-### Entregable
-Estructura de datos en `src/graph/model.red`. ✅
+### Verificación
+- `./red-cli tests/run-all.red` → 70 tests, 70 PASS ✅
+- `./red-view src/qtorres.red` → pendiente verificación visual manual
 
 ---
 
-## Phase 2 — render-panel (modo edición, Draw canvas)
-**Responsable:** UI/Panel  
-**Estado:** ~~pending~~ **complete**
+## Phase 1 — Sprint 1: Type System Foundation
+**Estado:** pending
+**Depende de:** Phase 0 completada
 
 ### Tasks
-- [x] Función `render-panel model w h → face` tipo `base`
-- [x] Draw shapes para controles/indicadores: rectángulo + label + valor
-- [x] Hit-testing para seleccionar elementos
-- [x] Drag & drop actualiza `fp-item/offset` y redraw (patrón canvas.red)
-- [x] Clic en control → abre field temporal sobre el shape (edit inline)
-- [x] Botón "Run" visual (placeholder, no funcional aún)
-
-### Entregable
-Face funcional con Draw, drag & drop, hit-testing. ✅
+- [ ] 1.1 Campo `color` en block-registry + función `block-color`
+- [ ] 1.2 Wire color por tipo de puerto (canvas lee del registry)
+- [ ] 1.3 Guard: impedir wire entre puertos incompatibles
 
 ---
+
+## Phase 2 — Sprint 2: Tipo Booleano (#23)
+**Estado:** pending
+**Depende de:** Phase 1
+
+### Tasks
+- [ ] 2.1 block-def: boolean-const, and, or, not
+- [ ] 2.2 Widget LED en panel.red (boolean control/indicator)
+- [ ] 2.3 Compiler: boolean controls/indicators → checkbox/LED en VID
+- [ ] 2.4 Tests: boolean blocks + VI round-trip
+
+---
+
+## Phase 3 — Sprint 3: Tipo String (#24)
+**Estado:** pending
+**Depende de:** Phase 1
+
+### Tasks
+- [ ] 3.1 block-def: string-const, concat, string-length
+- [ ] 3.2 Widget string en panel.red
+- [ ] 3.3 Compiler: string controls/indicators
+- [ ] 3.4 Tests: string blocks + VI round-trip
+
+---
+
+## Phase 4 — Sprint 4: FP Standalone Fiel (#28)
+**Estado:** pending
+**Depende de:** Phase 2, Phase 3
+
+### Tasks
+- [ ] 4.1 compile-panel genera VID con posiciones del canvas
+- [ ] 4.2 format-qvi emite layout posicional
+- [ ] 4.3 .qvi standalone refleja layout del canvas
+
+---
+
+## Phase 5 — Sprint 5: While Loop (#15)
+**Estado:** pending
+**Depende de:** Phase 4
+
+### Tasks
+- [ ] 5.1 structure-node en model.red (nodo con sub-diagrama)
+- [ ] 5.2 Canvas: borde de estructura + drag internal
+- [ ] 5.3 Compiler: while → `while [cond] [body]` Red
+- [ ] 5.4 Tests: while loop
+
+---
+
+## Phase 6 — Sprint 6: For Loop (#16)
+**Estado:** pending
+**Depende de:** Phase 5
+
+### Tasks
+- [ ] 6.1 For Loop como variante de structure-node
+- [ ] 6.2 Terminales N, index
+- [ ] 6.3 Tests: for loop
+
+---
+
+## Phase 7 — Sprint 7: Case Structure (#17)
+**Estado:** pending
+**Depende de:** Phase 5
+
+### Tasks
+- [ ] 7.1 Case con múltiples frames
+- [ ] 7.2 Canvas: switch de frame + selector
+- [ ] 7.3 Compiler: case → switch Red
+- [ ] 7.4 Tests: case structure
 
 ## Phase 3 — Parser front-panel desde qvi-diagram
 **Responsable:** File I/O (stub)  

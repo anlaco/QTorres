@@ -72,21 +72,11 @@ app-model: make app-model [
 ]
 
 ; ── save-vi-full: serializa BD + FP juntos ───────────────────────
-save-vi-full: func [path model /local compiled qd content] [
+save-vi-full: func [path model /local compiled qd] [
     compiled: compile-diagram model
     qd: serialize-diagram model
     append qd save-panel-to-diagram model/front-panel
-    content: rejoin [
-        "Red [Title: " mold model/name " Needs: 'View]^/^/"
-        "qvi-diagram: " mold qd "^/^/"
-        "; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---^/"
-        "either empty? system/options/args [^/"
-        "    view layout " mold compiled/ui-layout "^/"
-        "][^/"
-        "    " mold/only compiled/headless "^/"
-        "]^/"
-    ]
-    write path content
+    write path format-qvi model/name qd compiled
     path
 ]
 

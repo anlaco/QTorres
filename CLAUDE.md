@@ -177,12 +177,13 @@ Trabajar siempre en orden de Fase. No empezar Fase 1 sin completar Fase 0.
 - #13 Conectar módulos en qtorres.red
 - #26 ⚠️ IMPORTANTE: .qvi generado — set-path bug + formato legible (bug funcional standalone + coherencia)
 
-**Fase 2 — Tipos de datos y estructuras (Issues #15-#17, #23-#25, #27):**
+**Fase 2 — Tipos de datos y estructuras (Issues #15-#17, #23-#25, #27-#28):**
 - #23 Tipo booleano
 - #24 Tipo string
 - #25 Array 1D
 - Cluster (issue pendiente de crear)
 - #27 Waveform chart y graph
+- #28 Front Panel standalone visualmente fiel al canvas (requiere #12)
 - #15 While Loop
 - #16 For Loop
 - #17 Case Structure
@@ -191,12 +192,12 @@ Trabajar siempre en orden de Fase. No empezar Fase 1 sin completar Fase 0.
 - #18 Sub-VI con connector pane
 - #19 Librería .qlib
 
-**Fase 4 — Hardware (Issues #28-#32):**
-- #28 SCPI sobre TCP/IP (Keysight por red)
-- #29 SCPI sobre USB/USBTMC (Keysight por USB)
-- #30 Puerto serie RS-232/RS-485 (Arduino, ESP32)
-- #31 TCP/IP genérico (Modbus TCP, protocolos propios)
-- #32 DAQ analógico (comedi/libcomedi)
+**Fase 4 — Hardware (issues pendientes de crear):**
+- SCPI sobre TCP/IP (Keysight por red)
+- SCPI sobre USB/USBTMC (Keysight por USB)
+- Puerto serie RS-232/RS-485 (Arduino, ESP32)
+- TCP/IP genérico (Modbus TCP, protocolos propios)
+- DAQ analógico (comedi/libcomedi)
 
 ## Comandos útiles
 

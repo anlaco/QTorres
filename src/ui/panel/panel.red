@@ -165,11 +165,13 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
 
     ; ── Label externa ────────────────────────────────────────────────────────────────────
     ; Posición = item/offset + delta - fp-label-above en Y. Cálculo explícito de enteros.
+    ; Color = color del tipo de item (azul control, ámbar indicador).
     if all [item/label  object? item/label  item/label/visible] [
         lx: item/offset/x + item/label/offset/x
         ly: item/offset/y + item/label/offset/y - fp-label-above
+        col: fp-color? item/type
         append cmds compose [
-            pen off  fill-pen 30.30.30
+            fill-pen (col)
             text (as-pair lx ly) (item/label/text)
         ]
     ]

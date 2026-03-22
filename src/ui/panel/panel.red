@@ -255,10 +255,10 @@ render-fp-item: func [item selected? hover? /local cmds col border-col type-lbl 
         fw: item/size/x
         fh: item/size/y - fp-label-height
 
-        ; Label (texto flotante, sin fondo)
+        ; Label (texto flotante, sin fondo — ly+4 para evitar que GTK corte el texto)
         append cmds compose [
             pen off  fill-pen 30.30.30
-            text (as-pair lx (ly + 2)) (lbl-text)
+            text (as-pair lx (ly + 4)) (lbl-text)
         ]
 
         ; Field
@@ -389,16 +389,17 @@ render-fp-panel: func [model w h /local cmds item selected? hover?] [
 ; ══════════════════════════════════════════════════════════
 ; HIT TESTING
 ; ══════════════════════════════════════════════════════════
-hit-fp-item: func [model mouse-x mouse-y /local found item] [
+hit-fp-item: func [model mouse-x mouse-y /local found item margin] [
     found: none
     foreach item model/front-panel [
         either item/data-type = 'string [
-            ; bounding box: desde offset hasta offset + size
+            ; bounding box ampliado con margen para los handles
+            margin: fp-handle-size + 4
             if all [
-                mouse-x >= item/offset/x
-                mouse-x <= (item/offset/x + item/size/x)
-                mouse-y >= item/offset/y
-                mouse-y <= (item/offset/y + item/size/y)
+                mouse-x >= (item/offset/x - margin)
+                mouse-x <= (item/offset/x + item/size/x + margin)
+                mouse-y >= (item/offset/y - margin)
+                mouse-y <= (item/offset/y + item/size/y + margin)
             ] [found: item]
         ][
             if all [
@@ -453,56 +454,60 @@ hit-fp-zone: func [model mx my /local item fx fy fw fh lx ly handles hname] [
 ]
 
 ; ══════════════════════════════════════════════════════════
-; INLINE EDITING — usa variables de módulo para cruzar la
-; barrera async (Red no tiene closures en func)
+; INLINE EDITING — overlay field real en panel-face/pane
+; Usa variables de módulo (Red no tiene closures en func)
 ; ══════════════════════════════════════════════════════════
 inline-item:    none    ; fp-item que se está editando
 inline-panel:   none    ; face del panel
 inline-model:   none    ; model
 inline-label?:  false   ; true = editando label, false = editando valor
-inline-fld:     none    ; field de edición
-inline-fld-lbl: none    ; label de referencia en el diálogo
+
+close-inline-edit: does [
+    if all [inline-model  inline-model/fp-edit-face] [
+        if inline-panel/pane [
+            remove-each f inline-panel/pane [same? f inline-model/fp-edit-face]
+        ]
+        inline-model/fp-edit-face: none
+        inline-model/fp-mode: 'idle
+        inline-panel/draw: render-fp-panel inline-model inline-model/size/x inline-model/size/y
+        show inline-panel
+    ]
+]
 
 confirm-inline-edit: does [
-    ; Lee el valor del field y lo aplica al item
-    if all [inline-item  inline-fld] [
+    if all [inline-item  inline-model  inline-model/fp-edit-face] [
         either inline-label? [
-            inline-item/label/text: copy inline-fld/text
+            inline-item/label/text: copy inline-model/fp-edit-face/text
         ][
-            inline-item/value: copy inline-fld/text
+            inline-item/value: copy inline-model/fp-edit-face/text
         ]
     ]
-    inline-model/fp-mode: 'idle
-    inline-panel/draw: render-fp-panel inline-model inline-model/size/x inline-model/size/y
-    show inline-panel
-    unview
+    close-inline-edit
 ]
 
 cancel-inline-edit: does [
-    inline-model/fp-mode: 'idle
-    unview
+    close-inline-edit
 ]
 
-open-inline-edit: func [panel-face item model is-label /local fx fy fw fh lx ly cur-text win-x win-y] [
+open-inline-edit: func [panel-face item model is-label /local fx fy fw fh lx ly ov-face cur-text] [
+    ; Cerrar edición previa si existe
+    close-inline-edit
+
     inline-item:   item
     inline-panel:  panel-face
     inline-model:  model
     inline-label?: is-label
 
-    model/fp-mode: 'editing
-
     either is-label [
         lx: item/offset/x + item/label/offset/x
         ly: item/offset/y + item/label/offset/y
         cur-text: any [item/label/text ""]
-        view/no-wait compose/deep [
-            title ""
-            inline-fld: field 160 (cur-text)
-            on-key [
-                if event/key = 'return  [confirm-inline-edit]
-                if event/key = 'escape  [cancel-inline-edit]
-            ]
-            button 40 "OK"  [confirm-inline-edit]
+        ov-face: make face! [
+            type:   'field
+            offset: as-pair lx (ly + 2)
+            size:   as-pair 120 (fp-label-height + 6)
+            text:   cur-text
+            color:  255.255.255
         ]
     ][
         fx: item/offset/x
@@ -510,18 +515,34 @@ open-inline-edit: func [panel-face item model is-label /local fx fy fw fh lx ly 
         fw: item/size/x
         fh: item/size/y - fp-label-height
         cur-text: form item/value
-        view/no-wait compose/deep [
-            title (any [item/label/text "Editar string"])
-            inline-fld: field (max 160 fw) (cur-text)
-            on-key [
-                if event/key = 'return  [confirm-inline-edit]
-                if event/key = 'escape  [cancel-inline-edit]
-            ]
-            return
-            button "OK"      [confirm-inline-edit]
-            button "Cancelar" [cancel-inline-edit]
+        ov-face: make face! [
+            type:   'field
+            offset: as-pair fx fy
+            size:   as-pair fw fh
+            text:   cur-text
+            color:  255.255.255
         ]
     ]
+
+    ov-face/actors: make object! [
+        on-key: func [face event] [
+            if event/key = #"^M"   [confirm-inline-edit  exit]
+            if event/key = 'return [confirm-inline-edit  exit]
+            if event/key = 'escape [cancel-inline-edit   exit]
+        ]
+        on-unfocus: func [face event] [
+            ; Al perder el foco (clic fuera) → confirmar
+            confirm-inline-edit
+        ]
+    ]
+
+    model/fp-mode:      'editing
+    model/fp-edit-face: ov-face
+
+    if none? panel-face/pane [panel-face/pane: copy []]
+    append panel-face/pane ov-face
+    show panel-face
+    set-focus ov-face
 ]
 
 ; ══════════════════════════════════════════════════════════
@@ -658,8 +679,11 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                 w:  face/extra/size/x
                 h:  face/extra/size/y
 
-                ; Si hay edición inline activa, no interferir
-                if face/extra/fp-mode = 'editing [exit]
+                ; Si hay edición inline activa, cerrar y confirmar
+                if face/extra/fp-mode = 'editing [
+                    confirm-inline-edit
+                    exit
+                ]
 
                 zone: hit-fp-zone face/extra mx my
 
@@ -676,8 +700,8 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                             hname: to-word skip form zone-type 7
                             face/extra/fp-mode:          'resize
                             face/extra/fp-resize-handle: hname
-                            face/extra/fp-drag-start-sz:  copy item/size
-                            face/extra/fp-drag-start-off: copy item/offset
+                            face/extra/fp-drag-start-sz:  item/size
+                            face/extra/fp-drag-start-off: item/offset
                             face/extra/fp-drag-mouse-0:   as-pair mx my
                         ]
 

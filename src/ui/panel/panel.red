@@ -162,7 +162,7 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl text-x 
         ; LED: círculo verde (true) o rojo (false)
         led-col: either item/value [0.180.0] [180.0.0]
         cx: item/offset/x + fp-item-width - 20
-        cy: item/offset/y + fp-item-height / 2
+        cy: item/offset/y + (fp-item-height / 2)
         append cmds compose [
             pen (led-col - 40.40.40)  line-width 1  fill-pen (led-col)
             circle (as-pair cx cy) 10
@@ -267,7 +267,7 @@ fp-palette-add-item: func [item-type /local new-id item model w h _cref nid bd-y
         type:    (item-type)
         name:    (rejoin [form item-type "_" new-id])
         label:   [text: (fp-default-label item-type) visible: true]
-        default: 0.0
+        default: (either find [bool-control bool-indicator] item-type [false] [0.0])
         offset:  (as-pair fp-palette-x fp-palette-y)
     ]
     append model/front-panel item

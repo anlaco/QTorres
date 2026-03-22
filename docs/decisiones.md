@@ -684,3 +684,24 @@ node [id: 1  type: 'control  x: 40  y: 80  name: "ctrl_1"  label: [text: "Temper
 - Unicidad garantizada por construcción (contador por tipo) — sin lógica de detección de colisiones
 - Para agentes IA (DT-019): generar `name` es determinista, generar `label` es creativo
 - Alternativa descartada: derivar `name` sanitizando `label/text` — crea acoplamiento y complejidad innecesaria
+
+---
+
+## DT-025: Carga de módulos — #include vs do
+
+**Contexto:** QTorres necesita cargar sus módulos internos tanto en modo interpretado (`red-cli`) como compilado (`redc -e`).
+
+**Decisión:**
+- `#include %path/relativo/a/qtorres.red` para todos los módulos internos del software — se empaquetan en el ejecutable con `redc -e` y funcionan con `red-cli`
+- `do` para ficheros externos del usuario (`.qvi`, rutas generadas en runtime)
+- Todos los paths de `#include` son relativos a `src/qtorres.red` — sin depender del context-shift tras cada include
+
+**Regla:**
+```
+módulo interno  → #include %ruta/desde/src/
+fichero usuario → do ruta-construida-en-runtime
+```
+
+**Por qué no `_base: what-dir` + `do`:** Funcionaba en `red-cli` pero no era compatible con `redc -e` (el empaquetado ignora los `do` dinámicos).
+
+**Por qué no context-shift:** `red-cli` no implementa el desplazamiento de directorio tras cada `#include`, a diferencia del compilador. Usar paths todos relativos al fichero raíz evita el problema.

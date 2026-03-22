@@ -6,26 +6,19 @@ Red [
     Needs:   'View
 ]
 
-; ── Módulos — orden de dependencia ───────────────────────────────
-; #include embebe el código en compile-time → binario standalone con encap.
-; Cada Red[] en un módulo incluido desplaza el contexto de directorio al
-; directorio de ese módulo — las rutas siguientes son relativas al último
-; módulo incluido, no al CWD. Ver docs/encap-compilation.md.
-;
-;   ctx src/          → #include %graph/model.red
-;   ctx src/graph/    → #include %blocks.red
-;   ctx src/graph/    → #include %../compiler/compiler.red
-;   ctx src/compiler/ → #include %../runner/runner.red
-;   ctx src/runner/   → #include %../io/file-io.red
-;   ctx src/io/       → #include %../ui/diagram/canvas.red
-;   ctx src/ui/diagram/ → #include %../panel/panel.red
+; ── Módulos internos — se empaquetan con redc -e ─────────────────
+; Todos los paths son relativos a este fichero (src/qtorres.red).
+; No dependen del context-shift de #include para que funcione tanto
+; con red-cli (interpretado) como con redc -e (compilado).
+; Regla: usar #include para código interno, do para ficheros externos
+; (p.ej. .qvi del usuario que se cargan en tiempo de ejecución).
 #include %graph/model.red
-#include %blocks.red
-#include %../compiler/compiler.red
-#include %../runner/runner.red
-#include %../io/file-io.red
-#include %../ui/diagram/canvas.red
-#include %../panel/panel.red
+#include %graph/blocks.red
+#include %compiler/compiler.red
+#include %runner/runner.red
+#include %io/file-io.red
+#include %ui/diagram/canvas.red
+#include %ui/panel/panel.red
 
 ; ── Mapa de resultados de ejecución (global, accesible desde do code) ───
 _run-results: make map! []

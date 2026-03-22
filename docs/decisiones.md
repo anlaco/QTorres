@@ -687,21 +687,75 @@ node [id: 1  type: 'control  x: 40  y: 80  name: "ctrl_1"  label: [text: "Temper
 
 ---
 
-## DT-025: Carga de módulos — #include vs do
+## DT-025: Carga de módulos — chain loading
 
-**Contexto:** QTorres necesita cargar sus módulos internos tanto en modo interpretado (`red-cli`) como compilado (`redc -e`).
+**Fecha:** 2026-03-22
+**Estado:** Adoptada
 
-**Decisión:**
-- `#include %path/relativo/a/qtorres.red` para todos los módulos internos del software — se empaquetan en el ejecutable con `redc -e` y funcionan con `red-cli`
-- `do` para ficheros externos del usuario (`.qvi`, rutas generadas en runtime)
-- Todos los paths de `#include` son relativos a `src/qtorres.red` — sin depender del context-shift tras cada include
+**Contexto:** QTorres necesita cargar sus módulos internos con `#include` para que `redc -e` los empaquete en el ejecutable. Pero `red-cli` y `redc -e` resuelven las rutas de `#include` de forma distinta cuando los módulos incluidos tienen cabecera `Red []`:
 
-**Regla:**
+| Herramienta | Resolución de paths | Context-shift tras `Red []` |
+|-------------|--------------------|-----------------------------|
+| `red-cli` (intérprete) | relativo al fichero que contiene el `#include` | **No** |
+| `redc -e` (compilador) | relativo al fichero que contiene el `#include` | **Sí** — tras cada `Red []` en un fichero incluido, el contexto de directorio se desplaza al directorio de ese fichero |
+
+Esto hace que un único set de `#include` planos en `qtorres.red` NO funcione para ambas herramientas. Ejemplo:
+
+```red
+; qtorres.red (en src/)
+#include %graph/model.red    ; OK: ambas resuelven src/graph/model.red
+#include %graph/blocks.red   ; red-cli: src/graph/blocks.red OK
+                             ; redc: context ya es src/graph/ (por model.red)
+                             ;       → busca src/graph/graph/blocks.red FALLA
 ```
-módulo interno  → #include %ruta/desde/src/
-fichero usuario → do ruta-construida-en-runtime
+
+**Decisión: chain loading.** Cada módulo incluye al siguiente al final del fichero. `qtorres.red` solo tiene un `#include`:
+
+```red
+; qtorres.red
+#include %graph/model.red   ; único punto de entrada
 ```
 
-**Por qué no `_base: what-dir` + `do`:** Funcionaba en `red-cli` pero no era compatible con `redc -e` (el empaquetado ignora los `do` dinámicos).
+Cadena completa (cada include es relativo al módulo que lo contiene):
 
-**Por qué no context-shift:** `red-cli` no implementa el desplazamiento de directorio tras cada `#include`, a diferencia del compilador. Usar paths todos relativos al fichero raíz evita el problema.
+```
+qtorres.red (src/)
+  └─ #include %graph/model.red          → src/graph/model.red
+       └─ #include %blocks.red          → src/graph/blocks.red
+            └─ #include %../compiler/compiler.red → src/compiler/
+                 └─ #include %../runner/runner.red → src/runner/
+                      └─ #include %../io/file-io.red → src/io/
+                           └─ #include %../ui/diagram/canvas.red → src/ui/diagram/
+                                └─ #include %../panel/panel.red → src/ui/panel/
+```
+
+**Por qué funciona:** cada `#include` es relativo al fichero que lo contiene, NO a `qtorres.red`. Así el context-shift de `redc` no afecta — cada módulo resuelve la ruta al siguiente desde su propia ubicación.
+
+**Funciona con las 3 vías de carga:**
+- `#include` en `red-cli` — paths relativos al fichero, sin context-shift
+- `#include` en `redc -e` — paths relativos al fichero, con context-shift (irrelevante porque cada link es local)
+- `do` en tests — `do` procesa `#include` internos, la cadena se carga completa (idempotente)
+
+**Regla para añadir un módulo:**
+1. Editar el módulo predecesor: cambiar su `#include` para apuntar al nuevo módulo
+2. En el nuevo módulo: añadir `#include` al sucesor al final
+
+**Regla general:**
+```
+módulo interno  → #include (chain loading, empaquetado con redc -e)
+fichero usuario → do (cargado en runtime, p.ej. .qvi)
+```
+
+**Alternativas descartadas:**
+
+| Alternativa | Problema |
+|-------------|----------|
+| `_base: what-dir` + `do` | Funciona con `red-cli` pero `redc -e` ignora los `do` dinámicos — módulos no se empaquetan |
+| Paths planos desde `src/` | Funciona con `red-cli` pero falla con `redc -e` por context-shift tras `Red []` |
+| Quitar `Red []` de módulos | Evita context-shift pero `do` en tests requiere `Red []` — tests fallan |
+| Entry points separados | Funciona pero el usuario quiere un único `qtorres.red` |
+
+**Limitaciones aceptadas:**
+- El orden de carga está distribuido en 7 ficheros (no en un único manifiesto). El comentario en `qtorres.red` documenta la cadena completa.
+- Añadir un módulo requiere editar 2 ficheros (el predecesor y el nuevo).
+- Tests que hacen `do %modulo.red` cargan la cadena completa (más de lo necesario), pero es inocuo porque las definiciones de funciones son idempotentes y el código demo está protegido con guards `if find form system/options/script`.

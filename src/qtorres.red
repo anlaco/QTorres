@@ -7,10 +7,12 @@ Red [
 ]
 
 ; ── Módulos internos — se empaquetan con redc -e ─────────────────
-; Chain loading: cada módulo incluye al siguiente al final del fichero.
-; Así los paths son siempre relativos a la ubicación del propio módulo,
-; lo que funciona con red-cli (sin context-shift) y con redc -e (con
-; context-shift por Red[] header). Ver DT-025.
+; Chain loading (DT-025): cada módulo incluye al siguiente al final.
+; Paths relativos al propio módulo → funciona con red-cli y redc -e.
+;
+; Cadena completa:
+;   model.red → blocks.red → compiler.red → runner.red
+;     → file-io.red → canvas.red → panel.red
 #include %graph/model.red
 
 ; ── Mapa de resultados de ejecución (global, accesible desde do code) ───

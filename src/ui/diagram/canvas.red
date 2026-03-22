@@ -15,6 +15,7 @@ col-block-ctrl: 50.100.180
 col-block-ind:  175.125.20
 col-block-op:   55.75.105
 col-wire:       195.95.20
+col-wire-bool:  20.80.160
 col-wire-sel:   0.160.200
 col-port-in:    50.110.200
 col-port-out:   195.80.25
@@ -39,6 +40,31 @@ in-ports: func [node] [ any [block-in-ports to-word node/type  []] ]
 
 ; Devuelve los puertos de salida de un nodo consultando el block-registry.
 out-ports: func [node] [ any [block-out-ports to-word node/type  []] ]
+
+; Devuelve el tipo de dato de un puerto de salida ('number por defecto).
+port-out-type: func [node port-name /local bdef p] [
+    bdef: find-block to-word node/type
+    if none? bdef [return 'number]
+    foreach p bdef/outputs [
+        if p/name = to-word port-name [return p/type]
+    ]
+    'number
+]
+
+; Devuelve el tipo de dato de un puerto de entrada ('number por defecto).
+port-in-type: func [node port-name /local bdef p] [
+    bdef: find-block to-word node/type
+    if none? bdef [return 'number]
+    foreach p bdef/inputs [
+        if p/name = to-word port-name [return p/type]
+    ]
+    'number
+]
+
+; Devuelve el color de wire para un tipo de dato.
+wire-data-color: func [data-type] [
+    either data-type = 'boolean [col-wire-bool] [col-wire]
+]
 
 port-xy: func [node port-name direction /local ports port-index found] [
     either direction = 'in [
@@ -116,7 +142,8 @@ render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-col
             out-xy: port-xy src-node wire/from-port 'out
             in-xy:  port-xy dst-node wire/to-port   'in
             mid-x:  to-integer (out-xy/x + in-xy/x) / 2
-            wire-color: either same? wire model/selected-wire [col-wire-sel] [col-wire]
+            wire-dtype: port-out-type src-node wire/from-port
+            wire-color: either same? wire model/selected-wire [col-wire-sel] [wire-data-color wire-dtype]
             append cmds compose [
                 pen (wire-color)  line-width 2
                 line (out-xy) (as-pair mid-x out-xy/y) (as-pair mid-x in-xy/y) (in-xy)
@@ -148,15 +175,24 @@ render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-col
         ]
         ; Texto: tipo + label (DT-022)
         type-label: switch node/type [
-            control   ["CTRL"]
-            indicator ["IND"]
-            add       ["ADD +"]
-            sub       ["SUB -"]
-            mul       ["MUL *"]
-            div       ["DIV /"]
-            display   ["DISP"]
-            subvi     ["SUBVI"]
-            default   [uppercase form node/type]
+            control       ["CTRL"]
+            indicator     ["IND"]
+            add           ["ADD +"]
+            sub           ["SUB -"]
+            mul           ["MUL *"]
+            div           ["DIV /"]
+            display       ["DISP"]
+            subvi         ["SUBVI"]
+            bool-const    ["BOOL"]
+            bool-control  ["B-CTRL"]
+            bool-indicator["B-IND"]
+            and-op        ["AND"]
+            or-op         ["OR"]
+            not-op        ["NOT"]
+            gt-op         [">"]
+            lt-op         ["<"]
+            eq-op         ["="]
+            default       [uppercase form node/type]
         ]
         either all [node/label  object? node/label  node/label/visible] [
             append cmds compose [
@@ -342,6 +378,15 @@ open-palette: func [face x y] [
         text "Constante / salida:"  return
         button 80 "Const"    [palette-add-node 'const]
         button 80 "Display"  [palette-add-node 'display]  return
+        text "Lógica:"  return
+        button 80 "AND"      [palette-add-node 'and-op]
+        button 80 "OR"       [palette-add-node 'or-op]   return
+        button 80 "NOT"      [palette-add-node 'not-op]
+        button 80 "B-Const"  [palette-add-node 'bool-const]  return
+        text "Comparadores:"  return
+        button 80 ">"        [palette-add-node 'gt-op]
+        button 80 "<"        [palette-add-node 'lt-op]   return
+        button 80 "="        [palette-add-node 'eq-op]   return
         button "Cancelar"    [unview]
     ]
 ]
@@ -366,9 +411,9 @@ canvas-delete-selected: func [canvas /local model node-id] [
             remove-each node model/nodes  [node/id = node-id]
             model/selected-node: none
             model/drag-node:     none
-            ; Sync FP: borrar item correspondiente si es control/indicator
+            ; Sync FP: borrar item correspondiente si es control/indicator (o bool-*)
             if all [
-                find [control indicator] node-type
+                find [control indicator bool-control bool-indicator] node-type
                 _pref: select model 'panel-ref
             ][
                 remove-each item model/front-panel [item/name = node-name]
@@ -410,7 +455,11 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                             face/draw: render-bd model
                         ]
                     ][
-                        if all [hit-dir = 'in  model/wire-src/id <> hit-nd/id] [
+                        if all [
+                            hit-dir = 'in
+                            model/wire-src/id <> hit-nd/id
+                            (port-out-type model/wire-src model/wire-port) = (port-in-type hit-nd hit-port-name)
+                        ][
                             append model/wires make-wire compose [
                                 from: (model/wire-src/id)
                                 from-port: (model/wire-port)

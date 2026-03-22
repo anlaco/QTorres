@@ -61,6 +61,40 @@ assert "contiene variable add_1_result"         (not none? find body 'add_1_resu
 assert "usa config 5.0 de const_A"             (not none? find body 5.0)
 assert "usa config 3.0 de const_B"             (not none? find body 3.0)
 
+; ── Tests compile-body con bloques booleanos ────────────────────────
+suite "compile-body — booleanos"
+
+; bool_A(false) ──┐
+;                  ├──→ and_1 ──→ (result)
+; bool_B(true)  ──┘
+tb: make-diagram "test-bool-vi"
+tbn1: make-node [id: 10  type: 'bool-const  name: "bool_A"  x: 0  y: 0]
+tbn2: make-node [id: 11  type: 'bool-const  name: "bool_B"  x: 0  y: 60]
+tbn3: make-node [id: 12  type: 'and-op      name: "and_1"   x: 200 y: 30]
+tbn1/config: [default false]
+tbn2/config: [default true]
+append tb/nodes tbn1  append tb/nodes tbn2  append tb/nodes tbn3
+append tb/wires make-wire [from: 10  from-port: 'result  to: 12  to-port: 'a]
+append tb/wires make-wire [from: 11  from-port: 'result  to: 12  to-port: 'b]
+
+bool-body: compile-body tb
+assert "compile-body booleano no está vacío"          (not empty? bool-body)
+assert "contiene variable bool_A_result"              (not none? find bool-body 'bool_A_result)
+assert "contiene variable bool_B_result"              (not none? find bool-body 'bool_B_result)
+assert "contiene variable and_1_result"               (not none? find bool-body 'and_1_result)
+; Verificar que el body se puede ejecutar y produce los valores correctos
+do bool-body
+assert "bool_A_result es false tras execute"          (false = bool_A_result)
+assert "bool_B_result es true tras execute"           (true  = bool_B_result)
+assert "and_1_result es false AND true = false"       (false = and_1_result)
+
+; node-boolean-input?: chequea si el primer output del bloque es boolean
+; Solo relevante para nodos de categoría 'input
+tc-num: make-node [id: 20  type: 'control  name: "ctrl_x"  x: 0  y: 0]
+assert "bool-const es boolean input"               (node-boolean-input? tbn1)
+assert "bool-const (bool_B) es boolean"            (node-boolean-input? tbn2)
+assert "control numérico NO es boolean input"      (not node-boolean-input? tc-num)
+
 ; ── Tests save-vi / load-vi ──────────────────────────────────────────
 suite "save-vi / load-vi"
 

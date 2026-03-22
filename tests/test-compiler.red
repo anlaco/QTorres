@@ -48,6 +48,11 @@ assert "sustituye en bloques anidados"        (block? first be-nested)
 ne-first: first first be-nested
 assert "valor anidado sustituido"             ('X = ne-first)
 
+; Regresión: bind-emit debe sustituir false (logic!) — no confundirlo con "no encontrado"
+; Nota: bindings debe ser reduce [flag false] ya que false en bloque literal es word!, no logic!
+be-false: bind-emit [x: flag] reduce [quote flag  false]
+assert "bind-emit sustituye false correctamente"  (false = be-false/2)
+
 ; ── Tests compile-body ────────────────────────────────────────────────
 suite "compile-body"
 

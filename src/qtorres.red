@@ -96,10 +96,12 @@ btn-run: make face! [
             code: attempt [compile-body model]
             unless block? code [exit]
 
-            ; 3. Añadir capturas de resultados al bloque de código:
-            ;    put _run-results "indicator_1" <var-resultado>
-            ;    _run-results es global → accesible desde do
-            clear _run-results
+            ; 3. Ejecutar código headless
+            attempt [do code]
+
+            ; 4. Leer resultados → actualizar indicadores FP
+            ; Usamos 'get' sobre la variable resultado, evitando intermediarios.
+            ; attempt [get var] devuelve false correctamente (no confunde false con error).
             foreach n model/nodes [
                 bdef: find-block n/type
                 if all [bdef  bdef/category = 'output] [
@@ -108,25 +110,16 @@ btn-run: make face! [
                             foreach src model/nodes [
                                 if src/id = wire/from-node [
                                     result-var: port-var src to-word wire/from-port
-                                    append code compose [
-                                        put _run-results (n/name) (result-var)
+                                    result-val: attempt [get result-var]
+                                    foreach item model/front-panel [
+                                        if item/name = n/name [
+                                            unless none? result-val [item/value: result-val]
+                                        ]
                                     ]
                                 ]
                             ]
                         ]
                     ]
-                ]
-            ]
-
-            ; 4. Ejecutar
-            attempt [do code]
-
-            ; 5. Leer _run-results → actualizar indicadores FP
-            ; Nota: val puede ser false (logic!) → no usar "if val:" sino "unless none? val"
-            foreach item model/front-panel [
-                if find [indicator bool-indicator] item/type [
-                    val: select _run-results item/name
-                    unless none? val [item/value: val]
                 ]
             ]
 

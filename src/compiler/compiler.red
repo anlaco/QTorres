@@ -101,7 +101,7 @@ bind-emit: func [
         case [
             word? item [
                 v: select bindings item
-                append result either v [v] [item]
+                append result either none? v [item] [v]
             ]
             set-word? item [
                 k: to-word item

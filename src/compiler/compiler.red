@@ -177,6 +177,15 @@ node-boolean-input?: func [node /local bdef] [
     false
 ]
 
+; Devuelve true si el primer output del bloque es de tipo string.
+node-string-input?: func [node /local bdef] [
+    bdef: find-block to-word node/type
+    if all [bdef  not empty? bdef/outputs] [
+        return bdef/outputs/1/type = 'string
+    ]
+    false
+]
+
 ; ══════════════════════════════════════════════════
 ; COMPILE-BODY
 ; ══════════════════════════════════════════════════
@@ -226,10 +235,16 @@ compile-diagram: func [
         case [
             bdef/category = 'input [
                 face-sym: to-word rejoin ["f_" node/id]
-                either node-boolean-input? node [
-                    append run-body compose [(to-set-word port-var node 'result) (to-path reduce [face-sym 'data])]
-                ][
-                    append run-body compose [(to-set-word port-var node 'result) to-float (to-path reduce [face-sym 'text])]
+                case [
+                    node-boolean-input? node [
+                        append run-body compose [(to-set-word port-var node 'result) (to-path reduce [face-sym 'data])]
+                    ]
+                    node-string-input? node [
+                        append run-body compose [(to-set-word port-var node 'result) (to-path reduce [face-sym 'text])]
+                    ]
+                    true [
+                        append run-body compose [(to-set-word port-var node 'result) to-float (to-path reduce [face-sym 'text])]
+                    ]
                 ]
             ]
             bdef/category = 'output [
@@ -263,7 +278,11 @@ compile-diagram: func [
             face-n: to-word rejoin ["f_" node/id]
             ; any [none false] = none en Red (false es falsy) → usar either/none? explícito
             cfg-val: either none? select node/config 'default [
-                either node-boolean-input? node [false] [0.0]
+                case [
+                    node-boolean-input? node [false]
+                    node-string-input?  node [""]
+                    true                     [0.0]
+                ]
             ][
                 select node/config 'default
             ]
@@ -272,14 +291,22 @@ compile-diagram: func [
             ; UI layout usa label/text (display) para textos visibles (DT-024)
             append ui-layout node-label
             append ui-layout to-set-word face-n
-            either node-boolean-input? node [
-                ; Control booleano: check face, lee face/data (logic!)
-                append ui-layout 'check
-                append ui-layout node-label
-                append ui-layout cfg-val
-            ][
-                append ui-layout 'field
-                append ui-layout form cfg-val
+            case [
+                node-boolean-input? node [
+                    ; Control booleano: check face, lee face/data (logic!)
+                    append ui-layout 'check
+                    append ui-layout node-label
+                    append ui-layout cfg-val
+                ]
+                node-string-input? node [
+                    ; Control string: field editable, lee face/text directamente
+                    append ui-layout 'field
+                    append ui-layout cfg-val
+                ]
+                true [
+                    append ui-layout 'field
+                    append ui-layout form cfg-val
+                ]
             ]
         ]
     ]

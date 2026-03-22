@@ -100,6 +100,53 @@ assert "bool-const es boolean input"               (node-boolean-input? tbn1)
 assert "bool-const (bool_B) es boolean"            (node-boolean-input? tbn2)
 assert "control numérico NO es boolean input"      (not node-boolean-input? tc-num)
 
+; ── Tests compile-body con bloques string ────────────────────────────
+suite "compile-body — string"
+
+; str_A("hola") ──┐
+; str_B(" mundo") ─┘── concat ── result
+ts-diag: make-diagram "test-str-vi"
+tsn1: make-node [id: 30  type: 'str-const  name: "str_A"  x: 0   y: 0]
+tsn1/config: [default "hola"]
+tsn2: make-node [id: 31  type: 'str-const  name: "str_B"  x: 0   y: 60]
+tsn2/config: [default " mundo"]
+tsn3: make-node [id: 32  type: 'concat     name: "cat_1"  x: 200 y: 30]
+tsn4: make-node [id: 33  type: 'str-indicator  name: "ind_s"  x: 300 y: 30]
+append ts-diag/nodes tsn1
+append ts-diag/nodes tsn2
+append ts-diag/nodes tsn3
+append ts-diag/nodes tsn4
+append ts-diag/wires make-wire [from: 30  from-port: 'result  to: 32  to-port: 'a]
+append ts-diag/wires make-wire [from: 31  from-port: 'result  to: 32  to-port: 'b]
+
+str-body: compile-body ts-diag
+assert "compile-body string no está vacío"         (not empty? str-body)
+assert "contiene variable str_A_result"            (not none? find str-body 'str_A_result)
+assert "contiene variable str_B_result"            (not none? find str-body 'str_B_result)
+assert "contiene variable cat_1_result"            (not none? find str-body 'cat_1_result)
+
+do str-body
+assert "str_A_result es 'hola' tras execute"       ("hola"       = str_A_result)
+assert "str_B_result es ' mundo' tras execute"     (" mundo"     = str_B_result)
+assert "cat_1_result es 'hola mundo' tras execute" ("hola mundo" = cat_1_result)
+
+; node-string-input?: chequea si el primer output del bloque es string
+tc-str: make-node [id: 34  type: 'str-control  name: "ctrl_s"  x: 0  y: 0]
+assert "str-const es string input"                 (node-string-input? tsn1)
+assert "str-control es string input"               (node-string-input? tc-str)
+assert "control numérico NO es string input"       (not node-string-input? tc-num)
+assert "bool-const NO es string input"             (not node-string-input? tbn1)
+
+; str-length: número de caracteres
+tsn-len: make-node [id: 35  type: 'str-length  name: "len_1"  x: 0  y: 0]
+tsl-diag: make-diagram "test-len-vi"
+append tsl-diag/nodes tsn1
+append tsl-diag/nodes tsn-len
+append tsl-diag/wires make-wire [from: 30  from-port: 'result  to: 35  to-port: 'a]
+len-body: compile-body tsl-diag
+do len-body
+assert "str-length de 'hola' es 4.0"               (4.0 = len_1_result)
+
 ; ── Tests save-vi / load-vi ──────────────────────────────────────────
 suite "save-vi / load-vi"
 
@@ -209,3 +256,17 @@ assert "item 3: type indicator"               ('indicator = fp-li1/type)
 assert "item 3: name correcto"                ("ind_1" = fp-li1/name)
 assert "item 3: label/text correcto"          ("R" = fp-li1/label/text)
 assert "item 3: offset/y correcto"            (170 = fp-li1/offset/y)
+
+; ── Independencia de valores entre str-control y str-indicator ────────
+suite "FP items — string independence"
+
+sc-a: make-fp-item [id: 10  type: 'str-control   name: "sc_a"  label: [text: "A" visible: true]  offset: 20x40]
+sc-b: make-fp-item [id: 11  type: 'str-indicator  name: "si_b"  label: [text: "B" visible: true]  offset: 20x80]
+
+assert "str-control valor inicial vacío"        ("" = sc-a/value)
+assert "str-indicator valor inicial vacío"      ("" = sc-b/value)
+assert "valores iniciales son objetos distintos" (not same? sc-a/value sc-b/value)
+
+sc-a/value: "hello"
+assert "cambiar control no afecta indicador"    ("" = sc-b/value)
+assert "control tiene nuevo valor"              ("hello" = sc-a/value)

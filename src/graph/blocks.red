@@ -140,6 +140,43 @@ block 'indicator 'output [
     in value 'number
 ]
 
+; ── Bloques string ────────────────────────────────────────
+
+block 'str-const 'input [
+    out result 'string
+    config default 'string ""
+    emit [result: default]
+]
+
+block 'str-control 'input [
+    out result 'string
+    config default 'string ""
+    emit [result: default]
+]
+
+block 'str-indicator 'output [
+    in value 'string
+]
+
+block 'concat 'string [
+    in a 'string
+    in b 'string
+    out result 'string
+    emit [result: rejoin [a b]]
+]
+
+block 'str-length 'string [
+    in a 'string
+    out result 'number
+    emit [result: to-float length? a]
+]
+
+block 'to-string 'string [
+    in a 'number
+    out result 'string
+    emit [result: form a]
+]
+
 ; ── Bloques booleanos ─────────────────────────────────────
 
 block 'bool-const 'input [

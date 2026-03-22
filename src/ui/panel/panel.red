@@ -16,7 +16,7 @@ fp-border-color:     30.60.120
 fp-item-width:       120
 fp-item-height:      40
 fp-str-height:       24             ; altura del campo string (solo el body, sin label)
-fp-label-default-offset: as-pair 0 -18  ; offset relativo al body: label 18px encima
+fp-label-above:      18             ; píxeles que el label va por encima del body
 fp-run-button-height: 30
 
 fp-color?: func [item-type] [
@@ -97,7 +97,12 @@ make-fp-item: func [
     ; Name: usar explícito, o generar automáticamente
     item/name: any [select spec 'name  rejoin [form item/type "_" item/id]]
 
+    ; Offset: fijar antes de la label para poder calcular la posición absoluta del label
+    item/offset: any [select spec 'offset  0x0]
+
     ; Label: acepta bloque [text: "..." ...] o string
+    ; label/offset = posición ABSOLUTA en el canvas (no relativa al body).
+    ; Default: directamente fp-label-above píxeles por encima del body.
     lbl-spec: select spec 'label
     item/label: case [
         block? lbl-spec [
@@ -111,27 +116,25 @@ make-fp-item: func [
             make object! [
                 text:    any [select lbl-spec 'text    ""]
                 visible: any [select lbl-spec 'visible true]
-                offset:  any [select lbl-spec 'offset  fp-label-default-offset]
+                offset:  any [select lbl-spec 'offset
+                              as-pair item/offset/x (item/offset/y - fp-label-above)]
             ]
         ]
         string? lbl-spec [
             make object! [
                 text:    lbl-spec
                 visible: true
-                offset:  fp-label-default-offset
+                offset:  as-pair item/offset/x (item/offset/y - fp-label-above)
             ]
         ]
         true [
             make object! [
                 text:    fp-default-label item/type
                 visible: true
-                offset:  fp-label-default-offset
+                offset:  as-pair item/offset/x (item/offset/y - fp-label-above)
             ]
         ]
     ]
-
-    ; Offset: usar explícito o default
-    item/offset: any [select spec 'offset  0x0]
 
     item
 ]
@@ -160,13 +163,11 @@ render-fp-grid: func [w h /local cmds gx gy] [
 render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col cx cy lx ly bh] [
     cmds: copy []
 
-    ; ── Label externa: siempre en item/offset + item/label/offset ──────────────────────
+    ; ── Label externa: posición absoluta en item/label/offset ──────────────────────────
     if all [item/label  object? item/label  item/label/visible] [
-        lx: item/offset/x + item/label/offset/x
-        ly: item/offset/y + item/label/offset/y
         append cmds compose [
             fill-pen 30.30.30  pen off
-            text (as-pair lx ly) (any [item/label/text ""])
+            text (item/label/offset) (any [item/label/text ""])
         ]
     ]
 
@@ -255,10 +256,10 @@ render-fp-panel: func [model w h /local cmds item selected?] [
 ; Itera al revés para que el elemento dibujado encima tenga prioridad.
 hit-fp-zone: func [model mx my /local item lx ly lw bh] [
     foreach item (reverse copy model/front-panel) [
-        ; Zona de label (prioridad alta)
+        ; Zona de label (prioridad alta) — label/offset es posición absoluta
         if all [item/label  object? item/label  item/label/visible] [
-            lx: item/offset/x + item/label/offset/x
-            ly: item/offset/y + item/label/offset/y
+            lx: item/label/offset/x
+            ly: item/label/offset/y
             lw: max 30 (7 * length? any [item/label/text ""])
             if all [mx >= lx  mx <= (lx + lw)  my >= (ly - 2)  my <= (ly + 14)] [
                 return reduce [item 'label]
@@ -438,13 +439,13 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                     face/extra/selected-fp: item
                     face/extra/drag-fp:     item
                     either zone/2 = 'label [
-                        ; Arrastrar solo la label — offset relativo al body
+                        ; Arrastrar solo la label — label/offset es absoluto
                         face/extra/drag-is-label: true
                         face/extra/drag-off: as-pair
-                            (mx - (item/offset/x + item/label/offset/x))
-                            (my - (item/offset/y + item/label/offset/y))
+                            (mx - item/label/offset/x)
+                            (my - item/label/offset/y)
                     ][
-                        ; Arrastrar el body — la label sigue al ser relativa
+                        ; Arrastrar el body — la label sigue con delta explícito
                         face/extra/drag-is-label: false
                         face/extra/drag-off: as-pair (mx - item/offset/x) (my - item/offset/y)
                     ]
@@ -464,15 +465,20 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                 if all [face/extra/drag-fp  face/extra/drag-off  event/down?] [
                     item: face/extra/drag-fp
                     either face/extra/drag-is-label [
-                        ; Solo mueve el label (offset relativo: resta posición del body)
+                        ; Solo mueve el label (posición absoluta directa)
                         item/label/offset: as-pair
-                            (mx - face/extra/drag-off/x - item/offset/x)
-                            (my - face/extra/drag-off/y - item/offset/y)
-                    ][
-                        ; Mueve el body; label sigue automáticamente (offset relativo)
-                        item/offset: as-pair
                             (mx - face/extra/drag-off/x)
                             (my - face/extra/drag-off/y)
+                    ][
+                        ; Mueve el body; label sigue con el mismo delta
+                        new-x: mx - face/extra/drag-off/x
+                        new-y: my - face/extra/drag-off/y
+                        dx: new-x - item/offset/x
+                        dy: new-y - item/offset/y
+                        item/label/offset: as-pair
+                            (item/label/offset/x + dx)
+                            (item/label/offset/y + dy)
+                        item/offset: as-pair new-x new-y
                     ]
                     face/draw: render-fp-panel face/extra w h
                 ]
@@ -573,6 +579,7 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
                     ]
                     if all [zero? item/offset/x  zero? item/offset/y] [
                         item/offset: as-pair 20 offset-y
+                        item/label/offset: as-pair 20 (offset-y - fp-label-above)
                         offset-y: offset-y + fp-item-height + 10
                     ]
                     append result item

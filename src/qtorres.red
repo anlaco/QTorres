@@ -7,20 +7,25 @@ Red [
 ]
 
 ; ── Módulos — orden de dependencia ───────────────────────────────
-; clean-path resuelve el directorio del script a ruta absoluta,
-; evitando la doble-concatenación cuando system/options/script
-; devuelve una ruta relativa y change-dir ya está en src/.
-; Red CLI cambia el CWD al directorio del script antes de ejecutarlo,
-; por lo que what-dir es siempre el directorio de qtorres.red (src/).
-_base: what-dir
-
-do append copy _base "graph/model.red"
-do append copy _base "graph/blocks.red"
-do append copy _base "compiler/compiler.red"
-do append copy _base "runner/runner.red"
-do append copy _base "io/file-io.red"
-do append copy _base "ui/diagram/canvas.red"
-do append copy _base "ui/panel/panel.red"
+; #include embebe el código en compile-time → binario standalone con encap.
+; Cada Red[] en un módulo incluido desplaza el contexto de directorio al
+; directorio de ese módulo — las rutas siguientes son relativas al último
+; módulo incluido, no al CWD. Ver docs/encap-compilation.md.
+;
+;   ctx src/          → #include %graph/model.red
+;   ctx src/graph/    → #include %blocks.red
+;   ctx src/graph/    → #include %../compiler/compiler.red
+;   ctx src/compiler/ → #include %../runner/runner.red
+;   ctx src/runner/   → #include %../io/file-io.red
+;   ctx src/io/       → #include %../ui/diagram/canvas.red
+;   ctx src/ui/diagram/ → #include %../panel/panel.red
+#include %graph/model.red
+#include %blocks.red
+#include %../compiler/compiler.red
+#include %../runner/runner.red
+#include %../io/file-io.red
+#include %../ui/diagram/canvas.red
+#include %../panel/panel.red
 
 ; ── Mapa de resultados de ejecución (global, accesible desde do code) ───
 _run-results: make map! []

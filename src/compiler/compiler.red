@@ -305,3 +305,5 @@ compile-diagram: func [
     result-map/ui-layout: ui-layout
     result-map
 ]
+
+#include %../runner/runner.red

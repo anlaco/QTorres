@@ -203,3 +203,5 @@ block 'eq-op 'compare [
     emit [result: a = b]
 ]
 
+
+#include %../compiler/compiler.red

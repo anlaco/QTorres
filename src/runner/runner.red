@@ -29,3 +29,5 @@ run: func [
     qtorres-runtime: false
     true
 ]
+
+#include %../io/file-io.red

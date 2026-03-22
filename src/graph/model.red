@@ -247,3 +247,5 @@ make-diagram: func [
 
 ; make-fp-item y fp-value-text viven en src/ui/panel/panel.red (canónico).
 ; model.red no duplica lógica de Front Panel.
+
+#include %blocks.red

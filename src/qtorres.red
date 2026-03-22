@@ -6,26 +6,14 @@ Red [
     Needs:   'View
 ]
 
-; ── Módulos — orden de dependencia ───────────────────────────────
-; #include embebe el código en compile-time → binario standalone con encap.
-; Cada Red[] en un módulo incluido desplaza el contexto de directorio al
-; directorio de ese módulo — las rutas siguientes son relativas al último
-; módulo incluido, no al CWD. Ver docs/encap-compilation.md.
+; ── Módulos internos — se empaquetan con redc -e ─────────────────
+; Chain loading (DT-025): cada módulo incluye al siguiente al final.
+; Paths relativos al propio módulo → funciona con red-cli y redc -e.
 ;
-;   ctx src/          → #include %graph/model.red
-;   ctx src/graph/    → #include %blocks.red
-;   ctx src/graph/    → #include %../compiler/compiler.red
-;   ctx src/compiler/ → #include %../runner/runner.red
-;   ctx src/runner/   → #include %../io/file-io.red
-;   ctx src/io/       → #include %../ui/diagram/canvas.red
-;   ctx src/ui/diagram/ → #include %../panel/panel.red
+; Cadena completa:
+;   model.red → blocks.red → compiler.red → runner.red
+;     → file-io.red → canvas.red → panel.red
 #include %graph/model.red
-#include %blocks.red
-#include %../compiler/compiler.red
-#include %../runner/runner.red
-#include %../io/file-io.red
-#include %../ui/diagram/canvas.red
-#include %../panel/panel.red
 
 ; ── Mapa de resultados de ejecución (global, accesible desde do code) ───
 _run-results: make map! []

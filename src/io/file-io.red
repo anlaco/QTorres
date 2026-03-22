@@ -294,3 +294,5 @@ load-vi: func [
 
     d
 ]
+
+#include %../ui/diagram/canvas.red

@@ -183,6 +183,7 @@ render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-col
             div            ["DIV /"]
             display        ["DISP"]
             subvi          ["SUBVI"]
+            const          [form any [select node/config 'default  0.0]]
             bool-const     [either any [select node/config 'default  false] ["T"] ["F"]]
             bool-control   ["B-CTRL"]
             bool-indicator ["B-IND"]
@@ -338,6 +339,43 @@ toggle-bool-const: func [node /local cur pos] [
     ]
 ]
 
+; Abre diálogo para editar el valor de una constante numérica.
+; Patrón view/no-wait con vars de módulo (igual que rename-dialog).
+open-const-edit-dialog: func [node canvas-face /local cur-val] [
+    cur-val: any [select node/config 'default  0.0]
+    const-dialog-node:   node
+    const-dialog-canvas: canvas-face
+    const-dialog-field:  none
+    view/no-wait compose [
+        title "Editar constante"
+        text "Valor:" return
+        const-dialog-field: field 150 (form cur-val)
+        on-enter [
+            apply-const-value const-dialog-node const-dialog-field/text
+            const-dialog-canvas/draw: render-bd const-dialog-canvas/extra
+            unview
+        ]
+        return
+        button "OK" [
+            apply-const-value const-dialog-node const-dialog-field/text
+            const-dialog-canvas/draw: render-bd const-dialog-canvas/extra
+            unview
+        ]
+        button "Cancelar" [unview]
+    ]
+]
+
+; Actualiza node/config 'default con el nuevo valor numérico.
+apply-const-value: func [node new-text /local val pos] [
+    val: attempt [to-float new-text]
+    if none? val [exit]
+    either pos: find node/config 'default [
+        pos/2: val
+    ][
+        append node/config reduce ['default val]
+    ]
+]
+
 apply-rename-label: func [node new-text] [
     either empty? new-text [
         if all [node/label  object? node/label] [
@@ -358,6 +396,11 @@ apply-rename-label: func [node new-text] [
 rename-dialog-node:   none
 rename-dialog-canvas: none
 rename-dialog-field:  none
+
+; Estado del diálogo de edición de constante numérica (mismo patrón)
+const-dialog-node:    none
+const-dialog-canvas:  none
+const-dialog-field:   none
 
 ; ── Paleta de bloques ────────────────────────────────────────────
 ; vars de módulo para el diálogo de paleta (mismo patrón que rename)
@@ -569,7 +612,11 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 mouse-y: event/offset/y
                 node: hit-node model mouse-x mouse-y
                 either node [
-                    ; Nodo existente → diálogo de renombrado
+                    ; Nodo existente: const → editar valor; resto → renombrar label
+                    if node/type = 'const [
+                        open-const-edit-dialog node face
+                        exit
+                    ]
                     rename-dialog-node:   node
                     rename-dialog-canvas: face
                     rename-dialog-field:  none

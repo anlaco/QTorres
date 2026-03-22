@@ -140,3 +140,66 @@ block 'indicator 'output [
     in value 'number
 ]
 
+; ── Bloques booleanos ─────────────────────────────────────
+
+block 'bool-const 'input [
+    out result 'boolean
+    config default 'boolean false
+    emit [result: default]
+]
+
+block 'bool-control 'input [
+    out result 'boolean
+    config default 'boolean false
+    emit [result: default]
+]
+
+block 'bool-indicator 'output [
+    in value 'boolean
+]
+
+; ── Lógica ────────────────────────────────────────────────
+
+block 'and-op 'logic [
+    in a 'boolean
+    in b 'boolean
+    out result 'boolean
+    emit [result: a and b]
+]
+
+block 'or-op 'logic [
+    in a 'boolean
+    in b 'boolean
+    out result 'boolean
+    emit [result: a or b]
+]
+
+block 'not-op 'logic [
+    in a 'boolean
+    out result 'boolean
+    emit [result: not a]
+]
+
+; ── Comparadores (number → boolean) ──────────────────────
+
+block 'gt-op 'compare [
+    in a 'number
+    in b 'number
+    out result 'boolean
+    emit [result: a > b]
+]
+
+block 'lt-op 'compare [
+    in a 'number
+    in b 'number
+    out result 'boolean
+    emit [result: a < b]
+]
+
+block 'eq-op 'compare [
+    in a 'number
+    in b 'number
+    out result 'boolean
+    emit [result: a = b]
+]
+

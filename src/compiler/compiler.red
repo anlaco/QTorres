@@ -101,7 +101,7 @@ bind-emit: func [
         case [
             word? item [
                 v: select bindings item
-                append result either v [v] [item]
+                append result either none? v [item] [v]
             ]
             set-word? item [
                 k: to-word item
@@ -159,12 +159,22 @@ build-bindings: func [
     ]
 
     foreach cfg bdef/configs [
-        cfg-val: any [select node/config cfg/name  cfg/default]
+        ; any [none false] = none en Red → usar either/none? explícito
+        cfg-val: either none? select node/config cfg/name [cfg/default] [select node/config cfg/name]
         append bindings cfg/name
         append bindings cfg-val
     ]
 
     bindings
+]
+
+; Devuelve true si el primer output del bloque es de tipo booleano.
+node-boolean-input?: func [node /local bdef] [
+    bdef: find-block to-word node/type
+    if all [bdef  not empty? bdef/outputs] [
+        return bdef/outputs/1/type = 'boolean
+    ]
+    false
 ]
 
 ; ══════════════════════════════════════════════════
@@ -216,7 +226,11 @@ compile-diagram: func [
         case [
             bdef/category = 'input [
                 face-sym: to-word rejoin ["f_" node/id]
-                append run-body compose [(to-set-word port-var node 'result) to-float (to-path reduce [face-sym 'text])]
+                either node-boolean-input? node [
+                    append run-body compose [(to-set-word port-var node 'result) (to-path reduce [face-sym 'data])]
+                ][
+                    append run-body compose [(to-set-word port-var node 'result) to-float (to-path reduce [face-sym 'text])]
+                ]
             ]
             bdef/category = 'output [
                 face-sym: to-word rejoin ["t_" node/id]
@@ -247,13 +261,26 @@ compile-diagram: func [
         if none? bdef [continue]
         if bdef/category = 'input [
             face-n: to-word rejoin ["f_" node/id]
-            cfg-val: any [select node/config 'default  0.0]
+            ; any [none false] = none en Red (false es falsy) → usar either/none? explícito
+            cfg-val: either none? select node/config 'default [
+                either node-boolean-input? node [false] [0.0]
+            ][
+                select node/config 'default
+            ]
+            node-label: either all [node/label  object? node/label] [node/label/text] [any [node/name ""]]
             append ui-layout 'text
             ; UI layout usa label/text (display) para textos visibles (DT-024)
-            append ui-layout either all [node/label  object? node/label] [node/label/text] [any [node/name ""]]
+            append ui-layout node-label
             append ui-layout to-set-word face-n
-            append ui-layout 'field
-            append ui-layout form cfg-val
+            either node-boolean-input? node [
+                ; Control booleano: check face, lee face/data (logic!)
+                append ui-layout 'check
+                append ui-layout node-label
+                append ui-layout cfg-val
+            ][
+                append ui-layout 'field
+                append ui-layout form cfg-val
+            ]
         ]
     ]
     append ui-layout 'button

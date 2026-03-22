@@ -1,4 +1,27 @@
-# Progress — Issue #7: Front Panel modular
+# Progress — Issue #9: Tipo Booleano
+
+## Session Log
+
+### 2026-03-22 — Implementación completa
+**Tema:** Issue #9 — Tipo booleano en todo el sistema
+
+**Acciones:**
+- Phase 1: Type System — `port-out-type`, `port-in-type`, `col-wire-bool`, `wire-data-color`, wire color dinámico en `render-bd`, guard de tipos en `on-down`
+- Phase 2.1: blocks.red — 9 bloques nuevos (bool-const, bool-control, bool-indicator, and-op, or-op, not-op, gt-op, lt-op, eq-op)
+- Phase 2.2-2.3: canvas.red — paleta Lógica/Comparadores + type-label switch
+- Phase 2.4-2.6: panel.red — campo data-type, LED render, toggle bool-control, paleta FP, save/load actualizado
+- Phase 2.7: compiler.red — node-boolean-input? helper, compile-diagram genera `check` face para boolean inputs
+- Phase 2.8: Tests — 28 nuevos asserts; **98/98 PASS**
+
+**Errores encontrados y resueltos:**
+- `find block false` no fiable en Red → usar `do body` + verificar variable directamente
+- Test de `and-op NO es input` incorrecto: `node-boolean-input?` chequea tipo del output (boolean), no la categoría del bloque → corregido
+
+**Estado:** Implementación completa, tests verdes, pendiente commit y PR
+
+---
+
+# Progress — Issue #7: Front Panel modular (histórico)
 
 ## Session Log
 

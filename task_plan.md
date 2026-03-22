@@ -28,25 +28,28 @@ Expandir QTorres desde un entorno solo-numérico a un sistema multi-tipo (boolea
 ---
 
 ## Phase 1 — Sprint 1: Type System Foundation
-**Estado:** pending
-**Depende de:** Phase 0 completada
+**Estado:** ✅ COMPLETO (2026-03-22)
 
 ### Tasks
-- [ ] 1.1 Campo `color` en block-registry + función `block-color`
-- [ ] 1.2 Wire color por tipo de puerto (canvas lee del registry)
-- [ ] 1.3 Guard: impedir wire entre puertos incompatibles
+- [x] 1.1 Añadir `port-out-type` y `port-in-type` en canvas.red
+- [x] 1.2 Constante `col-wire-bool: 20.80.160` + función `wire-data-color`
+- [x] 1.3 `render-bd`: wire color dinámico por tipo de puerto
+- [x] 1.4 Guard en `on-down`: no crear wire si tipos incompatibles
 
 ---
 
-## Phase 2 — Sprint 2: Tipo Booleano (#23)
-**Estado:** pending
-**Depende de:** Phase 1
+## Phase 2 — Sprint 2: Tipo Booleano (Issue #9)
+**Estado:** ✅ COMPLETO (2026-03-22)
 
 ### Tasks
-- [ ] 2.1 block-def: boolean-const, and, or, not
-- [ ] 2.2 Widget LED en panel.red (boolean control/indicator)
-- [ ] 2.3 Compiler: boolean controls/indicators → checkbox/LED en VID
-- [ ] 2.4 Tests: boolean blocks + VI round-trip
+- [x] 2.1 blocks.red: 9 bloques booleanos/lógicos/comparadores
+- [x] 2.2 canvas.red open-palette: sección Lógica y Comparadores
+- [x] 2.3 canvas.red type-label switch: labels para nuevos tipos
+- [x] 2.4 panel.red make-fp-item: campo `data-type`
+- [x] 2.5 panel.red render-fp-item: LED (círculo verde/rojo) para boolean
+- [x] 2.6 panel.red open-fp-palette: Bool Control y Bool Indicator
+- [x] 2.7 compiler.red compile-diagram: boolean input → `check` face
+- [x] 2.8 Tests: 28 nuevos asserts — 98/98 PASS ✅
 
 ---
 

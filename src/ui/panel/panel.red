@@ -19,18 +19,20 @@ fp-label-height:     20
 fp-run-button-height: 30
 
 fp-color?: func [item-type] [
-    either item-type = 'control [fp-control-color] [fp-indicator-color]
+    either find [control bool-control] item-type [fp-control-color] [fp-indicator-color]
 ]
 
 fp-border-color?: func [item-type] [
-    either item-type = 'control [fp-control-color - 20.20.20] [fp-indicator-color - 20.20.20]
+    either find [control bool-control] item-type [fp-control-color - 20.20.20] [fp-indicator-color - 20.20.20]
 ]
 
 fp-type-label?: func [item-type] [
     case [
-        item-type = 'control   ["CTRL"]
-        item-type = 'indicator ["IND"]
-        true                   [uppercase form item-type]
+        item-type = 'control        ["CTRL"]
+        item-type = 'indicator      ["IND"]
+        item-type = 'bool-control   ["B-CTRL"]
+        item-type = 'bool-indicator ["B-IND"]
+        true                        [uppercase form item-type]
     ]
 ]
 
@@ -38,23 +40,31 @@ fp-type-label?: func [item-type] [
 ; FP-ITEM — Constructor following DT-022/023 pattern
 ; ══════════════════════════════════════════════════════════
 fp-default-label: func [item-type] [
-    either item-type = 'control ["Numeric"] ["Numeric"]
+    case [
+        item-type = 'bool-control   ["Boolean"]
+        item-type = 'bool-indicator ["Boolean"]
+        true                        ["Numeric"]
+    ]
 ]
 
 make-fp-item: func [
     "Crea un item del Front Panel (control o indicator)"
     spec [block!]
-    /local item lbl-spec
+    /local item lbl-spec raw-type
 ][
+    raw-type: any [select spec 'type  'control]
     item: make object! [
-        id:      any [select spec 'id      0]
-        type:    any [select spec 'type    'control]
-        name:    any [select spec 'name    ""]
-        label:   none
-        default: any [select spec 'default  0.0]
-        value:   any [select spec 'value   any [select spec 'default  0.0]]
-        offset:  any [select spec 'offset  0x0]
+        id:        any [select spec 'id        0]
+        type:      either find [bool-control bool-indicator] raw-type ['control] [raw-type]
+        data-type: either find [bool-control bool-indicator] raw-type ['boolean] ['numeric]
+        name:      any [select spec 'name      ""]
+        label:     none
+        default:   any [select spec 'default   either find [bool-control bool-indicator] raw-type [false] [0.0]]
+        value:     none
+        offset:    any [select spec 'offset    0x0]
     ]
+    item/type: raw-type
+    item/value: any [select spec 'value  item/default]
 
     ; Name: usar explícito, o generar automáticamente
     item/name: any [select spec 'name  rejoin [form item/type "_" item/id]]
@@ -119,7 +129,7 @@ render-fp-grid: func [w h /local cmds gx gy] [
     cmds
 ]
 
-render-fp-item: func [item selected? /local cmds col border-col type-lbl text-x text-y] [
+render-fp-item: func [item selected? /local cmds col border-col type-lbl text-x text-y led-col cx cy] [
     cmds: copy []
     col: fp-color? item/type
     border-col: fp-border-color? item/type
@@ -148,10 +158,21 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl text-x 
         ]
     ]
 
-    append cmds compose [
-        fill-pen 255.255.255
-        text (as-pair (item/offset/x + 8) (item/offset/y + fp-item-height - 16))
-             (fp-value-text item)
+    either item/data-type = 'boolean [
+        ; LED: círculo verde (true) o rojo (false)
+        led-col: either item/value [0.180.0] [180.0.0]
+        cx: item/offset/x + fp-item-width - 20
+        cy: item/offset/y + (fp-item-height / 2)
+        append cmds compose [
+            pen (led-col - 40.40.40)  line-width 1  fill-pen (led-col)
+            circle (as-pair cx cy) 10
+        ]
+    ][
+        append cmds compose [
+            fill-pen 255.255.255
+            text (as-pair (item/offset/x + 8) (item/offset/y + fp-item-height - 16))
+                 (fp-value-text item)
+        ]
     ]
 
     if selected? [
@@ -246,7 +267,7 @@ fp-palette-add-item: func [item-type /local new-id item model w h _cref nid bd-y
         type:    (item-type)
         name:    (rejoin [form item-type "_" new-id])
         label:   [text: (fp-default-label item-type) visible: true]
-        default: 0.0
+        default: (either find [bool-control bool-indicator] item-type [false] [0.0])
         offset:  (as-pair fp-palette-x fp-palette-y)
     ]
     append model/front-panel item
@@ -276,9 +297,11 @@ open-fp-palette: func [face x y] [
     fp-palette-y:     y
     view/no-wait [
         title "Añadir al Front Panel"
-        button 100 "Control"   [fp-palette-add-item 'control]    return
-        button 100 "Indicator" [fp-palette-add-item 'indicator]  return
-        button      "Cancelar" [unview]
+        button 100 "Control"        [fp-palette-add-item 'control]        return
+        button 100 "Indicator"      [fp-palette-add-item 'indicator]      return
+        button 100 "Bool Control"   [fp-palette-add-item 'bool-control]   return
+        button 100 "Bool Indicator" [fp-palette-add-item 'bool-indicator] return
+        button      "Cancelar"      [unview]
     ]
 ]
 
@@ -337,13 +360,21 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                 face/extra/drag-off: none
             ]
 
-            on-click: func [face event /local mouse-x mouse-y hit] [
+            on-click: func [face event /local mouse-x mouse-y hit w h] [
                 mouse-x: event/offset/x
                 mouse-y: event/offset/y
+                w: face/extra/size/x
+                h: face/extra/size/y
                 hit: hit-fp-item face/extra mouse-x mouse-y
-                ; Solo los controles son editables — indicadores son read-only
-                if all [hit  hit/type = 'control] [
-                    open-edit-dialog hit face face/extra
+                case [
+                    all [hit  hit/type = 'bool-control] [
+                        ; Toggle booleano directo
+                        hit/value: not hit/value
+                        face/draw: render-fp-panel face/extra w h
+                    ]
+                    all [hit  hit/type = 'control] [
+                        open-edit-dialog hit face face/extra
+                    ]
                 ]
             ]
 
@@ -353,8 +384,12 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                 hit: hit-fp-item face/extra mouse-x mouse-y
 
                 case [
-                    all [hit  hit/type = 'control]   [open-edit-dialog hit face face/extra]
-                    none? hit                         [open-fp-palette face mouse-x mouse-y]
+                    all [hit  hit/type = 'bool-control]  [
+                        hit/value: not hit/value
+                        face/draw: render-fp-panel face/extra face/extra/size/x face/extra/size/y
+                    ]
+                    all [hit  hit/type = 'control]        [open-edit-dialog hit face face/extra]
+                    none? hit                              [open-fp-palette face mouse-x mouse-y]
                     ; indicador: no hacer nada
                 ]
             ]
@@ -373,7 +408,7 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                         foreach n model/nodes [if n/name = hit/name [bd-node: n]]
                         if bd-node [
                             remove-each wire model/wires [any [wire/from-node = bd-node/id  wire/to-node = bd-node/id]]
-                            remove-each n model/nodes [n/name = hit/name]
+                            remove-each n model/nodes   [n/name = hit/name]
                         ]
                         _cref/draw: render-bd model
                         show _cref
@@ -391,7 +426,7 @@ render-panel: func [model panel-width panel-height /local panel-face] [
 ; ══════════════════════════════════════════════════════════
 ; PARSER — load front-panel from qvi-diagram (Phase 3)
 ; ══════════════════════════════════════════════════════════
-load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result item offset-y] [
+load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result item offset-y kw] [
     result: copy []
     fp-block: select diagram-block 'front-panel
 
@@ -399,20 +434,12 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
         offset-y: 20
         parse fp-block [
             any [
-                'control set fp-item-spec block! (
+                set kw ['control | 'indicator | 'bool-control | 'bool-indicator]
+                set fp-item-spec block! (
                     item: make-fp-item fp-item-spec
-                    item/type: 'control
-                    if all [none? item/offset  zero? item/offset/x  zero? item/offset/y] [
-                        item/offset: as-pair 20 offset-y
-                        offset-y: offset-y + fp-item-height + 10
-                    ]
-                    append result item
-                )
-                |
-                'indicator set fp-item-spec block! (
-                    item: make-fp-item fp-item-spec
-                    item/type: 'indicator
-                    if all [none? item/offset  zero? item/offset/x  zero? item/offset/y] [
+                    item/type:      kw
+                    item/data-type: either find [bool-control bool-indicator] kw ['boolean] ['numeric]
+                    if all [zero? item/offset/x  zero? item/offset/y] [
                         item/offset: as-pair 20 offset-y
                         offset-y: offset-y + fp-item-height + 10
                     ]
@@ -432,10 +459,15 @@ save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
     ; Si se generan bloques separados, select solo devuelve el primero al cargar.
     items: copy []
     foreach item front-panel-items [
-        kw:   either item/type = 'control ['control] ['indicator]
+        kw:   case [
+            item/type = 'control        ['control]
+            item/type = 'bool-control   ['bool-control]
+            item/type = 'bool-indicator ['bool-indicator]
+            true                        ['indicator]
+        ]
         spec: compose/deep [
             id: (item/id)
-            type: 'numeric
+            type: (item/type)
             name: (item/name)
             label: [text: (item/label/text) visible: (item/label/visible)]
             default: (item/default)

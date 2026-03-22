@@ -46,6 +46,64 @@
 | `color` en block-registry | Elimina hardcoding en canvas, auto-renderiza tipos nuevos |
 | Guard de tipo en wire-connect | Prerequisito para multi-tipo, previene wires inválidos |
 
+## Issue #9 — Tipo Booleano: Hallazgos de Implementación (2026-03-22)
+
+### Bloques nuevos a añadir (blocks.red)
+
+| Nombre       | Categoría | Inputs                     | Outputs          | Emit                  |
+|--------------|-----------|----------------------------|------------------|-----------------------|
+| bool-const   | input     | —                          | result 'boolean  | [result: default]     |
+| bool-control | input     | —                          | result 'boolean  | [result: default]     |
+| bool-indicator | output  | value 'boolean             | —                | —                     |
+| and-op       | logic     | a 'boolean, b 'boolean     | result 'boolean  | [result: a and b]     |
+| or-op        | logic     | a 'boolean, b 'boolean     | result 'boolean  | [result: a or b]      |
+| not-op       | logic     | a 'boolean                 | result 'boolean  | [result: not a]       |
+| gt-op        | compare   | a 'number, b 'number       | result 'boolean  | [result: a > b]       |
+| lt-op        | compare   | a 'number, b 'number       | result 'boolean  | [result: a < b]       |
+| eq-op        | compare   | a 'number, b 'number       | result 'boolean  | [result: a = b]       |
+
+### Función port-out-type / port-in-type (nueva en canvas.red)
+
+Necesaria para wire color y guard. Lookup: `find-block node/type` → buscar port por nombre → devolver `p/type`.
+Default seguro: `'number` si no se encuentra.
+
+### Wire color por tipo (canvas.red)
+
+- Añadir constante `col-wire-bool: 20.80.160` (azul oscuro, estilo LabVIEW)
+- En `render-bd`: buscar tipo del puerto de salida del nodo fuente → elegir color
+- El wire seleccionado siempre usa `col-wire-sel` (cian) independientemente del tipo
+
+### Guard de tipo en on-down (canvas.red, línea ~413)
+
+- Antes de `append model/wires make-wire`: comprobar que tipo fuente = tipo destino
+- Si incompatible: limpiar wire-src sin crear wire (silencioso, sin popup)
+
+### Panel.red — make-fp-item con data-type
+
+- Añadir campo `data-type: any [select spec 'data-type 'numeric]` en make-fp-item
+- `render-fp-item`: si `item/data-type = 'boolean` → dibujar LED (círculo verde/rojo)
+- `open-edit-dialog`: si boolean → toggle directo (no campo de texto)
+- `open-fp-palette`: añadir botones "Bool Control" y "Bool Indicator"
+- `fp-palette-add-item`: aceptar `bool-control` y `bool-indicator` como tipos de bloque
+
+### Compiler.red — compile-diagram para booleanos
+
+Detectar si nodo es boolean: `block-out-type` o checar primera salida del bdef.
+- **input boolean**: VID usa `check "label"`, run-body lee `face/data` (logic!, no to-float)
+- **output boolean**: texto es suficiente (`form true` → `"true"`)
+
+### Cambios en canvas.red open-palette
+
+Añadir sección "Lógica": AND, OR, NOT y sección "Comparadores": >, <, =.
+
+### Tests a añadir
+
+- `test-blocks.red`: 9 nuevos bloques registrados (suites: logic, compare, bool-io)
+- `test-blocks.red`: tipos de puertos correctos (boolean en and-op, number en gt-op inputs)
+- `test-compiler.red`: compile-body con and-op entre dos bool-const → emite `a and b`
+- `test-compiler.red`: port-out-type / port-in-type funciones (si se extraen como helpers)
+- Total esperado: 70 actuales + ~15 nuevos ≈ 85 tests PASS
+
 ## Contexto de Ficheros por Sprint
 
 ### Sprint 0 (Cleanup)

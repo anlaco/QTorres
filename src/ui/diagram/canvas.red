@@ -15,6 +15,7 @@ col-block-ctrl: 50.100.180
 col-block-ind:  175.125.20
 col-block-op:   55.75.105
 col-wire:       195.95.20
+col-wire-bool:  20.80.160
 col-wire-sel:   0.160.200
 col-port-in:    50.110.200
 col-port-out:   195.80.25
@@ -39,6 +40,31 @@ in-ports: func [node] [ any [block-in-ports to-word node/type  []] ]
 
 ; Devuelve los puertos de salida de un nodo consultando el block-registry.
 out-ports: func [node] [ any [block-out-ports to-word node/type  []] ]
+
+; Devuelve el tipo de dato de un puerto de salida ('number por defecto).
+port-out-type: func [node port-name /local bdef p] [
+    bdef: find-block to-word node/type
+    if none? bdef [return 'number]
+    foreach p bdef/outputs [
+        if p/name = to-word port-name [return p/type]
+    ]
+    'number
+]
+
+; Devuelve el tipo de dato de un puerto de entrada ('number por defecto).
+port-in-type: func [node port-name /local bdef p] [
+    bdef: find-block to-word node/type
+    if none? bdef [return 'number]
+    foreach p bdef/inputs [
+        if p/name = to-word port-name [return p/type]
+    ]
+    'number
+]
+
+; Devuelve el color de wire para un tipo de dato.
+wire-data-color: func [data-type] [
+    either data-type = 'boolean [col-wire-bool] [col-wire]
+]
 
 port-xy: func [node port-name direction /local ports port-index found] [
     either direction = 'in [
@@ -99,7 +125,7 @@ render-grid: func [canvas-width canvas-height /local cmds x y] [
     cmds
 ]
 
-render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-color node-color type-label ports in-port-y out-port-y node wire src-port-xy] [
+render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-color wire-dtype node-color type-label ports in-port-y out-port-y node wire src-port-xy] [
     cmds: copy []
 
     ; 0) Grid de fondo
@@ -116,7 +142,8 @@ render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-col
             out-xy: port-xy src-node wire/from-port 'out
             in-xy:  port-xy dst-node wire/to-port   'in
             mid-x:  to-integer (out-xy/x + in-xy/x) / 2
-            wire-color: either same? wire model/selected-wire [col-wire-sel] [col-wire]
+            wire-dtype: port-out-type src-node wire/from-port
+            wire-color: either same? wire model/selected-wire [col-wire-sel] [wire-data-color wire-dtype]
             append cmds compose [
                 pen (wire-color)  line-width 2
                 line (out-xy) (as-pair mid-x out-xy/y) (as-pair mid-x in-xy/y) (in-xy)
@@ -147,21 +174,30 @@ render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-col
             box (as-pair node/x node/y) (as-pair (node/x + 4) (node/y + block-height)) 0
         ]
         ; Texto: tipo + label (DT-022)
-        type-label: switch node/type [
-            control   ["CTRL"]
-            indicator ["IND"]
-            add       ["ADD +"]
-            sub       ["SUB -"]
-            mul       ["MUL *"]
-            div       ["DIV /"]
-            display   ["DISP"]
-            subvi     ["SUBVI"]
-            default   [uppercase form node/type]
-        ]
+        type-label: switch/default node/type [
+            control        ["CTRL"]
+            indicator      ["IND"]
+            add            ["ADD +"]
+            sub            ["SUB -"]
+            mul            ["MUL *"]
+            div            ["DIV /"]
+            display        ["DISP"]
+            subvi          ["SUBVI"]
+            const          [form any [select node/config 'default  0.0]]
+            bool-const     [either any [select node/config 'default  false] ["T"] ["F"]]
+            bool-control   ["B-CTRL"]
+            bool-indicator ["B-IND"]
+            and-op         ["AND"]
+            or-op          ["OR"]
+            not-op         ["NOT"]
+            gt-op          [">"]
+            lt-op          ["<"]
+            eq-op          ["="]
+        ] [uppercase form node/type]
         either all [node/label  object? node/label  node/label/visible] [
             append cmds compose [
                 fill-pen col-text
-                text (as-pair (node/x + 10) (node/y + 10)) (node/label/text)
+                text (as-pair (node/x + 10) (node/y + 10)) (any [node/label/text ""])
                 text (as-pair (node/x + 10) (node/y + 26)) (type-label)
             ]
         ][
@@ -292,6 +328,54 @@ hit-wire: func [model mouse-x mouse-y /local tolerance src-node dst-node out-xy 
 ;   puedan acceder sin depender de variables globales.
 ; ══════════════════════════════════════════════════════════
 
+; Alterna el valor booleano de un nodo bool-const.
+; node/config es un bloque de pares [clave valor ...].
+toggle-bool-const: func [node /local cur pos] [
+    cur: any [select node/config 'default  false]
+    either pos: find node/config 'default [
+        pos/2: not cur
+    ][
+        append node/config reduce ['default  not cur]
+    ]
+]
+
+; Abre diálogo para editar el valor de una constante numérica.
+; Patrón view/no-wait con vars de módulo (igual que rename-dialog).
+open-const-edit-dialog: func [node canvas-face /local cur-val] [
+    cur-val: any [select node/config 'default  0.0]
+    const-dialog-node:   node
+    const-dialog-canvas: canvas-face
+    const-dialog-field:  none
+    view/no-wait compose [
+        title "Editar constante"
+        text "Valor:" return
+        const-dialog-field: field 150 (form cur-val)
+        on-enter [
+            apply-const-value const-dialog-node const-dialog-field/text
+            const-dialog-canvas/draw: render-bd const-dialog-canvas/extra
+            unview
+        ]
+        return
+        button "OK" [
+            apply-const-value const-dialog-node const-dialog-field/text
+            const-dialog-canvas/draw: render-bd const-dialog-canvas/extra
+            unview
+        ]
+        button "Cancelar" [unview]
+    ]
+]
+
+; Actualiza node/config 'default con el nuevo valor numérico.
+apply-const-value: func [node new-text /local val pos] [
+    val: attempt [to-float new-text]
+    if none? val [exit]
+    either pos: find node/config 'default [
+        pos/2: val
+    ][
+        append node/config reduce ['default val]
+    ]
+]
+
 apply-rename-label: func [node new-text] [
     either empty? new-text [
         if all [node/label  object? node/label] [
@@ -312,6 +396,11 @@ apply-rename-label: func [node new-text] [
 rename-dialog-node:   none
 rename-dialog-canvas: none
 rename-dialog-field:  none
+
+; Estado del diálogo de edición de constante numérica (mismo patrón)
+const-dialog-node:    none
+const-dialog-canvas:  none
+const-dialog-field:   none
 
 ; ── Paleta de bloques ────────────────────────────────────────────
 ; vars de módulo para el diálogo de paleta (mismo patrón que rename)
@@ -342,6 +431,15 @@ open-palette: func [face x y] [
         text "Constante / salida:"  return
         button 80 "Const"    [palette-add-node 'const]
         button 80 "Display"  [palette-add-node 'display]  return
+        text "Lógica:"  return
+        button 80 "AND"      [palette-add-node 'and-op]
+        button 80 "OR"       [palette-add-node 'or-op]   return
+        button 80 "NOT"      [palette-add-node 'not-op]
+        button 80 "B-Const"  [palette-add-node 'bool-const]  return
+        text "Comparadores:"  return
+        button 80 ">"        [palette-add-node 'gt-op]
+        button 80 "<"        [palette-add-node 'lt-op]   return
+        button 80 "="        [palette-add-node 'eq-op]   return
         button "Cancelar"    [unview]
     ]
 ]
@@ -366,9 +464,9 @@ canvas-delete-selected: func [canvas /local model node-id] [
             remove-each node model/nodes  [node/id = node-id]
             model/selected-node: none
             model/drag-node:     none
-            ; Sync FP: borrar item correspondiente si es control/indicator
+            ; Sync FP: borrar item correspondiente si es control/indicator (o bool-*)
             if all [
-                find [control indicator] node-type
+                find [control indicator bool-control bool-indicator] node-type
                 _pref: select model 'panel-ref
             ][
                 remove-each item model/front-panel [item/name = node-name]
@@ -410,7 +508,11 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                             face/draw: render-bd model
                         ]
                     ][
-                        if all [hit-dir = 'in  model/wire-src/id <> hit-nd/id] [
+                        if all [
+                            hit-dir = 'in
+                            model/wire-src/id <> hit-nd/id
+                            (port-out-type model/wire-src model/wire-port) = (port-in-type hit-nd hit-port-name)
+                        ][
                             append model/wires make-wire compose [
                                 from: (model/wire-src/id)
                                 from-port: (model/wire-port)
@@ -432,6 +534,8 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     model/selected-node: hit-ref
                     model/drag-node: hit-ref
                     model/drag-off: as-pair (mouse-x - hit-ref/x) (mouse-y - hit-ref/y)
+                    ; bool-const: clic alterna T/F (igual que LabVIEW)
+                    if hit-ref/type = 'bool-const [toggle-bool-const hit-ref]
                     face/draw: render-bd model
                     return none
                 ]
@@ -508,7 +612,11 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 mouse-y: event/offset/y
                 node: hit-node model mouse-x mouse-y
                 either node [
-                    ; Nodo existente → diálogo de renombrado
+                    ; Nodo existente: const → editar valor; resto → renombrar label
+                    if node/type = 'const [
+                        open-const-edit-dialog node face
+                        exit
+                    ]
                     rename-dialog-node:   node
                     rename-dialog-canvas: face
                     rename-dialog-field:  none

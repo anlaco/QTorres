@@ -125,7 +125,7 @@ render-grid: func [canvas-width canvas-height /local cmds x y] [
     cmds
 ]
 
-render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-color node-color type-label ports in-port-y out-port-y node wire src-port-xy] [
+render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-color wire-dtype node-color type-label ports in-port-y out-port-y node wire src-port-xy] [
     cmds: copy []
 
     ; 0) Grid de fondo
@@ -174,30 +174,29 @@ render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-col
             box (as-pair node/x node/y) (as-pair (node/x + 4) (node/y + block-height)) 0
         ]
         ; Texto: tipo + label (DT-022)
-        type-label: switch node/type [
-            control       ["CTRL"]
-            indicator     ["IND"]
-            add           ["ADD +"]
-            sub           ["SUB -"]
-            mul           ["MUL *"]
-            div           ["DIV /"]
-            display       ["DISP"]
-            subvi         ["SUBVI"]
-            bool-const    ["BOOL"]
-            bool-control  ["B-CTRL"]
-            bool-indicator["B-IND"]
-            and-op        ["AND"]
-            or-op         ["OR"]
-            not-op        ["NOT"]
-            gt-op         [">"]
-            lt-op         ["<"]
-            eq-op         ["="]
-            default       [uppercase form node/type]
-        ]
+        type-label: switch/default node/type [
+            control        ["CTRL"]
+            indicator      ["IND"]
+            add            ["ADD +"]
+            sub            ["SUB -"]
+            mul            ["MUL *"]
+            div            ["DIV /"]
+            display        ["DISP"]
+            subvi          ["SUBVI"]
+            bool-const     ["BOOL"]
+            bool-control   ["B-CTRL"]
+            bool-indicator ["B-IND"]
+            and-op         ["AND"]
+            or-op          ["OR"]
+            not-op         ["NOT"]
+            gt-op          [">"]
+            lt-op          ["<"]
+            eq-op          ["="]
+        ] [uppercase form node/type]
         either all [node/label  object? node/label  node/label/visible] [
             append cmds compose [
                 fill-pen col-text
-                text (as-pair (node/x + 10) (node/y + 10)) (node/label/text)
+                text (as-pair (node/x + 10) (node/y + 10)) (any [node/label/text ""])
                 text (as-pair (node/x + 10) (node/y + 26)) (type-label)
             ]
         ][

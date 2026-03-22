@@ -657,44 +657,44 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
 ; Stress test: 20 nodos / 15 wires (Issue #4)
 ; ══════════════════════════════════════════════════════════
 
-demo-model: make-diagram-model
-
-num-cols:    4
-col-spacing: 210
-row-spacing: 90
-start-x:     40
-start-y:     20
-
-repeat i 20 [
-    col-idx:   (i - 1) % num-cols
-    row-idx:   (i - 1) / num-cols
-    node-type: either odd? i ['add] ['sub]
-    label-text: either node-type = 'add ["Add"] ["Sub"]
-    node-id: gen-node-id demo-model
-    append demo-model/nodes make object! [
-        id:    node-id
-        type:  node-type
-        name:  rejoin [form node-type "_" node-id]
-        label: make object! [
-            text:    label-text
-            visible: false
-            offset:  0x-15
-        ]
-        x:     start-x + (col-idx * col-spacing)
-        y:     start-y + (row-idx * row-spacing)
-    ]
-]
-
-repeat i 15 [
-    append demo-model/wires make-wire compose [
-        from: (demo-model/nodes/:i/id)
-        from-port: 'result
-        to: (demo-model/nodes/(i + 1)/id)
-        to-port: 'a
-    ]
-]
-
 if find form system/options/script "canvas.red" [
+    demo-model: make-diagram-model
+
+    num-cols:    4
+    col-spacing: 210
+    row-spacing: 90
+    start-x:     40
+    start-y:     20
+
+    repeat i 20 [
+        col-idx:   (i - 1) % num-cols
+        row-idx:   (i - 1) / num-cols
+        node-type: either odd? i ['add] ['sub]
+        label-text: either node-type = 'add ["Add"] ["Sub"]
+        node-id: gen-node-id demo-model
+        append demo-model/nodes make object! [
+            id:    node-id
+            type:  node-type
+            name:  rejoin [form node-type "_" node-id]
+            label: make object! [
+                text:    label-text
+                visible: false
+                offset:  0x-15
+            ]
+            x:     start-x + (col-idx * col-spacing)
+            y:     start-y + (row-idx * row-spacing)
+        ]
+    ]
+
+    repeat i 15 [
+        append demo-model/wires make-wire compose [
+            from: (demo-model/nodes/:i/id)
+            from-port: 'result
+            to: (demo-model/nodes/(i + 1)/id)
+            to-port: 'a
+        ]
+    ]
+
     canvas: render-diagram demo-model 880 490
     canvas/offset: 10x38
 
@@ -722,3 +722,5 @@ if find form system/options/script "canvas.red" [
         ]
     ]
 ]
+
+#include %../panel/panel.red

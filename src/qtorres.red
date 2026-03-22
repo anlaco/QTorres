@@ -7,18 +7,11 @@ Red [
 ]
 
 ; ── Módulos internos — se empaquetan con redc -e ─────────────────
-; Todos los paths son relativos a este fichero (src/qtorres.red).
-; No dependen del context-shift de #include para que funcione tanto
-; con red-cli (interpretado) como con redc -e (compilado).
-; Regla: usar #include para código interno, do para ficheros externos
-; (p.ej. .qvi del usuario que se cargan en tiempo de ejecución).
+; Chain loading: cada módulo incluye al siguiente al final del fichero.
+; Así los paths son siempre relativos a la ubicación del propio módulo,
+; lo que funciona con red-cli (sin context-shift) y con redc -e (con
+; context-shift por Red[] header). Ver DT-025.
 #include %graph/model.red
-#include %graph/blocks.red
-#include %compiler/compiler.red
-#include %runner/runner.red
-#include %io/file-io.red
-#include %ui/diagram/canvas.red
-#include %ui/panel/panel.red
 
 ; ── Mapa de resultados de ejecución (global, accesible desde do code) ───
 _run-results: make map! []

@@ -203,5 +203,23 @@ block 'eq-op 'compare [
     emit [result: a = b]
 ]
 
+; ── Bloques string ────────────────────────────────────────
+
+block 'str-control 'input [
+    out result 'string
+    config default 'string ""
+    emit [result: default]
+]
+
+block 'str-indicator 'output [
+    in value 'string
+]
+
+block 'str-const 'input [
+    out result 'string
+    config default 'string ""
+    emit [result: default]
+]
+
 
 #include %../compiler/compiler.red

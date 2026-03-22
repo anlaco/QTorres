@@ -16,6 +16,7 @@ col-block-ind:  175.125.20
 col-block-op:   55.75.105
 col-wire:       195.95.20
 col-wire-bool:  20.80.160
+col-wire-str:   220.100.160
 col-wire-sel:   0.160.200
 col-port-in:    50.110.200
 col-port-out:   195.80.25
@@ -63,7 +64,11 @@ port-in-type: func [node port-name /local bdef p] [
 
 ; Devuelve el color de wire para un tipo de dato.
 wire-data-color: func [data-type] [
-    either data-type = 'boolean [col-wire-bool] [col-wire]
+    case [
+        data-type = 'boolean [col-wire-bool]
+        data-type = 'string  [col-wire-str]
+        true                 [col-wire]
+    ]
 ]
 
 port-xy: func [node port-name direction /local ports port-index found] [
@@ -85,19 +90,26 @@ port-xy: func [node port-name direction /local ports port-index found] [
 ; ══════════════════════════════════════════════════════════
 make-diagram-model: func [] [
     make object! [
-        nodes:         copy []
-        wires:         copy []
-        front-panel:   copy []
-        next-id:       1
-        selected-node: none
-        selected-wire: none
-        selected-fp:   none
-        drag-node:     none
-        drag-fp:       none
-        drag-off:      none
-        wire-src:      none
-        wire-port:     none
-        mouse-pos:     none
+        nodes:               copy []
+        wires:               copy []
+        front-panel:         copy []
+        next-id:             1
+        selected-node:       none
+        selected-wire:       none
+        selected-fp:         none
+        drag-node:           none
+        drag-fp:             none
+        drag-off:            none
+        wire-src:            none
+        wire-port:           none
+        mouse-pos:           none
+        fp-mode:             'idle
+        fp-resize-handle:    none
+        fp-hover-item:       none
+        fp-edit-face:        none
+        fp-drag-start-sz:    none
+        fp-drag-start-off:   none
+        fp-drag-mouse-0:     none
     ]
 ]
 
@@ -187,6 +199,9 @@ render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-col
             bool-const     [either any [select node/config 'default  false] ["T"] ["F"]]
             bool-control   ["B-CTRL"]
             bool-indicator ["B-IND"]
+            str-control    ["STR-C"]
+            str-indicator  ["STR-I"]
+            str-const      ["STR"]
             and-op         ["AND"]
             or-op          ["OR"]
             not-op         ["NOT"]
@@ -440,6 +455,10 @@ open-palette: func [face x y] [
         button 80 ">"        [palette-add-node 'gt-op]
         button 80 "<"        [palette-add-node 'lt-op]   return
         button 80 "="        [palette-add-node 'eq-op]   return
+        text "String:"  return
+        button 80 "STR-C"    [palette-add-node 'str-control]
+        button 80 "STR-I"    [palette-add-node 'str-indicator]  return
+        button 80 "STR-K"    [palette-add-node 'str-const]      return
         button "Cancelar"    [unview]
     ]
 ]
@@ -466,7 +485,7 @@ canvas-delete-selected: func [canvas /local model node-id] [
             model/drag-node:     none
             ; Sync FP: borrar item correspondiente si es control/indicator (o bool-*)
             if all [
-                find [control indicator bool-control bool-indicator] node-type
+                find [control indicator bool-control bool-indicator str-control str-indicator] node-type
                 _pref: select model 'panel-ref
             ][
                 remove-each item model/front-panel [item/name = node-name]

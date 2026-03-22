@@ -1,22 +1,29 @@
 Red [
     Title:   "QTorres — Front Panel"
-    Purpose: "Panel de controles e indicadores (Issue #7)"
+    Purpose: "Panel de controles e indicadores (Issue #7 + #10)"
     Needs:   'View
 ]
 
 ; ══════════════════════════════════════════════════════════
 ; CONSTANTS — visual configuration
 ; ══════════════════════════════════════════════════════════
-fp-canvas-color:     225.228.235
-fp-control-color:    50.100.180
-fp-indicator-color:  175.125.20
-fp-text-color:       240.245.250
-fp-selected-color:   0.175.210
-fp-border-color:     30.60.120
-fp-item-width:       120
-fp-item-height:      40
-fp-label-height:     20
+fp-canvas-color:      225.228.235
+fp-control-color:     50.100.180
+fp-indicator-color:   175.125.20
+fp-text-color:        240.245.250
+fp-selected-color:    0.120.200     ; azul discontinuo (selección LabVIEW)
+fp-border-color:      30.60.120
+fp-item-width:        120
+fp-item-height:       40
+fp-label-height:      16            ; altura de la zona label encima del field
 fp-run-button-height: 30
+
+; String-specific
+fp-str-default-width:  160
+fp-str-field-height:   40           ; altura del field (sin label)
+fp-handle-size:        3            ; half-size de los cuadrados de resize (radio)
+fp-str-min-width:      60
+fp-str-min-field-h:    20
 
 fp-color?: func [item-type] [
     either find [control bool-control] item-type [fp-control-color] [fp-indicator-color]
@@ -43,6 +50,8 @@ fp-default-label: func [item-type] [
     case [
         item-type = 'bool-control   ["Boolean"]
         item-type = 'bool-indicator ["Boolean"]
+        item-type = 'str-control    ["String"]
+        item-type = 'str-indicator  ["String"]
         true                        ["Numeric"]
     ]
 ]
@@ -56,15 +65,27 @@ make-fp-item: func [
     item: make object! [
         id:        any [select spec 'id        0]
         type:      either find [bool-control bool-indicator] raw-type ['control] [raw-type]
-        data-type: either find [bool-control bool-indicator] raw-type ['boolean] ['numeric]
+        data-type: case [
+            find [bool-control bool-indicator] raw-type ['boolean]
+            find [str-control  str-indicator]  raw-type ['string]
+            true                               ['numeric]
+        ]
         name:      any [select spec 'name      ""]
         label:     none
         default:   any [select spec 'default   either find [bool-control bool-indicator] raw-type [false] [0.0]]
         value:     none
         offset:    any [select spec 'offset    0x0]
+        size:      as-pair fp-item-width fp-item-height
     ]
     item/type: raw-type
     item/value: any [select spec 'value  item/default]
+
+    ; String: tamaño, default y value como string copiado
+    if find [str-control str-indicator] raw-type [
+        item/size:    as-pair fp-str-default-width (fp-label-height + fp-str-field-height)
+        item/default: copy any [select spec 'default  ""]
+        item/value:   copy any [select spec 'value    item/default]
+    ]
 
     ; Name: usar explícito, o generar automáticamente
     item/name: any [select spec 'name  rejoin [form item/type "_" item/id]]
@@ -105,11 +126,95 @@ make-fp-item: func [
     ; Offset: usar explícito o default
     item/offset: any [select spec 'offset  0x0]
 
+    ; Size desde spec (persistencia): solo si viene explícito
+    if select spec 'size [item/size: select spec 'size]
+
     item
 ]
 
 fp-value-text: func [item] [
     form item/value
+]
+
+; ══════════════════════════════════════════════════════════
+; HELPERS — wrap-text, draw-dashed-rect, handles
+; ══════════════════════════════════════════════════════════
+
+; Divide un string en líneas que caben en max-width píxeles (~7px/char)
+wrap-text: func [txt [string!] max-width [integer!] /local char-w cpl lines i] [
+    char-w: 7
+    cpl: max 1 (max-width - 8) / char-w
+    lines: copy []
+    i: 1
+    while [i <= length? txt] [
+        append lines copy/part (skip txt i - 1) cpl
+        i: i + cpl
+    ]
+    if empty? lines [append lines copy ""]
+    lines
+]
+
+; Rectángulo discontinuo: 4 lados como segmentos dashed
+draw-dashed-rect: func [x1 y1 x2 y2 /local cmds dash gap x y] [
+    cmds: copy []
+    dash: 5  gap: 3
+    ; lado superior
+    x: x1
+    while [x < x2] [
+        append cmds compose [line (as-pair x y1) (as-pair (min x2 x + dash) y1)]
+        x: x + dash + gap
+    ]
+    ; lado inferior
+    x: x1
+    while [x < x2] [
+        append cmds compose [line (as-pair x y2) (as-pair (min x2 x + dash) y2)]
+        x: x + dash + gap
+    ]
+    ; lado izquierdo
+    y: y1
+    while [y < y2] [
+        append cmds compose [line (as-pair x1 y) (as-pair x1 (min y2 y + dash))]
+        y: y + dash + gap
+    ]
+    ; lado derecho
+    y: y1
+    while [y < y2] [
+        append cmds compose [line (as-pair x2 y) (as-pair x2 (min y2 y + dash))]
+        y: y + dash + gap
+    ]
+    cmds
+]
+
+; Devuelve las 8 posiciones de handles para el rectángulo del field
+; Cada handle: [nombre center-pair]
+handle-positions: func [fx fy fw fh /local mx my] [
+    mx: fx + (fw / 2)
+    my: fy + (fh / 2)
+    reduce [
+        'nw as-pair fx      fy
+        'n  as-pair mx      fy
+        'ne as-pair fx + fw fy
+        'e  as-pair fx + fw my
+        'se as-pair fx + fw fy + fh
+        's  as-pair mx      fy + fh
+        'sw as-pair fx      fy + fh
+        'w  as-pair fx      my
+    ]
+]
+
+; Comprueba si (px py) está cerca de un handle. Devuelve nombre o none.
+hit-handle: func [handles px py /local i name pos] [
+    i: 1
+    while [i <= length? handles] [
+        name: handles/:i
+        pos:  handles/(i + 1)
+        if all [
+            (absolute px - pos/x) <= (fp-handle-size + 2)
+            (absolute py - pos/y) <= (fp-handle-size + 2)
+        ] [return name]
+        i: i + 2
+    ]
+    none
 ]
 
 ; ══════════════════════════════════════════════════════════
@@ -129,94 +234,300 @@ render-fp-grid: func [w h /local cmds gx gy] [
     cmds
 ]
 
-render-fp-item: func [item selected? /local cmds col border-col type-lbl text-x text-y led-col cx cy] [
+render-fp-item: func [item selected? hover? /local cmds col border-col type-lbl text-x text-y led-col cx cy fx fy fw fh lx ly lbl-text lines line-y line-h max-lines handles] [
     cmds: copy []
-    col: fp-color? item/type
-    border-col: fp-border-color? item/type
 
-    append cmds compose [
-        pen (border-col)  line-width 1  fill-pen (col)
-        box (as-pair item/offset/x item/offset/y)
-           (as-pair (item/offset/x + fp-item-width) (item/offset/y + fp-item-height)) 4
-    ]
+    either item/data-type = 'string [
+        ; ── String control / indicator: label flotante + field blanco ──
+        lbl-text: either all [item/label  object? item/label  item/label/visible] [
+            any [item/label/text ""]
+        ] [""]
 
-    type-lbl: fp-type-label? item/type
-    text-x: item/offset/x + 8
-    text-y: item/offset/y + 14
+        ; Posición de la label (relativa al item/offset + label/offset)
+        lx: item/offset/x + item/label/offset/x
+        ly: item/offset/y + item/label/offset/y
 
-    either all [item/label  object? item/label  item/label/visible] [
+        ; Field: justo debajo de la zona label
+        fx: item/offset/x
+        fy: item/offset/y + fp-label-height
+        fw: item/size/x
+        fh: item/size/y - fp-label-height
+
+        ; Label (texto flotante, sin fondo)
         append cmds compose [
-            fill-pen 220.230.240
-            text (as-pair text-x (text-y - 8)) (any [item/label/text ""])
-            fill-pen 180.190.200
-            text (as-pair text-x (text-y + 8)) (any [type-lbl ""])
+            pen off  fill-pen 30.30.30
+            text (as-pair lx (ly + 2)) (lbl-text)
         ]
+
+        ; Field
+        either item/type = 'str-control [
+            append cmds compose [
+                pen 80.80.80  line-width 1  fill-pen 255.255.255
+                box (as-pair fx fy) (as-pair fx + fw fy + fh) 2
+            ]
+        ][
+            ; str-indicator: borde más grueso, fondo ligeramente gris
+            append cmds compose [
+                pen 80.80.80  line-width 2  fill-pen 245.245.245
+                box (as-pair fx fy) (as-pair fx + fw fy + fh) 2
+            ]
+        ]
+
+        ; Texto con wrap (bottom-anchored si overflow)
+        lines: wrap-text form item/value fw
+        line-h: 14
+        max-lines: max 1 (fh - 4) / line-h
+        if (length? lines) > max-lines [
+            lines: skip lines ((length? lines) - max-lines)
+        ]
+        line-y: fy + 4
+        append cmds [pen off  fill-pen 20.20.20]
+        foreach ln lines [
+            append cmds compose [text (as-pair fx + 4 line-y) (ln)]
+            line-y: line-y + line-h
+        ]
+
+        ; Handles de resize (si hover o seleccionado)
+        if any [hover?  selected?] [
+            handles: handle-positions fx fy fw fh
+            append cmds compose [pen 80.80.80  line-width 1  fill-pen 255.255.255]
+            ; handles es bloque plano [word pair word pair ...]
+            loop (length? handles) / 2 [
+                handles: next handles   ; skip word → apunta al pair
+                append cmds compose [
+                    box (as-pair (handles/1/x - fp-handle-size) (handles/1/y - fp-handle-size))
+                       (as-pair (handles/1/x + fp-handle-size) (handles/1/y + fp-handle-size)) 0
+                ]
+                handles: next handles   ; skip pair → apunta al siguiente word
+            ]
+            handles: head handles
+        ]
+
+        ; Selección: rectángulo discontinuo azul
+        if selected? [
+            ; bounding box: desde (lx, ly) hasta (fx+fw, fy+fh)
+            append cmds compose [pen (fp-selected-color)  line-width 1  fill-pen off]
+            append cmds draw-dashed-rect
+                (min lx fx) - 3
+                (min ly fy) - 3
+                (max (lx + 80) (fx + fw)) + 3
+                (fy + fh) + 3
+        ]
+
     ][
+        ; ── Numeric / Boolean: caja de color con label interior (comportamiento actual) ──
+        col: fp-color? item/type
+        border-col: fp-border-color? item/type
+
         append cmds compose [
-            fill-pen 220.230.240
-            text (as-pair text-x text-y) (any [type-lbl ""])
+            pen (border-col)  line-width 1  fill-pen (col)
+            box (as-pair item/offset/x item/offset/y)
+               (as-pair (item/offset/x + fp-item-width) (item/offset/y + fp-item-height)) 4
+        ]
+
+        type-lbl: fp-type-label? item/type
+        text-x: item/offset/x + 8
+        text-y: item/offset/y + 14
+
+        either all [item/label  object? item/label  item/label/visible] [
+            append cmds compose [
+                fill-pen 220.230.240
+                text (as-pair text-x (text-y - 8)) (any [item/label/text ""])
+                fill-pen 180.190.200
+                text (as-pair text-x (text-y + 8)) (any [type-lbl ""])
+            ]
+        ][
+            append cmds compose [
+                fill-pen 220.230.240
+                text (as-pair text-x text-y) (any [type-lbl ""])
+            ]
+        ]
+
+        either item/data-type = 'boolean [
+            led-col: either item/value [0.180.0] [180.0.0]
+            cx: item/offset/x + fp-item-width - 20
+            cy: item/offset/y + (fp-item-height / 2)
+            append cmds compose [
+                pen (led-col - 40.40.40)  line-width 1  fill-pen (led-col)
+                circle (as-pair cx cy) 10
+            ]
+        ][
+            append cmds compose [
+                fill-pen 255.255.255
+                text (as-pair (item/offset/x + 8) (item/offset/y + fp-item-height - 16))
+                     (fp-value-text item)
+            ]
+        ]
+
+        if selected? [
+            append cmds compose [
+                pen (fp-selected-color)  line-width 2  fill-pen off
+                box (as-pair (item/offset/x - 3) (item/offset/y - 3))
+                   (as-pair (item/offset/x + fp-item-width + 3) (item/offset/y + fp-item-height + 3)) 6
+                line-width 1
+            ]
         ]
     ]
 
-    either item/data-type = 'boolean [
-        ; LED: círculo verde (true) o rojo (false)
-        led-col: either item/value [0.180.0] [180.0.0]
-        cx: item/offset/x + fp-item-width - 20
-        cy: item/offset/y + (fp-item-height / 2)
-        append cmds compose [
-            pen (led-col - 40.40.40)  line-width 1  fill-pen (led-col)
-            circle (as-pair cx cy) 10
-        ]
-    ][
-        append cmds compose [
-            fill-pen 255.255.255
-            text (as-pair (item/offset/x + 8) (item/offset/y + fp-item-height - 16))
-                 (fp-value-text item)
-        ]
-    ]
-
-    if selected? [
-        append cmds compose [
-            pen (fp-selected-color)  line-width 2  fill-pen off
-            box (as-pair (item/offset/x - 3) (item/offset/y - 3))
-               (as-pair (item/offset/x + fp-item-width + 3) (item/offset/y + fp-item-height + 3)) 6
-            line-width 1
-        ]
-    ]
     cmds
 ]
 
-render-fp-panel: func [model w h /local cmds item selected?] [
+render-fp-panel: func [model w h /local cmds item selected? hover?] [
     cmds: copy []
 
     append cmds render-fp-grid w h
 
     foreach item model/front-panel [
         selected?: either model/selected-fp [same? item model/selected-fp] [false]
-        append cmds render-fp-item item selected?
+        hover?:    either model/fp-hover-item [same? item model/fp-hover-item] [false]
+        append cmds render-fp-item item selected? hover?
     ]
 
     cmds
 ]
 
 ; ══════════════════════════════════════════════════════════
-; HIT TESTING — pure functions
+; HIT TESTING
 ; ══════════════════════════════════════════════════════════
-hit-fp-item: func [model mouse-x mouse-y /local found] [
+hit-fp-item: func [model mouse-x mouse-y /local found item] [
     found: none
     foreach item model/front-panel [
-        if all [
-            mouse-x >= item/offset/x
-            mouse-x <= (item/offset/x + fp-item-width)
-            mouse-y >= item/offset/y
-            mouse-y <= (item/offset/y + fp-item-height)
-        ] [found: item]
+        either item/data-type = 'string [
+            ; bounding box: desde offset hasta offset + size
+            if all [
+                mouse-x >= item/offset/x
+                mouse-x <= (item/offset/x + item/size/x)
+                mouse-y >= item/offset/y
+                mouse-y <= (item/offset/y + item/size/y)
+            ] [found: item]
+        ][
+            if all [
+                mouse-x >= item/offset/x
+                mouse-x <= (item/offset/x + fp-item-width)
+                mouse-y >= item/offset/y
+                mouse-y <= (item/offset/y + fp-item-height)
+            ] [found: item]
+        ]
     ]
     found
 ]
 
+; Devuelve bloque [item zone] o none.
+; zone: 'handle-nw 'handle-n ... | 'label | 'field | 'body
+hit-fp-zone: func [model mx my /local item fx fy fw fh lx ly handles hname] [
+    ; Iterar al revés para que el último dibujado (encima) tenga prioridad
+    foreach item (reverse copy model/front-panel) [
+        either item/data-type = 'string [
+            fx: item/offset/x
+            fy: item/offset/y + fp-label-height
+            fw: item/size/x
+            fh: item/size/y - fp-label-height
+            lx: item/offset/x + item/label/offset/x
+            ly: item/offset/y + item/label/offset/y
+
+            ; 1. Handles (prioridad máxima)
+            handles: handle-positions fx fy fw fh
+            hname: hit-handle handles mx my
+            if hname [return reduce [item to-word rejoin ["handle-" form hname]]]
+
+            ; 2. Label (zona aproximada: lx..lx+100, ly..ly+fp-label-height)
+            if all [
+                mx >= lx  mx <= (lx + 100)
+                my >= ly  my <= (ly + fp-label-height)
+            ] [return reduce [item 'label]]
+
+            ; 3. Field
+            if all [
+                mx >= fx  mx <= (fx + fw)
+                my >= fy  my <= (fy + fh)
+            ] [return reduce [item 'field]]
+        ][
+            ; Non-string: zona body fija
+            if all [
+                mx >= item/offset/x  mx <= (item/offset/x + fp-item-width)
+                my >= item/offset/y  my <= (item/offset/y + fp-item-height)
+            ] [return reduce [item 'body]]
+        ]
+    ]
+    none
+]
+
 ; ══════════════════════════════════════════════════════════
-; EDITING — inline field for numeric editing
+; INLINE EDITING — overlay field face sobre el canvas
+; ══════════════════════════════════════════════════════════
+open-inline-edit: func [panel-face item model is-label /local fx fy fw fh lx ly ov-face cur-text] [
+    ; Cerrar cualquier overlay previo
+    close-inline-edit panel-face model
+
+    either is-label [
+        lx: item/offset/x + item/label/offset/x
+        ly: item/offset/y + item/label/offset/y
+        cur-text: any [item/label/text ""]
+        ov-face: make face! [
+            type:    'field
+            offset:  as-pair lx ly
+            size:    as-pair 120 fp-label-height
+            text:    cur-text
+            color:   255.255.255
+        ]
+        ov-face/actors: make object! [
+            on-key: func [face event] [
+                if find [#"^M" return] event/key [
+                    item/label/text: copy face/text
+                    close-inline-edit panel-face model
+                ]
+                if event/key = 'escape [close-inline-edit panel-face model]
+            ]
+        ]
+    ][
+        fx: item/offset/x
+        fy: item/offset/y + fp-label-height
+        fw: item/size/x
+        fh: item/size/y - fp-label-height
+        cur-text: form item/value
+        ov-face: make face! [
+            type:    'field
+            offset:  as-pair fx fy
+            size:    as-pair fw fh
+            text:    cur-text
+            color:   255.255.255
+        ]
+        ov-face/actors: make object! [
+            on-key: func [face event] [
+                if find [#"^M" return] event/key [
+                    item/value: copy face/text
+                    close-inline-edit panel-face model
+                ]
+                if event/key = 'escape [close-inline-edit panel-face model]
+            ]
+        ]
+    ]
+
+    model/fp-mode:      'editing
+    model/fp-edit-face: ov-face
+
+    if none? panel-face/pane [panel-face/pane: copy []]
+    append panel-face/pane ov-face
+    show panel-face
+    set-focus ov-face
+]
+
+close-inline-edit: func [panel-face model /local w h] [
+    if model/fp-edit-face [
+        if panel-face/pane [
+            remove-each f panel-face/pane [same? f model/fp-edit-face]
+        ]
+        model/fp-edit-face: none
+    ]
+    model/fp-mode: 'idle
+    w: model/size/x
+    h: model/size/y
+    panel-face/draw: render-fp-panel model w h
+    show panel-face
+]
+
+; ══════════════════════════════════════════════════════════
+; EDITING — inline field for numeric editing (legacy)
 ; ══════════════════════════════════════════════════════════
 edit-dialog-item:  none
 edit-dialog-panel: none
@@ -257,17 +568,22 @@ fp-palette-panel: none
 fp-palette-x:     0
 fp-palette-y:     0
 
-fp-palette-add-item: func [item-type /local new-id item model w h _cref nid bd-y] [
+fp-palette-add-item: func [item-type /local new-id item model w h _cref nid bd-y def-val] [
     model:  fp-palette-panel/extra
     w:      model/size/x
     h:      model/size/y
     new-id: 1 + length? model/front-panel
+    def-val: case [
+        find [bool-control bool-indicator] item-type [false]
+        find [str-control  str-indicator]  item-type [copy ""]
+        true [0.0]
+    ]
     item: make-fp-item compose/deep [
         id:      (new-id)
         type:    (item-type)
         name:    (rejoin [form item-type "_" new-id])
         label:   [text: (fp-default-label item-type) visible: true]
-        default: (either find [bool-control bool-indicator] item-type [false] [0.0])
+        default: (def-val)
         offset:  (as-pair fp-palette-x fp-palette-y)
     ]
     append model/front-panel item
@@ -301,6 +617,8 @@ open-fp-palette: func [face x y] [
         button 100 "Indicator"      [fp-palette-add-item 'indicator]      return
         button 100 "Bool Control"   [fp-palette-add-item 'bool-control]   return
         button 100 "Bool Indicator" [fp-palette-add-item 'bool-indicator] return
+        button 100 "Str Control"    [fp-palette-add-item 'str-control]    return
+        button 100 "Str Indicator"  [fp-palette-add-item 'str-indicator]  return
         button      "Cancelar"      [unview]
     ]
 ]
@@ -308,11 +626,22 @@ open-fp-palette: func [face x y] [
 ; ══════════════════════════════════════════════════════════
 ; CANVAS FACTORY — render-panel returns a functional face
 ; ══════════════════════════════════════════════════════════
-; Model stored in face/extra includes: front-panel, selected-fp, drag-fp, drag-off, size
+; Model stored in face/extra includes:
+;   front-panel, selected-fp, drag-fp, drag-off, size
+;   fp-mode, fp-resize-handle, fp-hover-item, fp-edit-face
+;   fp-drag-start-size, fp-drag-start-offset
 
 render-panel: func [model panel-width panel-height /local panel-face] [
-    ; Store dimensions in model for actor access
     model/size: as-pair panel-width panel-height
+
+    ; Inicializar campos de estado si no existen
+    if none? select model 'fp-mode           [model/fp-mode:           'idle]
+    if none? select model 'fp-resize-handle  [model/fp-resize-handle:  none]
+    if none? select model 'fp-hover-item     [model/fp-hover-item:     none]
+    if none? select model 'fp-edit-face      [model/fp-edit-face:      none]
+    if none? select model 'fp-drag-start-sz  [model/fp-drag-start-sz:  none]
+    if none? select model 'fp-drag-start-off [model/fp-drag-start-off: none]
+    if none? select model 'fp-drag-mouse-0   [model/fp-drag-mouse-0:   none]
 
     panel-face: make face! [
         type:    'base
@@ -320,95 +649,230 @@ render-panel: func [model panel-width panel-height /local panel-face] [
         offset:  0x0
         color:   fp-canvas-color
         flags:   [all-over]
+        pane:    copy []
         extra:   model
         draw:    render-fp-panel model panel-width panel-height
         actors:  make object! [
 
-            on-down: func [face event /local mouse-x mouse-y hit w h] [
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
-                w: face/extra/size/x
-                h: face/extra/size/y
-                hit: hit-fp-item face/extra mouse-x mouse-y
+            on-down: func [face event /local mx my w h zone item zone-type hname] [
+                mx: event/offset/x
+                my: event/offset/y
+                w:  face/extra/size/x
+                h:  face/extra/size/y
 
-                either hit [
-                    face/extra/selected-fp: hit
-                    face/extra/drag-fp: hit
-                    face/extra/drag-off: as-pair (mouse-x - hit/offset/x) (mouse-y - hit/offset/y)
-                    face/draw: render-fp-panel face/extra w h
+                ; Si hay edición inline activa, no interferir
+                if face/extra/fp-mode = 'editing [exit]
+
+                zone: hit-fp-zone face/extra mx my
+
+                either zone [
+                    item:      zone/1
+                    zone-type: zone/2
+
+                    face/extra/selected-fp: item
+
+                    case [
+                        ; Handle de resize (str-control/indicator)
+                        find/match form zone-type "handle-" [
+                            hname: to-word skip form zone-type 7
+                            face/extra/fp-mode:          'resize
+                            face/extra/fp-resize-handle: hname
+                            face/extra/fp-drag-start-sz:  copy item/size
+                            face/extra/fp-drag-start-off: copy item/offset
+                            face/extra/fp-drag-mouse-0:   as-pair mx my
+                        ]
+
+                        ; Label de un string control
+                        zone-type = 'label [
+                            face/extra/fp-mode:  'drag-label
+                            face/extra/drag-fp:  item
+                            face/extra/drag-off: as-pair (mx - item/offset/x - item/label/offset/x)
+                                                          (my - item/offset/y - item/label/offset/y)
+                        ]
+
+                        ; Field o body normal
+                        true [
+                            face/extra/fp-mode:  'drag-item
+                            face/extra/drag-fp:  item
+                            face/extra/drag-off: as-pair (mx - item/offset/x) (my - item/offset/y)
+                        ]
+                    ]
                 ][
                     face/extra/selected-fp: none
-                    face/draw: render-fp-panel face/extra w h
+                    face/extra/fp-mode:     'idle
                 ]
+
+                face/draw: render-fp-panel face/extra w h
             ]
 
-            on-over: func [face event /local mouse-x mouse-y w h] [
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
-                w: face/extra/size/x
-                h: face/extra/size/y
+            on-over: func [face event /local mx my w h item new-x new-y dsz doff dm0 dx dy new-w new-h new-ox new-oy prev-hover] [
+                mx: event/offset/x
+                my: event/offset/y
+                w:  face/extra/size/x
+                h:  face/extra/size/y
 
-                if all [face/extra/drag-fp  face/extra/drag-off  event/down?] [
-                    face/extra/drag-fp/offset: as-pair (mouse-x - face/extra/drag-off/x)
-                                                         (mouse-y - face/extra/drag-off/y)
-                    face/draw: render-fp-panel face/extra w h
+                if face/extra/fp-mode = 'editing [exit]
+
+                case [
+                    ; ── Mover item completo ──────────────────────
+                    all [face/extra/fp-mode = 'drag-item  face/extra/drag-fp  event/down?] [
+                        item:  face/extra/drag-fp
+                        new-x: mx - face/extra/drag-off/x
+                        new-y: my - face/extra/drag-off/y
+                        item/offset: as-pair (max 0 new-x) (max 0 new-y)
+                        face/draw: render-fp-panel face/extra w h
+                    ]
+
+                    ; ── Mover label independiente ─────────────────
+                    all [face/extra/fp-mode = 'drag-label  face/extra/drag-fp  event/down?] [
+                        item: face/extra/drag-fp
+                        item/label/offset: as-pair (mx - item/offset/x - face/extra/drag-off/x)
+                                                    (my - item/offset/y - face/extra/drag-off/y)
+                        face/draw: render-fp-panel face/extra w h
+                    ]
+
+                    ; ── Resize ───────────────────────────────────
+                    all [face/extra/fp-mode = 'resize  face/extra/selected-fp  event/down?] [
+                        item:  face/extra/selected-fp
+                        dsz:   face/extra/fp-drag-start-sz
+                        doff:  face/extra/fp-drag-start-off
+                        dm0:   face/extra/fp-drag-mouse-0
+                        dx: mx - dm0/x
+                        dy: my - dm0/y
+
+                        new-w:  dsz/x
+                        new-h:  dsz/y
+                        new-ox: doff/x
+                        new-oy: doff/y
+
+                        switch face/extra/fp-resize-handle [
+                            se [new-w: max fp-str-min-width dsz/x + dx
+                                new-h: max (fp-label-height + fp-str-min-field-h) dsz/y + dy]
+                            s  [new-h: max (fp-label-height + fp-str-min-field-h) dsz/y + dy]
+                            e  [new-w: max fp-str-min-width dsz/x + dx]
+                            sw [new-w: max fp-str-min-width dsz/x - dx
+                                new-h: max (fp-label-height + fp-str-min-field-h) dsz/y + dy
+                                new-ox: doff/x + (dsz/x - new-w)]
+                            w  [new-w: max fp-str-min-width dsz/x - dx
+                                new-ox: doff/x + (dsz/x - new-w)]
+                            ne [new-w: max fp-str-min-width dsz/x + dx
+                                new-h: max (fp-label-height + fp-str-min-field-h) dsz/y - dy
+                                new-oy: doff/y + (dsz/y - new-h)]
+                            n  [new-h: max (fp-label-height + fp-str-min-field-h) dsz/y - dy
+                                new-oy: doff/y + (dsz/y - new-h)]
+                            nw [new-w: max fp-str-min-width dsz/x - dx
+                                new-h: max (fp-label-height + fp-str-min-field-h) dsz/y - dy
+                                new-ox: doff/x + (dsz/x - new-w)
+                                new-oy: doff/y + (dsz/y - new-h)]
+                        ]
+
+                        item/size:   as-pair new-w new-h
+                        item/offset: as-pair new-ox new-oy
+                        face/draw: render-fp-panel face/extra w h
+                    ]
+
+                    ; ── Idle: actualizar hover para mostrar handles ──
+                    face/extra/fp-mode = 'idle [
+                        prev-hover: face/extra/fp-hover-item
+                        face/extra/fp-hover-item: hit-fp-item face/extra mx my
+                        ; Solo re-render si cambió el hover
+                        if not same? prev-hover face/extra/fp-hover-item [
+                            face/draw: render-fp-panel face/extra w h
+                        ]
+                    ]
                 ]
             ]
 
             on-up: func [face event] [
-                face/extra/drag-fp: none
-                face/extra/drag-off: none
+                if not (face/extra/fp-mode = 'editing) [
+                    face/extra/fp-mode:          'idle
+                    face/extra/drag-fp:          none
+                    face/extra/drag-off:         none
+                    face/extra/fp-resize-handle: none
+                    face/extra/fp-drag-start-sz: none
+                    face/extra/fp-drag-start-off: none
+                    face/extra/fp-drag-mouse-0:   none
+                ]
             ]
 
-            on-click: func [face event /local mouse-x mouse-y hit w h] [
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
-                w: face/extra/size/x
-                h: face/extra/size/y
-                hit: hit-fp-item face/extra mouse-x mouse-y
+            on-click: func [face event /local mx my w h zone item] [
+                mx: event/offset/x
+                my: event/offset/y
+                w:  face/extra/size/x
+                h:  face/extra/size/y
+
+                if face/extra/fp-mode = 'editing [exit]
+
+                zone: hit-fp-zone face/extra mx my
+                if none? zone [exit]
+                item: zone/1
+
                 case [
-                    all [hit  hit/type = 'bool-control] [
-                        ; Toggle booleano directo
-                        hit/value: not hit/value
+                    ; Clic en field de str-control → edición inline del valor
+                    all [zone/2 = 'field  item/type = 'str-control] [
+                        open-inline-edit face item face/extra false
+                    ]
+                    ; Toggle booleano
+                    item/type = 'bool-control [
+                        item/value: not item/value
                         face/draw: render-fp-panel face/extra w h
                     ]
-                    all [hit  hit/type = 'control] [
-                        open-edit-dialog hit face face/extra
+                    ; Edit numérico
+                    item/type = 'control [
+                        open-edit-dialog item face face/extra
                     ]
                 ]
             ]
 
-            on-dbl-click: func [face event /local mouse-x mouse-y hit] [
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
-                hit: hit-fp-item face/extra mouse-x mouse-y
+            on-dbl-click: func [face event /local mx my zone item] [
+                mx: event/offset/x
+                my: event/offset/y
+
+                if face/extra/fp-mode = 'editing [exit]
+
+                zone: hit-fp-zone face/extra mx my
 
                 case [
-                    all [hit  hit/type = 'bool-control]  [
-                        hit/value: not hit/value
+                    ; Doble-clic en label de string → editar label
+                    all [zone  zone/2 = 'label  find [str-control str-indicator] zone/1/type] [
+                        open-inline-edit face zone/1 face/extra true
+                    ]
+                    ; Doble-clic en field de string → editar valor
+                    all [zone  zone/2 = 'field  zone/1/type = 'str-control] [
+                        open-inline-edit face zone/1 face/extra false
+                    ]
+                    ; Boolean toggle
+                    all [zone  zone/1/type = 'bool-control] [
+                        zone/1/value: not zone/1/value
                         face/draw: render-fp-panel face/extra face/extra/size/x face/extra/size/y
                     ]
-                    all [hit  hit/type = 'control]        [open-edit-dialog hit face face/extra]
-                    none? hit                              [open-fp-palette face mouse-x mouse-y]
-                    ; indicador: no hacer nada
+                    ; Numeric edit
+                    all [zone  zone/1/type = 'control] [
+                        open-edit-dialog zone/1 face face/extra
+                    ]
+                    ; Espacio vacío → paleta
+                    none? zone [open-fp-palette face mx my]
                 ]
             ]
 
             on-key: func [face event /local model hit w h _cref bd-node] [
                 model: face/extra
+
+                ; Si hay edición inline, ignorar Delete (el field la gestiona)
+                if model/fp-mode = 'editing [exit]
+
                 hit: model/selected-fp
                 w: model/size/x
                 h: model/size/y
 
                 if all [hit  any [find [delete backspace] event/key  find [#"^(7F)" #"^H"] event/key]] [
-                    ; Sync BD: borrar nodo y sus wires
                     _cref: select model 'canvas-ref
                     if _cref [
                         bd-node: none
                         foreach n model/nodes [if n/name = hit/name [bd-node: n]]
                         if bd-node [
                             remove-each wire model/wires [any [wire/from-node = bd-node/id  wire/to-node = bd-node/id]]
-                            remove-each n model/nodes   [n/name = hit/name]
+                            remove-each n model/nodes    [n/name = hit/name]
                         ]
                         _cref/draw: render-bd model
                         show _cref
@@ -424,7 +888,7 @@ render-panel: func [model panel-width panel-height /local panel-face] [
 ]
 
 ; ══════════════════════════════════════════════════════════
-; PARSER — load front-panel from qvi-diagram (Phase 3)
+; PARSER — load front-panel from qvi-diagram
 ; ══════════════════════════════════════════════════════════
 load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result item offset-y kw] [
     result: copy []
@@ -434,14 +898,18 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
         offset-y: 20
         parse fp-block [
             any [
-                set kw ['control | 'indicator | 'bool-control | 'bool-indicator]
+                set kw ['control | 'indicator | 'bool-control | 'bool-indicator | 'str-control | 'str-indicator]
                 set fp-item-spec block! (
                     item: make-fp-item fp-item-spec
-                    item/type:      kw
-                    item/data-type: either find [bool-control bool-indicator] kw ['boolean] ['numeric]
+                    item/type: kw
+                    item/data-type: case [
+                        find [bool-control bool-indicator] kw ['boolean]
+                        find [str-control  str-indicator]  kw ['string]
+                        true                               ['numeric]
+                    ]
                     if all [zero? item/offset/x  zero? item/offset/y] [
                         item/offset: as-pair 20 offset-y
-                        offset-y: offset-y + fp-item-height + 10
+                        offset-y: offset-y + item/size/y + 10
                     ]
                     append result item
                 )
@@ -452,26 +920,27 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
 ]
 
 ; ══════════════════════════════════════════════════════════
-; PERSISTENCE — save front-panel to qvi-diagram format (Phase 4)
+; PERSISTENCE — save front-panel to qvi-diagram format
 ; ══════════════════════════════════════════════════════════
 save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
-    ; Todos los items van en UN único bloque: [front-panel: [control [...] indicator [...]]]
-    ; Si se generan bloques separados, select solo devuelve el primero al cargar.
     items: copy []
     foreach item front-panel-items [
-        kw:   case [
+        kw: case [
             item/type = 'control        ['control]
             item/type = 'bool-control   ['bool-control]
             item/type = 'bool-indicator ['bool-indicator]
+            item/type = 'str-control    ['str-control]
+            item/type = 'str-indicator  ['str-indicator]
             true                        ['indicator]
         ]
         spec: compose/deep [
-            id: (item/id)
-            type: (item/type)
-            name: (item/name)
-            label: [text: (item/label/text) visible: (item/label/visible)]
+            id:     (item/id)
+            type:   (item/type)
+            name:   (item/name)
+            label:  [text: (item/label/text) visible: (item/label/visible) offset: (item/label/offset)]
             default: (item/default)
             offset: (item/offset)
+            size:   (item/size)
         ]
         append items kw
         append/only items spec
@@ -480,7 +949,7 @@ save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
 ]
 
 ; ══════════════════════════════════════════════════════════
-; COMPILE PANEL — generate VID layout for .qvi executable (Phase 5)
+; COMPILE PANEL — generate VID layout for .qvi executable
 ; ══════════════════════════════════════════════════════════
 gen-panel-var-name: func [item] [
     to-word rejoin ["f" capitalize item/name]
@@ -494,17 +963,34 @@ compile-panel: func [model /local cmds item ctrl-field-name ind-var-name] [
     cmds: copy []
 
     foreach item model/front-panel [
-        either item/type = 'control [
-            ctrl-field-name: gen-panel-var-name item
-            append cmds compose [
-                label (item/label/text)
-                (to-set-word ctrl-field-name) field 120 (form item/default)
+        case [
+            item/type = 'control [
+                ctrl-field-name: gen-panel-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ctrl-field-name) field 120 (form item/default)
+                ]
             ]
-        ][
-            ind-var-name: gen-indicator-var-name item
-            append cmds compose [
-                label (item/label/text)
-                (to-set-word ind-var-name) text 120 (form item/default)
+            item/type = 'str-control [
+                ctrl-field-name: gen-panel-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ctrl-field-name) field 200 (item/default)
+                ]
+            ]
+            item/type = 'str-indicator [
+                ind-var-name: gen-indicator-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ind-var-name) text 200 (item/default)
+                ]
+            ]
+            true [
+                ind-var-name: gen-indicator-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ind-var-name) text 120 (form item/default)
+                ]
             ]
         ]
     ]
@@ -518,15 +1004,22 @@ compile-panel: func [model /local cmds item ctrl-field-name ind-var-name] [
 ; ══════════════════════════════════════════════════════════
 make-demo-model: func [] [
     make object! [
-        front-panel: copy []
-        selected-fp: none
-        drag-fp:     none
-        drag-off:    none
-        size:        400x300
+        front-panel:         copy []
+        selected-fp:         none
+        drag-fp:             none
+        drag-off:            none
+        size:                400x300
+        fp-mode:             'idle
+        fp-resize-handle:    none
+        fp-hover-item:       none
+        fp-edit-face:        none
+        fp-drag-start-sz:    none
+        fp-drag-start-off:   none
+        fp-drag-mouse-0:     none
     ]
 ]
 
-add-demo-items: func [model /local ctrl1 ctrl2 ind1] [
+add-demo-items: func [model /local ctrl1 ctrl2 ind1 str1] [
     ctrl1: make-fp-item compose [
         id: 1  type: 'control  name: "ctrl_1"
         label: [text: "A" visible: true]
@@ -537,17 +1030,24 @@ add-demo-items: func [model /local ctrl1 ctrl2 ind1] [
         id: 2  type: 'control  name: "ctrl_2"
         label: [text: "B" visible: true]
         default: 3.0
-        offset: 20x90
+        offset: 20x80
     ]
     ind1: make-fp-item compose [
         id: 3  type: 'indicator  name: "ind_1"
         label: [text: "Resultado" visible: true]
         default: 0.0
-        offset: 20x160
+        offset: 20x140
+    ]
+    str1: make-fp-item compose [
+        id: 4  type: 'str-control  name: "str_1"
+        label: [text: "Mensaje" visible: true]
+        default: ""
+        offset: 200x20
     ]
     append model/front-panel ctrl1
     append model/front-panel ctrl2
     append model/front-panel ind1
+    append model/front-panel str1
     model
 ]
 
@@ -563,7 +1063,6 @@ gen-standalone-code: func [model /local vid-code] [
 ]
 
 if find form system/options/script "panel.red" [
-    ; Use same pattern as canvas.red for demo execution
     demo-model: make-demo-model
     add-demo-items demo-model
 
@@ -572,13 +1071,13 @@ if find form system/options/script "panel.red" [
 
     view make face! [
         type:   'window
-        text:   "QTorres — Front Panel (Issue #7)"
-        size:   420x540
+        text:   "QTorres — Front Panel (Issue #10 String)"
+        size:   420x360
         offset: 80x60
         pane:   reduce [
             make face! [
                 type: 'base  offset: 10x8  size: 400x25  color: 200.203.212
-                draw: [pen 60.70.90  text 5x15 "Drag items | dbl-click = edit value | Delete = remove"]
+                draw: [pen 60.70.90  text 5x15 "Str: clic=editar valor | dbl-clic label=editar label | handles=resize | Delete=borrar"]
             ]
             panel
         ]

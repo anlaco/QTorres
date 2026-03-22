@@ -69,34 +69,34 @@ Validar que Red/View soporta las primitivas necesarias.
 
 ---
 
-## Fase 1 — Beta funcional
+## Fase 1 — Beta funcional ✅ COMPLETADA
 
 Ciclo completo: dibujar → compilar → ejecutar → ver resultado.
 
 ### Edición del diagrama
-- [ ] Canvas modular (refactor de canvas.red a src/ui/diagram/)
-- [ ] Borrar wire/nodo con tecla Delete (#20)
-- [ ] Renombrar nodo con doble clic (#21)
-- [ ] Identidad visual: diseño de bloques moderno, customizable (#22)
+- [x] Canvas modular (refactor de canvas.red a src/ui/diagram/)
+- [x] Borrar wire/nodo con tecla Delete
+- [x] Renombrar nodo con doble clic (#6)
+- [x] Identidad visual: especificación definida en [`docs/visual-spec.md`](visual-spec.md) (documento vivo, se implementa progresivamente)
 
 ### Motor de compilación
-- [ ] Procesador dialecto `block-def` (#5)
-- [ ] Topological sort del grafo (#6)
-- [ ] `bind-emit`: sustituye nombres de puerto por variables (#7)
-- [ ] Compilador genera Red/View completo (DT-009) (#8)
-- [ ] Guardar/cargar .qvi: `save-vi` y `load-vi` (#9)
-- [ ] Runner en memoria (ejecuta sin generar fichero) (#10) — ver [REVISAR] en `docs/arquitectura.md`
-- [ ] Ejecución continua en loop (Etapa 2)
+- [x] Procesador dialecto `block-def`
+- [x] Topological sort del grafo
+- [x] `bind-emit`: sustituye nombres de puerto por variables
+- [x] Compilador genera Red/View completo (DT-009) (#8)
+- [x] Guardar/cargar .qvi: `save-vi` y `load-vi`
+- [x] Runner en memoria (ejecuta sin generar fichero)
+- [x] .qvi multi-línea + set-path indicadores + bugs serialize/load (#26)
 
 ### Bloques primitivos de Fase 1
-- Constante numérica, Suma, Resta, Multiplicación, División
-- Display numérico
-- Controles e indicadores numéricos en Front Panel
+- [x] Constante numérica, Suma, Resta, Multiplicación, División
+- [x] Display numérico
+- [x] Controles e indicadores numéricos en Front Panel
 
 ### Front Panel modular
-- [ ] Panel con controles e indicadores arrastrables (#12)
-- [ ] Botón Run visible en el panel
-- [ ] Conectar módulos en `qtorres.red` (#13)
+- [x] Panel con controles e indicadores arrastrables (#7)
+- [x] Botón Run visible en el panel
+- [x] Conectar módulos en `qtorres.red` (#8)
 
 ### Qué genera el compilador (decisión DT-009)
 
@@ -116,25 +116,42 @@ Los controles de entrada se convierten en `field` editables. Los indicadores de 
 
 ## Fase 2 — Tipos de datos y estructuras de control
 
-### Tipos de datos esenciales
-- [ ] Tipo booleano: wire azul oscuro, control LED, indicador LED (#23)
-- [ ] Tipo string: wire rosa, control field, indicador text (#24)
-- [ ] Array 1D: wire con borde doble, representación en Front Panel (#25)
-- [ ] Cluster: wire marrón, editor de campos (#26)
+> **Estrategia QA:** cada feature nueva llega con sus tests. Al tocar un módulo existente, se aprovecha para cubrir tests pendientes de ese módulo. No hay sesión QA dedicada.
+>
+> **Especificación visual:** cada tipo y estructura implementa su aspecto según [`docs/visual-spec.md`](visual-spec.md).
 
-### Visualización
-- [ ] Waveform chart y graph en Front Panel (#27)
-- [ ] Wires con color según tipo (numérico naranja, booleano azul, string rosa)
-- [ ] Error de tipo al conectar wires incompatibles (visual en el wire)
+### Orden de implementación (decidido 2026-03-22)
 
-### Estructuras de control
-- [ ] While Loop con terminal de condición (#15)
-- [ ] For Loop con terminal N e índice (#16)
-- [ ] Case Structure con selector y múltiples frames (#17)
+**Bloque 1 — Tipos básicos**
+1. [x] Tipo booleano: wire verde, control LED, indicador LED (#9) ✅
+2. [ ] Tipo string: wire rosa con patrón característico, control field, indicador text (#10)
+
+**Bloque 2 — Estructuras de control**
+3. [ ] While Loop con terminal de condición (#14)
+4. [ ] For Loop con terminal N e índice (#15)
+
+**Bloque 3 — Datos compuestos**
+5. [ ] Array 1D: wire grueso con borde doble, representación en Front Panel (#11)
+6. [ ] Case Structure con selector y múltiples frames (#16)
+
+**Bloque 4 — Tipos avanzados**
+7. [ ] Cluster: wire marrón, editor de campos (#12)
+8. [ ] Waveform chart y graph en Front Panel (#13)
+
+### Visualización (progresivo con cada tipo)
+- [x] Wires con color según tipo (numérico naranja, booleano verde)
+- [ ] Wires con patrón según tipo (string rayado/segmentado)
+- [ ] Wires con grosor según estructura (escalar fino, array grueso)
+- [ ] Wire roto (X roja) al conectar tipos incompatibles
+- [ ] Regla: una entrada solo acepta un wire (actualmente permite múltiples)
+- [ ] Coercion dots — cuando existan subtipos numéricos (Fase 2 tardía o Fase 3)
 
 ### Calidad de edición
 - [ ] Undo/Redo (historial de acciones)
 - [ ] Validación: detectar ciclos, tipos incompatibles, puertos sin conectar
+
+### Front Panel
+- [ ] Front Panel standalone visualmente fiel al canvas (#28) — puede esperar
 
 ---
 
@@ -183,8 +200,9 @@ Esta fase es esencial para el público objetivo (mismo que LabVIEW: ingeniería 
 | Hito | Descripción | Fase |
 |------|------------|------|
 | Canvas vivo | Bloques arrastrables con wires dibujados | 0 ✅ |
-| Primera compilación | .qvi guardado se ejecuta con Red directamente | 1 |
-| Primer programa útil | Aritmética con Front Panel funcional | 1 |
+| Primera compilación | .qvi guardado se ejecuta con Red directamente | 1 ✅ |
+| Primer programa útil | Aritmética con Front Panel funcional | 1 ✅ |
+| Tipo booleano | Wire verde, LED control/indicator | 2 ✅ |
 | Tipos completos | Boolean, string, array, cluster en wires | 2 |
 | Estructuras de control | Bucles y condicionales en el diagrama | 2 |
 | Sub-VIs | VIs reutilizables como bloques con connector | 3 |
@@ -197,7 +215,7 @@ Esta fase es esencial para el público objetivo (mismo que LabVIEW: ingeniería 
 
 Trabajar siempre Issues en orden de Fase. No empezar una fase sin completar la anterior.
 
-**Próximo:** Fase 1 — empezar por Issue #20 (borrar wire/nodo) o Issue #22 (identidad visual, decide el look antes de construir más UI).
+**Próximo:** Fase 2 — Issue #10 (tipo string).
 
 ---
 

@@ -183,7 +183,7 @@ render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-col
             div            ["DIV /"]
             display        ["DISP"]
             subvi          ["SUBVI"]
-            bool-const     ["BOOL"]
+            bool-const     [either any [select node/config 'default  false] ["T"] ["F"]]
             bool-control   ["B-CTRL"]
             bool-indicator ["B-IND"]
             and-op         ["AND"]
@@ -326,6 +326,17 @@ hit-wire: func [model mouse-x mouse-y /local tolerance src-node dst-node out-xy 
 ;   El modelo se almacena en face/extra para que los actores
 ;   puedan acceder sin depender de variables globales.
 ; ══════════════════════════════════════════════════════════
+
+; Alterna el valor booleano de un nodo bool-const.
+; node/config es un bloque de pares [clave valor ...].
+toggle-bool-const: func [node /local cur pos] [
+    cur: any [select node/config 'default  false]
+    either pos: find node/config 'default [
+        pos/2: not cur
+    ][
+        append node/config reduce ['default  not cur]
+    ]
+]
 
 apply-rename-label: func [node new-text] [
     either empty? new-text [
@@ -480,6 +491,8 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     model/selected-node: hit-ref
                     model/drag-node: hit-ref
                     model/drag-off: as-pair (mouse-x - hit-ref/x) (mouse-y - hit-ref/y)
+                    ; bool-const: clic alterna T/F (igual que LabVIEW)
+                    if hit-ref/type = 'bool-const [toggle-bool-const hit-ref]
                     face/draw: render-bd model
                     return none
                 ]

@@ -122,11 +122,11 @@ btn-run: make face! [
             attempt [do code]
 
             ; 5. Leer _run-results → actualizar indicadores FP
+            ; Nota: val puede ser false (logic!) → no usar "if val:" sino "unless none? val"
             foreach item model/front-panel [
                 if find [indicator bool-indicator] item/type [
-                    if val: select _run-results item/name [
-                        item/value: val
-                    ]
+                    val: select _run-results item/name
+                    unless none? val [item/value: val]
                 ]
             ]
 

@@ -159,7 +159,8 @@ build-bindings: func [
     ]
 
     foreach cfg bdef/configs [
-        cfg-val: any [select node/config cfg/name  cfg/default]
+        ; any [none false] = none en Red → usar either/none? explícito
+        cfg-val: either none? select node/config cfg/name [cfg/default] [select node/config cfg/name]
         append bindings cfg/name
         append bindings cfg-val
     ]
@@ -260,7 +261,12 @@ compile-diagram: func [
         if none? bdef [continue]
         if bdef/category = 'input [
             face-n: to-word rejoin ["f_" node/id]
-            cfg-val: any [select node/config 'default  either node-boolean-input? node [false] [0.0]]
+            ; any [none false] = none en Red (false es falsy) → usar either/none? explícito
+            cfg-val: either none? select node/config 'default [
+                either node-boolean-input? node [false] [0.0]
+            ][
+                select node/config 'default
+            ]
             node-label: either all [node/label  object? node/label] [node/label/text] [any [node/name ""]]
             append ui-layout 'text
             ; UI layout usa label/text (display) para textos visibles (DT-024)

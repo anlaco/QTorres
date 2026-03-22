@@ -164,14 +164,14 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
     cmds: copy []
 
     ; ── Label externa ────────────────────────────────────────────────────────────────────
-    ; Posición = item/offset + delta - fp-label-above en Y. Cálculo explícito de enteros.
-    ; Color = color del tipo de item (azul control, ámbar indicador).
+    ; Posición = item/offset + delta - fp-label-above en Y.
+    ; Color via font! — fill-pen no controla text en Red Draw de forma fiable.
     if all [item/label  object? item/label  item/label/visible] [
         lx: item/offset/x + item/label/offset/x
         ly: item/offset/y + item/label/offset/y - fp-label-above
         col: fp-color? item/type
         append cmds compose [
-            fill-pen (col)
+            font (make font! compose [color: (col)])
             text (as-pair lx ly) (item/label/text)
         ]
     ]

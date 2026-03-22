@@ -15,7 +15,7 @@ col-block-ctrl: 50.100.180
 col-block-ind:  175.125.20
 col-block-op:   55.75.105
 col-wire:       195.95.20
-col-wire-bool:  20.80.160
+col-wire-bool:  20.160.20
 col-wire-str:   220.100.160
 col-wire-sel:   0.160.200
 col-port-in:    50.110.200
@@ -71,6 +71,34 @@ wire-data-color: func [data-type] [
     ]
 ]
 
+; Genera comandos Draw para una línea daseada horizontal o vertical.
+; Simula el patrón característico del wire string (visual-spec §4.2).
+draw-dashed-segment: func [p1 [pair!] p2 [pair!] /local cmds dash gap pos end-v horiz] [
+    cmds: copy []
+    dash: 5  gap: 3
+    horiz: p1/y = p2/y
+    either horiz [
+        pos: p1/x  end-v: p2/x
+        if pos > end-v [pos: p2/x  end-v: p1/x]
+        while [pos < end-v] [
+            append cmds compose [
+                line (as-pair pos p1/y) (as-pair (min pos + dash end-v) p1/y)
+            ]
+            pos: pos + dash + gap
+        ]
+    ][
+        pos: p1/y  end-v: p2/y
+        if pos > end-v [pos: p2/y  end-v: p1/y]
+        while [pos < end-v] [
+            append cmds compose [
+                line (as-pair p1/x pos) (as-pair p1/x (min pos + dash end-v))
+            ]
+            pos: pos + dash + gap
+        ]
+    ]
+    cmds
+]
+
 port-xy: func [node port-name direction /local ports port-index found] [
     either direction = 'in [
         ports: in-ports node
@@ -90,26 +118,20 @@ port-xy: func [node port-name direction /local ports port-index found] [
 ; ══════════════════════════════════════════════════════════
 make-diagram-model: func [] [
     make object! [
-        nodes:               copy []
-        wires:               copy []
-        front-panel:         copy []
-        next-id:             1
-        selected-node:       none
-        selected-wire:       none
-        selected-fp:         none
-        drag-node:           none
-        drag-fp:             none
-        drag-off:            none
-        wire-src:            none
-        wire-port:           none
-        mouse-pos:           none
-        fp-mode:             'idle
-        fp-resize-handle:    none
-        fp-hover-item:       none
-        fp-edit-face:        none
-        fp-drag-start-sz:    none
-        fp-drag-start-off:   none
-        fp-drag-mouse-0:     none
+        nodes:         copy []
+        wires:         copy []
+        front-panel:   copy []
+        next-id:       1
+        selected-node: none
+        selected-wire: none
+        selected-fp:   none
+        drag-node:     none
+        drag-fp:       none
+        drag-off:      none
+        wire-src:      none
+        wire-port:     none
+        mouse-pos:     none
+        broken-wire:   none
     ]
 ]
 
@@ -156,9 +178,17 @@ render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-col
             mid-x:  to-integer (out-xy/x + in-xy/x) / 2
             wire-dtype: port-out-type src-node wire/from-port
             wire-color: either same? wire model/selected-wire [col-wire-sel] [wire-data-color wire-dtype]
-            append cmds compose [
-                pen (wire-color)  line-width 2
-                line (out-xy) (as-pair mid-x out-xy/y) (as-pair mid-x in-xy/y) (in-xy)
+            either all [wire-dtype = 'string  not same? wire model/selected-wire] [
+                ; Wire string: patrón daseado (visual-spec §4.2)
+                append cmds compose [pen (wire-color)  line-width 2]
+                append cmds draw-dashed-segment out-xy              as-pair mid-x out-xy/y
+                append cmds draw-dashed-segment as-pair mid-x out-xy/y  as-pair mid-x in-xy/y
+                append cmds draw-dashed-segment as-pair mid-x in-xy/y  in-xy
+            ][
+                append cmds compose [
+                    pen (wire-color)  line-width 2
+                    line (out-xy) (as-pair mid-x out-xy/y) (as-pair mid-x in-xy/y) (in-xy)
+                ]
             ]
         ]
     ]
@@ -169,6 +199,20 @@ render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-col
         append cmds compose [
             pen col-wire  line-width 2
             line (src-port-xy) (model/mouse-pos)
+        ]
+    ]
+
+    ; 2b) Wire roto — error visual de tipos incompatibles
+    if model/broken-wire [
+        append cmds compose [pen 210.30.30  line-width 2]
+        append cmds draw-dashed-segment model/broken-wire/1 model/broken-wire/2
+        ; Marca X en el punto medio
+        mid: as-pair to-integer (model/broken-wire/1/x + model/broken-wire/2/x) / 2
+                     to-integer (model/broken-wire/1/y + model/broken-wire/2/y) / 2
+        append cmds compose [
+            pen 210.30.30  line-width 2
+            line (as-pair mid/x - 5 mid/y - 5) (as-pair mid/x + 5 mid/y + 5)
+            line (as-pair mid/x + 5 mid/y - 5) (as-pair mid/x - 5 mid/y + 5)
         ]
     ]
 
@@ -187,8 +231,8 @@ render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-col
         ]
         ; Texto: tipo + label (DT-022)
         type-label: switch/default node/type [
-            control        ["CTRL"]
-            indicator      ["IND"]
+            control        ["DBL"]
+            indicator      ["DBL"]
             add            ["ADD +"]
             sub            ["SUB -"]
             mul            ["MUL *"]
@@ -197,17 +241,20 @@ render-bd: func [model /local cmds src-node dst-node out-xy in-xy mid-x wire-col
             subvi          ["SUBVI"]
             const          [form any [select node/config 'default  0.0]]
             bool-const     [either any [select node/config 'default  false] ["T"] ["F"]]
-            bool-control   ["B-CTRL"]
-            bool-indicator ["B-IND"]
-            str-control    ["STR-C"]
-            str-indicator  ["STR-I"]
-            str-const      ["STR"]
+            bool-control   ["TF"]
+            bool-indicator ["TF"]
             and-op         ["AND"]
             or-op          ["OR"]
             not-op         ["NOT"]
             gt-op          [">"]
             lt-op          ["<"]
             eq-op          ["="]
+            str-const      [any [select node/config 'default  ""]]
+            str-control    [to-string any [select node/config 'default  "STR"]]
+            str-indicator  ["STR"]
+            concat         ["CONCAT"]
+            str-length     ["LEN"]
+            to-string      ["→STR"]
         ] [uppercase form node/type]
         either all [node/label  object? node/label  node/label/visible] [
             append cmds compose [
@@ -391,6 +438,51 @@ apply-const-value: func [node new-text /local val pos] [
     ]
 ]
 
+; Aplica valor string a un nodo y refresca el canvas.
+; Función auxiliar para evitar set-path con valor literal en compose/deep.
+str-apply-and-refresh: func [nd txt cnv] [
+    apply-str-value nd txt
+    cnv/draw: render-bd cnv/extra
+]
+
+; Abre diálogo para editar el valor de una constante o control string.
+; Usa compose/deep para incrustar node y canvas-face directamente en los handlers,
+; evitando el bug de variables de módulo compartidas cuando dos diálogos están abiertos.
+open-str-edit-dialog: func [node canvas-face /local cur-val] [
+    cur-val: copy any [select node/config 'default  ""]
+    view/no-wait compose/deep [
+        title "Editar string"
+        text "Valor:" return
+        field 200 (cur-val)
+        on-enter [
+            ; face = el field (on-enter se dispara en el field)
+            str-apply-and-refresh (node) copy face/text (canvas-face)
+            unview
+        ]
+        return
+        button "OK" [
+            ; Buscar el field en los panes del panel padre
+            foreach pf face/parent/pane [
+                if pf/type = 'field [
+                    str-apply-and-refresh (node) copy pf/text (canvas-face)
+                    break
+                ]
+            ]
+            unview
+        ]
+        button "Cancelar" [unview]
+    ]
+]
+
+; Actualiza node/config 'default con el nuevo valor string.
+apply-str-value: func [node new-text /local pos] [
+    either pos: find node/config 'default [
+        pos/2: new-text
+    ][
+        append node/config reduce ['default new-text]
+    ]
+]
+
 apply-rename-label: func [node new-text] [
     either empty? new-text [
         if all [node/label  object? node/label] [
@@ -456,9 +548,10 @@ open-palette: func [face x y] [
         button 80 "<"        [palette-add-node 'lt-op]   return
         button 80 "="        [palette-add-node 'eq-op]   return
         text "String:"  return
-        button 80 "STR-C"    [palette-add-node 'str-control]
-        button 80 "STR-I"    [palette-add-node 'str-indicator]  return
-        button 80 "STR-K"    [palette-add-node 'str-const]      return
+        button 80 "S-Const"  [palette-add-node 'str-const]
+        button 80 "Concat"   [palette-add-node 'concat]         return
+        button 80 "Len"      [palette-add-node 'str-length]
+        button 80 "→STR"     [palette-add-node 'to-string]      return
         button "Cancelar"    [unview]
     ]
 ]
@@ -483,7 +576,7 @@ canvas-delete-selected: func [canvas /local model node-id] [
             remove-each node model/nodes  [node/id = node-id]
             model/selected-node: none
             model/drag-node:     none
-            ; Sync FP: borrar item correspondiente si es control/indicator (o bool-*)
+            ; Sync FP: borrar item correspondiente si es control/indicator (o bool-*/str-*)
             if all [
                 find [control indicator bool-control bool-indicator str-control str-indicator] node-type
                 _pref: select model 'panel-ref
@@ -521,22 +614,32 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     hit-dir:       hit-result/3
                     either model/wire-src = none [
                         if hit-dir = 'out [
+                            model/broken-wire: none
                             model/wire-src:  hit-nd
                             model/wire-port: hit-port-name
                             model/mouse-pos: event/offset
                             face/draw: render-bd model
                         ]
                     ][
-                        if all [
+                        either all [
                             hit-dir = 'in
                             model/wire-src/id <> hit-nd/id
                             (port-out-type model/wire-src model/wire-port) = (port-in-type hit-nd hit-port-name)
                         ][
+                            model/broken-wire: none
                             append model/wires make-wire compose [
                                 from: (model/wire-src/id)
                                 from-port: (model/wire-port)
                                 to: (hit-nd/id)
                                 to-port: (hit-port-name)
+                            ]
+                        ][
+                            ; Tipos incompatibles: mostrar wire roto en rojo
+                            if all [hit-dir = 'in  model/wire-src/id <> hit-nd/id] [
+                                model/broken-wire: reduce [
+                                    port-xy model/wire-src model/wire-port 'out
+                                    port-xy hit-nd hit-port-name 'in
+                                ]
                             ]
                         ]
                         model/wire-src: none  model/wire-port: none  model/mouse-pos: none
@@ -549,6 +652,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 hit-ref: hit-node model mouse-x mouse-y
                 if hit-ref [
                     model/wire-src: none  model/wire-port: none  model/mouse-pos: none
+                    model/broken-wire: none
                     model/selected-wire: none
                     model/selected-node: hit-ref
                     model/drag-node: hit-ref
@@ -571,6 +675,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
 
                 ; 4) Clic en vacío: cancelar todo
                 model/wire-src: none  model/wire-port: none  model/mouse-pos: none
+                model/broken-wire: none
                 model/drag-node: none  model/selected-wire: none  model/selected-node: none
                 face/draw: render-bd model
             ]
@@ -631,9 +736,13 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 mouse-y: event/offset/y
                 node: hit-node model mouse-x mouse-y
                 either node [
-                    ; Nodo existente: const → editar valor; resto → renombrar label
+                    ; Nodo existente: const/str-const/str-control → editar valor; resto → renombrar label
                     if node/type = 'const [
                         open-const-edit-dialog node face
+                        exit
+                    ]
+                    if find [str-const str-control] node/type [
+                        open-str-edit-dialog node face
                         exit
                     ]
                     rename-dialog-node:   node

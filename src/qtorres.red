@@ -123,7 +123,7 @@ btn-run: make face! [
 
             ; 5. Leer _run-results → actualizar indicadores FP
             foreach item model/front-panel [
-                if item/type = 'indicator [
+                if find [indicator bool-indicator] item/type [
                     if val: select _run-results item/name [
                         item/value: val
                     ]

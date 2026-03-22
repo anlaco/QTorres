@@ -638,17 +638,30 @@ compile-panel: func [model /local cmds item ctrl-field-name ind-var-name] [
     cmds: copy []
 
     foreach item model/front-panel [
-        either item/type = 'control [
-            ctrl-field-name: gen-panel-var-name item
-            append cmds compose [
-                label (item/label/text)
-                (to-set-word ctrl-field-name) field 120 (form item/default)
+        case [
+            find [control str-control] item/type [
+                ctrl-field-name: gen-panel-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ctrl-field-name) field 120 (form item/default)
+                    return
+                ]
             ]
-        ][
-            ind-var-name: gen-indicator-var-name item
-            append cmds compose [
-                label (item/label/text)
-                (to-set-word ind-var-name) text 120 (form item/default)
+            item/type = 'bool-control [
+                ctrl-field-name: gen-panel-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ctrl-field-name) check (item/label/text) (item/default)
+                    return
+                ]
+            ]
+            true [  ; indicator, bool-indicator, str-indicator
+                ind-var-name: gen-indicator-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ind-var-name) text 120 (form item/default)
+                    return
+                ]
             ]
         ]
     ]

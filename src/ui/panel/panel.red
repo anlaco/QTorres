@@ -15,7 +15,8 @@ fp-selected-color:   0.175.210
 fp-border-color:     30.60.120
 fp-item-width:       120
 fp-item-height:      40
-fp-label-height:     20
+fp-str-height:       24             ; altura del campo string (solo el body, sin label)
+fp-label-default-offset: as-pair 0 -18  ; offset relativo al body: label 18px encima
 fp-run-button-height: 30
 
 fp-color?: func [item-type] [
@@ -110,21 +111,21 @@ make-fp-item: func [
             make object! [
                 text:    any [select lbl-spec 'text    ""]
                 visible: any [select lbl-spec 'visible true]
-                offset:  any [select lbl-spec 'offset  0x0]
+                offset:  any [select lbl-spec 'offset  fp-label-default-offset]
             ]
         ]
         string? lbl-spec [
             make object! [
                 text:    lbl-spec
                 visible: true
-                offset:  0x0
+                offset:  fp-label-default-offset
             ]
         ]
         true [
             make object! [
                 text:    fp-default-label item/type
                 visible: true
-                offset:  0x0
+                offset:  fp-label-default-offset
             ]
         ]
     ]
@@ -156,73 +157,54 @@ render-fp-grid: func [w h /local cmds gx gy] [
     cmds
 ]
 
-render-fp-item: func [item selected? /local cmds col border-col type-lbl text-x text-y led-col cx cy lbl-text field-y field-h] [
+render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col cx cy lx ly bh] [
     cmds: copy []
 
-    either item/data-type = 'string [
-        ; ── String control / indicator: label encima + campo blanco debajo (visual-spec §2) ──
-        lbl-text: either all [item/label  object? item/label  item/label/visible] [
-            any [item/label/text ""]
-        ][""]
-        field-y: item/offset/y + fp-label-height
-        field-h: fp-item-height - fp-label-height
-
-        ; Label encima (texto libre, sin fondo)
+    ; ── Label externa: siempre en item/offset + item/label/offset ──────────────────────
+    if all [item/label  object? item/label  item/label/visible] [
+        lx: item/offset/x + item/label/offset/x
+        ly: item/offset/y + item/label/offset/y
         append cmds compose [
             fill-pen 30.30.30  pen off
-            text (as-pair (item/offset/x) (item/offset/y + 2)) (lbl-text)
+            text (as-pair lx ly) (any [item/label/text ""])
         ]
-        ; Campo blanco con borde fino (control) o borde doble (indicator, visual-spec §2.2)
+    ]
+
+    ; ── Body ────────────────────────────────────────────────────────────────────────────
+    either item/data-type = 'string [
+        ; String: campo blanco a partir de item/offset
         either item/type = 'str-control [
             append cmds compose [
                 pen 80.80.80  line-width 1  fill-pen 255.255.255
-                box (as-pair item/offset/x field-y)
-                   (as-pair (item/offset/x + fp-item-width) (field-y + field-h)) 2
+                box (as-pair item/offset/x item/offset/y)
+                   (as-pair (item/offset/x + fp-item-width) (item/offset/y + fp-str-height)) 2
             ]
         ][
-            ; str-indicator: borde más grueso
             append cmds compose [
                 pen 80.80.80  line-width 2  fill-pen 245.245.245
-                box (as-pair item/offset/x field-y)
-                   (as-pair (item/offset/x + fp-item-width) (field-y + field-h)) 2
+                box (as-pair item/offset/x item/offset/y)
+                   (as-pair (item/offset/x + fp-item-width) (item/offset/y + fp-str-height)) 2
             ]
         ]
-        ; Valor dentro del campo
         append cmds compose [
             fill-pen 20.20.20  pen off
-            text (as-pair (item/offset/x + 4) (field-y + 4)) (fp-value-text item)
+            text (as-pair (item/offset/x + 4) (item/offset/y + 5)) (fp-value-text item)
         ]
     ][
-        ; ── Numeric / Boolean: caja de color con label interior ───────────────────────────
+        ; Numeric / Boolean: caja de color
         col: fp-color? item/type
         border-col: fp-border-color? item/type
-
         append cmds compose [
             pen (border-col)  line-width 1  fill-pen (col)
             box (as-pair item/offset/x item/offset/y)
                (as-pair (item/offset/x + fp-item-width) (item/offset/y + fp-item-height)) 4
         ]
-
         type-lbl: fp-type-label? item/type
-        text-x: item/offset/x + 8
-        text-y: item/offset/y + 14
-
-        either all [item/label  object? item/label  item/label/visible] [
-            append cmds compose [
-                fill-pen 220.230.240
-                text (as-pair text-x (text-y - 8)) (any [item/label/text ""])
-                fill-pen 180.190.200
-                text (as-pair text-x (text-y + 8)) (any [type-lbl ""])
-            ]
-        ][
-            append cmds compose [
-                fill-pen 220.230.240
-                text (as-pair text-x text-y) (any [type-lbl ""])
-            ]
+        append cmds compose [
+            fill-pen 220.230.240  pen off
+            text (as-pair (item/offset/x + 4) (item/offset/y + 5)) (type-lbl)
         ]
-
         either item/data-type = 'boolean [
-            ; LED: círculo verde (true) o rojo (false)
             led-col: either item/value [0.180.0] [180.0.0]
             cx: item/offset/x + fp-item-width - 20
             cy: item/offset/y + (fp-item-height / 2)
@@ -232,18 +214,20 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl text-x 
             ]
         ][
             append cmds compose [
-                fill-pen 255.255.255
-                text (as-pair (item/offset/x + 8) (item/offset/y + fp-item-height - 16))
+                fill-pen 255.255.255  pen off
+                text (as-pair (item/offset/x + 4) (item/offset/y + fp-item-height - 14))
                      (fp-value-text item)
             ]
         ]
     ]
 
+    ; ── Selección: marco alrededor del body ─────────────────────────────────────────────
+    bh: either item/data-type = 'string [fp-str-height] [fp-item-height]
     if selected? [
         append cmds compose [
             pen (fp-selected-color)  line-width 2  fill-pen off
             box (as-pair (item/offset/x - 3) (item/offset/y - 3))
-               (as-pair (item/offset/x + fp-item-width + 3) (item/offset/y + fp-item-height + 3)) 6
+               (as-pair (item/offset/x + fp-item-width + 3) (item/offset/y + bh + 3)) 6
             line-width 1
         ]
     ]
@@ -266,17 +250,33 @@ render-fp-panel: func [model w h /local cmds item selected?] [
 ; ══════════════════════════════════════════════════════════
 ; HIT TESTING — pure functions
 ; ══════════════════════════════════════════════════════════
-hit-fp-item: func [model mouse-x mouse-y /local found] [
-    found: none
-    foreach item model/front-panel [
+
+; Devuelve [item 'label] | [item 'body] | none
+; Itera al revés para que el elemento dibujado encima tenga prioridad.
+hit-fp-zone: func [model mx my /local item lx ly lw bh] [
+    foreach item (reverse copy model/front-panel) [
+        ; Zona de label (prioridad alta)
+        if all [item/label  object? item/label  item/label/visible] [
+            lx: item/offset/x + item/label/offset/x
+            ly: item/offset/y + item/label/offset/y
+            lw: max 30 (7 * length? any [item/label/text ""])
+            if all [mx >= lx  mx <= (lx + lw)  my >= (ly - 2)  my <= (ly + 14)] [
+                return reduce [item 'label]
+            ]
+        ]
+        ; Zona de body
+        bh: either item/data-type = 'string [fp-str-height] [fp-item-height]
         if all [
-            mouse-x >= item/offset/x
-            mouse-x <= (item/offset/x + fp-item-width)
-            mouse-y >= item/offset/y
-            mouse-y <= (item/offset/y + fp-item-height)
-        ] [found: item]
+            mx >= item/offset/x  mx <= (item/offset/x + fp-item-width)
+            my >= item/offset/y  my <= (item/offset/y + bh)
+        ] [return reduce [item 'body]]
     ]
-    found
+    none
+]
+
+hit-fp-item: func [model mx my /local zone] [
+    zone: hit-fp-zone model mx my
+    either zone [zone/1] [none]
 ]
 
 ; ══════════════════════════════════════════════════════════
@@ -413,8 +413,8 @@ open-fp-palette: func [face x y] [
 ; Model stored in face/extra includes: front-panel, selected-fp, drag-fp, drag-off, size
 
 render-panel: func [model panel-width panel-height /local panel-face] [
-    ; Store dimensions in model for actor access
     model/size: as-pair panel-width panel-height
+    if none? select model 'drag-is-label [model/drag-is-label: false]
 
     panel-face: make face! [
         type:    'base
@@ -426,17 +426,28 @@ render-panel: func [model panel-width panel-height /local panel-face] [
         draw:    render-fp-panel model panel-width panel-height
         actors:  make object! [
 
-            on-down: func [face event /local mouse-x mouse-y hit w h] [
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
+            on-down: func [face event /local mx my zone item w h] [
+                mx: event/offset/x
+                my: event/offset/y
                 w: face/extra/size/x
                 h: face/extra/size/y
-                hit: hit-fp-item face/extra mouse-x mouse-y
+                zone: hit-fp-zone face/extra mx my
 
-                either hit [
-                    face/extra/selected-fp: hit
-                    face/extra/drag-fp: hit
-                    face/extra/drag-off: as-pair (mouse-x - hit/offset/x) (mouse-y - hit/offset/y)
+                either zone [
+                    item: zone/1
+                    face/extra/selected-fp: item
+                    face/extra/drag-fp:     item
+                    either zone/2 = 'label [
+                        ; Arrastrar solo la label — offset relativo al body
+                        face/extra/drag-is-label: true
+                        face/extra/drag-off: as-pair
+                            (mx - (item/offset/x + item/label/offset/x))
+                            (my - (item/offset/y + item/label/offset/y))
+                    ][
+                        ; Arrastrar el body — la label sigue al ser relativa
+                        face/extra/drag-is-label: false
+                        face/extra/drag-off: as-pair (mx - item/offset/x) (my - item/offset/y)
+                    ]
                     face/draw: render-fp-panel face/extra w h
                 ][
                     face/extra/selected-fp: none
@@ -444,22 +455,33 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                 ]
             ]
 
-            on-over: func [face event /local mouse-x mouse-y w h] [
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
+            on-over: func [face event /local mx my w h item] [
+                mx: event/offset/x
+                my: event/offset/y
                 w: face/extra/size/x
                 h: face/extra/size/y
 
                 if all [face/extra/drag-fp  face/extra/drag-off  event/down?] [
-                    face/extra/drag-fp/offset: as-pair (mouse-x - face/extra/drag-off/x)
-                                                         (mouse-y - face/extra/drag-off/y)
+                    item: face/extra/drag-fp
+                    either face/extra/drag-is-label [
+                        ; Solo mueve el label (offset relativo: resta posición del body)
+                        item/label/offset: as-pair
+                            (mx - face/extra/drag-off/x - item/offset/x)
+                            (my - face/extra/drag-off/y - item/offset/y)
+                    ][
+                        ; Mueve el body; label sigue automáticamente (offset relativo)
+                        item/offset: as-pair
+                            (mx - face/extra/drag-off/x)
+                            (my - face/extra/drag-off/y)
+                    ]
                     face/draw: render-fp-panel face/extra w h
                 ]
             ]
 
             on-up: func [face event] [
-                face/extra/drag-fp: none
-                face/extra/drag-off: none
+                face/extra/drag-fp:       none
+                face/extra/drag-off:      none
+                face/extra/drag-is-label: false
             ]
 
             on-click: func [face event /local mouse-x mouse-y hit w h] [
@@ -581,7 +603,7 @@ save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
             id: (item/id)
             type: (item/type)
             name: (item/name)
-            label: [text: (item/label/text) visible: (item/label/visible)]
+            label: [text: (item/label/text) visible: (item/label/visible) offset: (item/label/offset)]
             default: (item/default)
             offset: (item/offset)
         ]
@@ -640,11 +662,12 @@ compile-panel: func [model /local cmds item ctrl-field-name ind-var-name] [
 ; ══════════════════════════════════════════════════════════
 make-demo-model: func [] [
     make object! [
-        front-panel: copy []
-        selected-fp: none
-        drag-fp:     none
-        drag-off:    none
-        size:        400x300
+        front-panel:  copy []
+        selected-fp:  none
+        drag-fp:      none
+        drag-off:     none
+        drag-is-label: false
+        size:         400x300
     ]
 ]
 
@@ -653,19 +676,19 @@ add-demo-items: func [model /local ctrl1 ctrl2 ind1] [
         id: 1  type: 'control  name: "ctrl_1"
         label: [text: "A" visible: true]
         default: 5.0
-        offset: 20x20
+        offset: 20x50
     ]
     ctrl2: make-fp-item compose [
         id: 2  type: 'control  name: "ctrl_2"
         label: [text: "B" visible: true]
         default: 3.0
-        offset: 20x90
+        offset: 20x120
     ]
     ind1: make-fp-item compose [
         id: 3  type: 'indicator  name: "ind_1"
         label: [text: "Resultado" visible: true]
         default: 0.0
-        offset: 20x160
+        offset: 20x190
     ]
     append model/front-panel ctrl1
     append model/front-panel ctrl2

@@ -160,18 +160,53 @@ render-fp-grid: func [w h /local cmds gx gy] [
     cmds
 ]
 
-render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col cx cy lx ly bh] [
+fp-black-font: make font! [color: 0.0.0]
+
+; Genera segmentos de línea discontinua a lo largo de un rectángulo
+dashed-box: func [x1 y1 x2 y2 dash gap /local cmds pos lim step] [
+    cmds: copy []
+    ; Top edge (left to right)
+    pos: x1  lim: x2
+    while [pos < lim] [
+        step: min dash (lim - pos)
+        append cmds compose [line (as-pair pos y1) (as-pair (pos + step) y1)]
+        pos: pos + dash + gap
+    ]
+    ; Right edge (top to bottom)
+    pos: y1  lim: y2
+    while [pos < lim] [
+        step: min dash (lim - pos)
+        append cmds compose [line (as-pair x2 pos) (as-pair x2 (pos + step))]
+        pos: pos + dash + gap
+    ]
+    ; Bottom edge (right to left)
+    pos: x2  lim: x1
+    while [pos > lim] [
+        step: min dash (pos - lim)
+        append cmds compose [line (as-pair pos y2) (as-pair (pos - step) y2)]
+        pos: pos - dash - gap
+    ]
+    ; Left edge (bottom to top)
+    pos: y2  lim: y1
+    while [pos > lim] [
+        step: min dash (pos - lim)
+        append cmds compose [line (as-pair x1 pos) (as-pair x1 (pos - step))]
+        pos: pos - dash - gap
+    ]
+    cmds
+]
+
+render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col cx cy lx ly bh lw] [
     cmds: copy []
 
+    ; ── Reset estado Draw — evita leak de font/pen/fill-pen del item anterior ───────────
+    append cmds compose [pen 0.0.0  fill-pen off  line-width 1  font (fp-black-font)]
+
     ; ── Label externa ────────────────────────────────────────────────────────────────────
-    ; Posición = item/offset + delta - fp-label-above en Y.
-    ; Color via font! — fill-pen no controla text en Red Draw de forma fiable.
     if all [item/label  object? item/label  item/label/visible] [
         lx: item/offset/x + item/label/offset/x
         ly: item/offset/y + item/label/offset/y - fp-label-above
-        col: fp-color? item/type
         append cmds compose [
-            font (make font! compose [color: (col)])
             text (as-pair lx ly) (item/label/text)
         ]
     ]
@@ -227,14 +262,23 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
         ]
     ]
 
-    ; ── Selección: marco alrededor del body ─────────────────────────────────────────────
+    ; ── Selección: marco alrededor del body + recuadro rallado en label ───────────────────
     bh: either item/data-type = 'string [fp-str-height] [fp-item-height]
     if selected? [
-        append cmds compose [
-            pen (fp-selected-color)  line-width 2  fill-pen off
-            box (as-pair (item/offset/x - 3) (item/offset/y - 3))
-               (as-pair (item/offset/x + fp-item-width + 3) (item/offset/y + bh + 3)) 6
-            line-width 1
+        ; Marco rallado alrededor del body
+        append cmds compose [pen (fp-selected-color)  line-width 2  fill-pen off]
+        append cmds dashed-box
+            (item/offset/x - 3) (item/offset/y - 3)
+            (item/offset/x + fp-item-width + 3) (item/offset/y + bh + 3)
+            6 4
+        append cmds [line-width 1]
+        ; Marco rallado alrededor del label
+        if all [item/label  object? item/label  item/label/visible] [
+            lx: item/offset/x + item/label/offset/x
+            ly: item/offset/y + item/label/offset/y - fp-label-above
+            lw: max 30 (7 * length? any [item/label/text ""])
+            append cmds compose [pen (fp-selected-color)  line-width 1  fill-pen off]
+            append cmds dashed-box (lx - 2) (ly - 2) (lx + lw + 2) (ly + 15) 4 3
         ]
     ]
     cmds

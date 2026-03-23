@@ -19,6 +19,10 @@ fp-label-height:     20
 fp-label-above:      18
 fp-run-button-height: 30
 
+; GTK-010: en Linux/GTK, Draw text usa baseline como Y en vez de top-left.
+; Compensamos añadiendo fp-text-dy a todas las coordenadas Y de texto.
+fp-text-dy: either system/platform = 'Linux [8] [0]
+
 fp-color?: func [item-type] [
     either find [control bool-control str-control] item-type [fp-control-color] [fp-indicator-color]
 ]
@@ -160,8 +164,6 @@ render-fp-grid: func [w h /local cmds gx gy] [
     cmds
 ]
 
-fp-black-font: make font! [color: 0.0.0]
-
 ; Genera segmentos de línea discontinua a lo largo de un rectángulo
 dashed-box: func [x1 y1 x2 y2 dash gap /local cmds pos lim step] [
     cmds: copy []
@@ -194,8 +196,8 @@ dashed-box: func [x1 y1 x2 y2 dash gap /local cmds pos lim step] [
 
 render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col cx cy field-y field-h lx ly lw bh] [
     cmds: copy []
-    ; Reset estado Draw — evita leak de font/pen/fill-pen del item anterior
-    append cmds compose [pen 0.0.0  fill-pen off  line-width 1  font (fp-black-font)]
+    ; Reset estado Draw — pen 0.0.0 es crítico: evita bleed de color de texto
+    append cmds [pen 0.0.0  fill-pen off  line-width 1]
 
     ; ── Label encima del body (todos los tipos) ───────────────────────────────────────────
     if all [item/label  object? item/label  item/label/visible] [
@@ -206,7 +208,7 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
             ly: ly + item/label/offset/y
         ]
         append cmds compose [
-            text (as-pair lx ly) (any [item/label/text ""])
+            text (as-pair lx (ly + fp-text-dy)) (any [item/label/text ""])
         ]
     ]
 
@@ -227,8 +229,8 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
             ]
         ]
         append cmds compose [
-            pen off  fill-pen 20.20.20
-            text (as-pair (item/offset/x + 4) (item/offset/y + 4)) (fp-value-text item)
+            pen 20.20.20  fill-pen off
+            text (as-pair (item/offset/x + 4) (item/offset/y + 4 + fp-text-dy)) (fp-value-text item)
         ]
     ][
         ; Numeric / Boolean: caja de color
@@ -241,8 +243,8 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
         ]
         type-lbl: fp-type-label? item/type
         append cmds compose [
-            fill-pen 220.230.240  pen off
-            text (as-pair (item/offset/x + 4) (item/offset/y + 5)) (type-lbl)
+            pen 220.230.240  fill-pen off
+            text (as-pair (item/offset/x + 4) (item/offset/y + 5 + fp-text-dy)) (type-lbl)
         ]
         either item/data-type = 'boolean [
             led-col: either item/value [0.180.0] [180.0.0]
@@ -254,8 +256,8 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
             ]
         ][
             append cmds compose [
-                fill-pen 255.255.255  pen off
-                text (as-pair (item/offset/x + 4) (item/offset/y + fp-item-height - 14))
+                pen 255.255.255  fill-pen off
+                text (as-pair (item/offset/x + 4) (item/offset/y + fp-item-height - 14 + fp-text-dy))
                      (fp-value-text item)
             ]
         ]
@@ -793,7 +795,7 @@ if find form system/options/script "panel.red" [
         pane:   reduce [
             make face! [
                 type: 'base  offset: 10x8  size: 400x25  color: 200.203.212
-                draw: [pen 60.70.90  text 5x15 "Drag items | dbl-click = edit value | Delete = remove"]
+                draw: compose [pen 60.70.90  text (as-pair 5 (15 + fp-text-dy)) "Drag items | dbl-click = edit value | Delete = remove"]
             ]
             panel
         ]

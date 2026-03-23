@@ -684,14 +684,34 @@ spline/closed 10x10 50x80 100x20 150x90    ; closed spline
 ; text — position then string
 text 10x10 "Hello"
 
-; font — set font before text
-font make font! [name: "Arial" size: 14 bold: true color: 0.0.0]
+; font — controla tipografía (familia, tamaño, negrita)
+font make font! [name: "Arial" size: 14 bold: true]
 text 10x10 "Bold Arial 14"
 
-; Text color is controlled by fill-pen
-fill-pen 0.0.0      ; black text
-text 10x10 "Black text"
+; Color del texto: se controla con pen, NO con fill-pen ni font/color
+pen 255.0.0         ; texto rojo
+text 10x10 "Texto rojo"
+pen 0.0.0           ; texto negro
+text 10x10 "Texto negro"
 ```
+
+> ⚠️ **GOTCHA — Color de texto en Draw (verificado en GTK/Linux):**
+>
+> - **`pen`** es lo que colorea el texto. Cambia antes de cada `text`.
+> - **`fill-pen`** NO afecta el color del texto (solo relleno de formas).
+> - **`font!/color`** es ignorado por GTK/Linux — no tiene efecto sobre el color del texto.
+> - **`pen off`** antes de `text` produce texto **gris** (color del sistema), no invisible.
+> - **`pen` sangra entre comandos `text`**: si no reseteas, el siguiente `text` hereda el color anterior.
+> - **`line-width`** no afecta al texto.
+>
+> Patrón correcto para resetear estado Draw entre items (panel.red):
+> ```red
+> pen 0.0.0  fill-pen off  line-width 1
+> ; — pen 0.0.0   → texto negro (reset crítico)
+> ; — fill-pen off → formas sin relleno (reset de formas)
+> ; — line-width 1 → grosor por defecto
+> ; — font!/color  → NO usar para color, no funciona en GTK
+> ```
 
 ### Styling
 ```red

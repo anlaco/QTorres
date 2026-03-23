@@ -91,7 +91,7 @@ Cuando Red migre a 64-bit, este problema desaparece. QTorres debe seguir ese roa
 | GTK-007 Modal pierde foco teclado | — | Pendiente de crear |
 | GTK-008 `request-file/save` abre diálogo de carpetas | — | Workaround: diálogo VID propio |
 | GTK-009 `request-file` no permite controlar tamaño | — | Posible: file browser VID propio |
-| DRAW-001 `push` no restaura `font` | [red/red#5134](https://github.com/red/red/issues/5134) | Abierto — workaround activo |
+| DRAW-001 `push` no restaura `font` | [red/red#5134](https://github.com/red/red/issues/5134) | Cerrado upstream (2024-03-07) — pendiente verificar en GTK |
 
 ---
 
@@ -124,8 +124,10 @@ La causa probable es que Red/View no llama a `gtk_window_set_transient_for()` o 
 **Severidad:** Alta
 **Impacto en QTorres:** No se puede usar `push`/`pop` para aislar estado gráfico entre items del Front Panel. Obliga a un reset manual de `pen`, `fill-pen`, `line-width` y `font` al inicio de cada `render-fp-item`.
 
-**Issue upstream:** [red/red#5134](https://github.com/red/red/issues/5134) — abierto desde abril 2022.
+**Issue upstream:** [red/red#5134](https://github.com/red/red/issues/5134) — **cerrado el 2024-03-07**, fix en commit [`e0c9abc`](https://github.com/red/red/commit/e0c9abcddfd9749f713ff20fb3d3a4d2cac5c933).
 **Issue relacionado:** [red/red#4261](https://github.com/red/red/issues/4261) — crash en GTK con `font!` y estilos.
+
+**Estado actual:** El bug cross-platform fue resuelto upstream en Red ≥ 0.6.5. Sin embargo, **queda pendiente verificar si el fix funciona correctamente en el backend GTK (Linux)**. El error original en QTorres se observó en Linux/GTK, donde `font!` llegaba al engine Draw como `make object! []` (tipo genérico). Esto podría ser un problema adicional específico de GTK no cubierto por el fix de red/red#5134.
 
 **Descripción:**
 
@@ -155,16 +157,16 @@ Con `push`, el `font!` object dentro de `render-fp-item` no se restaura al salir
 *** Script Error: invalid Draw dialect input at: [font make object! [] text ...]
 ```
 
-**Causa raíz confirmada:**
+**Causa raíz:**
 
-1. **Bug del engine Draw (cross-platform):** `push`/`pop` internamente no salva/restaura el puntero de `font`. Confirmado tanto en Windows como en Linux (red/red#5134).
+1. **Bug del engine Draw (cross-platform) — RESUELTO:** `push`/`pop` internamente no salvaba/restauraba el puntero de `font`. Confirmado tanto en Windows como en Linux (red/red#5134). **Corregido** en commit [`e0c9abc`](https://github.com/red/red/commit/e0c9abcddfd9749f713ff20fb3d3a4d2cac5c933) (2024-03-07), disponible en Red ≥ 0.6.5.
 
-2. **Posible problema adicional en Linux/GTK:** El error `make object! []` sugiere que en el backend GTK, el `font!` pierde su tipo al ser procesado dentro de un bloque `push`. Esto podría ser:
+2. **Posible problema residual en Linux/GTK — PENDIENTE DE VERIFICAR:** El error `make object! []` sugiere que en el backend GTK, el `font!` pierde su tipo al ser procesado dentro de un bloque `push`. Esto podría ser:
    - Un `copy/deep` interno del bloque de `push` que serializa `font!` a `object!`
    - El parser del dialecto Draw en GTK que no reconoce `font!` dentro de sub-bloques
    - Una interacción entre `compose` y el procesamiento interno de `push`
 
-3. **La documentación oficial no incluye `font` en la lista de estado que `push` preserva** (solo "transformations, clipping region, and pen settings"), lo que sugiere que es un caso no implementado, no un bug de regresión.
+   Hay que verificar si este problema persiste con Red ≥ 0.6.5 en Linux/GTK.
 
 **Workaround actual en QTorres:**
 
@@ -178,23 +180,15 @@ Funciona correctamente. Cada item resetea todo el estado Draw que necesita, elim
 **Plan de resolución (3 niveles):**
 
 **Nivel 1 — Mantener workaround actual (ahora):**
-El reset manual en `render-fp-item` es correcto y funcional. No requiere cambios.
+El reset manual en `render-fp-item` es correcto y funcional. No requiere cambios inmediatos.
 
-**Nivel 2 — Mejorar encapsulación del workaround (próxima refactorización):**
-- Extraer una función `reset-draw-state` que encapsule el reset de `pen`, `fill-pen`, `line-width` y `font`.
-- Usarla al inicio de cada función `render-*` que emita comandos `text`/`font`.
-- Esto centraliza el conocimiento de "qué estado hay que resetear" en un solo lugar.
+**Nivel 2 — Verificar el fix upstream en GTK (próximo paso):**
+- Actualizar el binario de Red a ≥ 0.6.5 (que incluye el fix de red/red#5134).
+- Ejecutar los tests de reproducción (abajo) en Linux/GTK.
+- Si `push` restaura `font` correctamente en GTK → pasar a Nivel 3.
+- Si `font!` sigue llegando como `make object! []` en GTK → documentar como bug GTK-específico separado y mantener el workaround.
 
-```red
-; Propuesta:
-reset-draw-state: func [cmds] [
-    append cmds compose [pen 0.0.0  fill-pen off  line-width 1  font (fp-black-font)]
-]
-```
-
-**Nivel 3 — Migrar a `push`/`pop` cuando Red lo soporte (upstream):**
-- Monitorizar [red/red#5134](https://github.com/red/red/issues/5134) para el fix.
-- Cuando se resuelva, verificar que `font` se preserva con un test.
+**Nivel 3 — Migrar a `push`/`pop` (cuando se verifique que funciona en GTK):**
 - Refactorizar `render-fp-panel` al patrón canónico:
   ```red
   foreach item model/front-panel [

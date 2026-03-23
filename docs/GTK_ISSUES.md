@@ -78,6 +78,22 @@ Cuando Red migre a 64-bit, este problema desaparece. QTorres debe seguir ese roa
 
 ---
 
+### GTK-010: `text` en Draw usa baseline como Y en vez de top-left
+
+**Severidad:** Media
+**Impacto en QTorres:** El texto en el Front Panel aparece desplazado ~5px hacia arriba en Linux respecto a Windows. Afecta a todos los comandos `text` en Draw dialect.
+
+**Descripción:**
+En Linux/GTK (Cairo), el comando `text x y "..."` del Draw dialect posiciona el texto con el punto Y en la **baseline** (línea base de la tipografía). En Windows/GDI, Y es la esquina superior izquierda del glyph box. La diferencia es aproximadamente la mitad del tamaño de fuente (~5px con size 11).
+
+**Workaround temporal:** Constante `fp-text-dy` en `panel.red`:
+```red
+fp-text-dy: either system/platform = 'Linux [8] [0]
+```
+Se suma a la coordenada Y de cada comando `text` en `render-fp-item`.
+
+---
+
 ## Estado de las contribuciones
 
 | Bug | Issue en red/red | Estado |
@@ -91,6 +107,7 @@ Cuando Red migre a 64-bit, este problema desaparece. QTorres debe seguir ese roa
 | GTK-007 Modal pierde foco teclado | — | Pendiente de crear |
 | GTK-008 `request-file/save` abre diálogo de carpetas | — | Workaround: diálogo VID propio |
 | GTK-009 `request-file` no permite controlar tamaño | — | Posible: file browser VID propio |
+| GTK-010 `text` Y es baseline en GTK vs top en Windows | [#5678](https://github.com/red/red/issues/5678) CLOSED | Workaround: `fp-text-dy` en panel.red — eliminar cuando se actualice red-view |
 
 ---
 

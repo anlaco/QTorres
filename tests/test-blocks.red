@@ -4,7 +4,7 @@ do %../src/graph/blocks.red
 
 suite "blocks — registro"
 
-assert "registra 17 bloques (8 originales + 9 booleanos)" (17 = length? block-registry)
+assert "registra 23 bloques (8 originales + 9 booleanos + 6 string)" (23 = length? block-registry)
 assert "const está en el registro"     (not none? find-block 'const)
 assert "add está en el registro"       (not none? find-block 'add)
 assert "find-block devuelve none para bloques inexistentes" (none? find-block 'nonexistent)
@@ -73,3 +73,41 @@ suite "blocks — booleanos: emit"
 
 assert "and-op emit es [result: a and b]"  ([result: a and b] = b-and/emit)
 assert "not-op emit es [result: not a]"    ([result: not a]   = b-not/emit)
+
+suite "blocks — string: registro"
+
+assert "str-const está en el registro"     (not none? find-block 'str-const)
+assert "str-control está en el registro"   (not none? find-block 'str-control)
+assert "str-indicator está en el registro" (not none? find-block 'str-indicator)
+assert "concat está en el registro"        (not none? find-block 'concat)
+assert "str-length está en el registro"    (not none? find-block 'str-length)
+assert "to-string está en el registro"     (not none? find-block 'to-string)
+
+suite "blocks — string: tipos de puertos"
+
+b-sc:  find-block 'str-const
+b-cat: find-block 'concat
+b-len: find-block 'str-length
+b-ts:  find-block 'to-string
+
+sc-out1:  first b-sc/outputs
+cat-in1:  first b-cat/inputs
+cat-out1: first b-cat/outputs
+len-in1:  first b-len/inputs
+len-out1: first b-len/outputs
+ts-in1:   first b-ts/inputs
+ts-out1:  first b-ts/outputs
+
+assert "str-const: output es tipo string"   ('string = sc-out1/type)
+assert "concat: input a es tipo string"     ('string = cat-in1/type)
+assert "concat: output es tipo string"      ('string = cat-out1/type)
+assert "str-length: input es tipo string"   ('string = len-in1/type)
+assert "str-length: output es tipo number"  ('number = len-out1/type)
+assert "to-string: input es tipo number"    ('number = ts-in1/type)
+assert "to-string: output es tipo string"   ('string = ts-out1/type)
+
+suite "blocks — string: emit"
+
+assert "concat emit es [result: rejoin [a b]]"             ([result: rejoin [a b]]        = b-cat/emit)
+assert "str-length emit es [result: to-float length? a]"   ([result: to-float length? a]  = b-len/emit)
+assert "to-string emit es [result: form a]"                ([result: form a]              = b-ts/emit)

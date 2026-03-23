@@ -168,46 +168,38 @@ qvi-diagram: [
 5. Cerrar el Issue cuando esté completo (`gh issue close N --repo anlaco/QTorres`)
 
 ### Orden de los Issues (backlog)
-Trabajar siempre en orden de Fase. No empezar Fase 1 sin completar Fase 0.
+Trabajar siempre en orden de Fase. No empezar una fase sin completar la anterior.
 
-**Fase 0 — Spike técnico ✅ COMPLETADA (Issues #1-#4 CERRADOS)**
+**Fase 0 — Spike técnico ✅ COMPLETADA**
 
-**Fase 1 — Beta funcional (Issues #5-#13, #20-#22, #26):**
-- #20 Borrar wire/nodo con Delete ← EMPEZAR AQUÍ (edición básica)
-- #21 Renombrar nodo con doble clic
-- #22 Identidad visual: diseño de bloques moderno
-- #5 Procesador dialecto block-def
-- #6 Topological-sort
-- #7 bind-emit
-- #8 Compilador genera Red/View (DT-009)
-- #9 save-vi y load-vi
-- #10 Runner en memoria
-- #11 Canvas modular
-- #12 Front Panel modular
-- #13 Conectar módulos en qtorres.red
-- #26 ⚠️ IMPORTANTE: .qvi generado — set-path bug + formato legible (bug funcional standalone + coherencia)
+**Fase 1 — Beta funcional ✅ COMPLETADA**
+- Issues cerrados: #6 (renombrar nodo), #7 (Front Panel), #8 (conectar módulos), #26 (.qvi formato)
+- Identidad visual: especificación en `docs/visual-spec.md` (documento vivo, se aplica progresivamente)
 
-**Fase 2 — Tipos de datos y estructuras (Issues #15-#17, #23-#25, #27-#28):**
-- #23 Tipo booleano
-- #24 Tipo string
-- #25 Array 1D
-- Cluster (issue pendiente de crear)
-- #27 Waveform chart y graph
-- #28 Front Panel standalone visualmente fiel al canvas (requiere #12)
-- #15 While Loop
-- #16 For Loop
-- #17 Case Structure
+**Fase 2 — Tipos de datos y estructuras (orden decidido 2026-03-22):**
+1. ~~#9 Tipo booleano~~ ✅
+2. #10 Tipo string ← SIGUIENTE
+3. #14 While Loop
+4. #15 For Loop
+5. #11 Array 1D
+6. #16 Case Structure
+7. #12 Cluster
+8. #13 Waveform chart y graph
+9. #28 Front Panel standalone (puede esperar)
 
-**Fase 3 — Sub-VIs y extensibilidad (Issues #18-#19):**
-- #18 Sub-VI con connector pane
-- #19 Librería .qlib
+Estrategia QA: tests con cada feature nueva, no sesión QA dedicada.
+Spec visual: cada tipo implementa su aspecto según `docs/visual-spec.md`.
 
-**Fase 4 — Hardware (issues pendientes de crear):**
-- SCPI sobre TCP/IP (Keysight por red)
-- SCPI sobre USB/USBTMC (Keysight por USB)
-- Puerto serie RS-232/RS-485 (Arduino, ESP32)
-- TCP/IP genérico (Modbus TCP, protocolos propios)
-- DAQ analógico (comedi/libcomedi)
+**Fase 3 — Sub-VIs y extensibilidad:**
+- #17 Sub-VI con connector pane
+- #18 Librería .qlib
+
+**Fase 4 — Hardware:**
+- #19 SCPI sobre TCP/IP (Keysight por red)
+- #20 SCPI sobre USB/USBTMC (Keysight por USB)
+- #21 Puerto serie RS-232/RS-485 (Arduino, ESP32)
+- #22 TCP/IP genérico (Modbus TCP, protocolos propios)
+- #23 DAQ analógico (comedi/libcomedi)
 
 ## Comandos útiles
 

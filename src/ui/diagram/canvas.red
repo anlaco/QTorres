@@ -128,6 +128,7 @@ make-diagram-model: func [] [
         drag-node:     none
         drag-fp:       none
         drag-off:      none
+        drag-is-label: false
         wire-src:      none
         wire-port:     none
         mouse-pos:     none

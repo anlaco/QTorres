@@ -15,8 +15,8 @@ fp-selected-color:   0.175.210
 fp-border-color:     30.60.120
 fp-item-width:       120
 fp-item-height:      40
-fp-str-height:       24             ; altura del campo string (solo el body, sin label)
-fp-label-above:      18             ; píxeles que el label va por encima del body
+fp-label-height:     20
+fp-label-above:      18
 fp-run-button-height: 30
 
 fp-color?: func [item-type] [
@@ -165,28 +165,24 @@ fp-black-font: make font! [color: 0.0.0]
 ; Genera segmentos de línea discontinua a lo largo de un rectángulo
 dashed-box: func [x1 y1 x2 y2 dash gap /local cmds pos lim step] [
     cmds: copy []
-    ; Top edge (left to right)
     pos: x1  lim: x2
     while [pos < lim] [
         step: min dash (lim - pos)
         append cmds compose [line (as-pair pos y1) (as-pair (pos + step) y1)]
         pos: pos + dash + gap
     ]
-    ; Right edge (top to bottom)
     pos: y1  lim: y2
     while [pos < lim] [
         step: min dash (lim - pos)
         append cmds compose [line (as-pair x2 pos) (as-pair x2 (pos + step))]
         pos: pos + dash + gap
     ]
-    ; Bottom edge (right to left)
     pos: x2  lim: x1
     while [pos > lim] [
         step: min dash (pos - lim)
         append cmds compose [line (as-pair pos y2) (as-pair (pos - step) y2)]
         pos: pos - dash - gap
     ]
-    ; Left edge (bottom to top)
     pos: y2  lim: y1
     while [pos > lim] [
         step: min dash (pos - lim)
@@ -196,40 +192,43 @@ dashed-box: func [x1 y1 x2 y2 dash gap /local cmds pos lim step] [
     cmds
 ]
 
-render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col cx cy lx ly bh lw] [
+render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col cx cy field-y field-h lx ly lw bh] [
     cmds: copy []
-
-    ; ── Reset estado Draw — evita leak de font/pen/fill-pen del item anterior ───────────
+    ; Reset estado Draw — evita leak de font/pen/fill-pen del item anterior
     append cmds compose [pen 0.0.0  fill-pen off  line-width 1  font (fp-black-font)]
 
-    ; ── Label externa ────────────────────────────────────────────────────────────────────
+    ; ── Label encima del body (todos los tipos) ───────────────────────────────────────────
     if all [item/label  object? item/label  item/label/visible] [
-        lx: item/offset/x + item/label/offset/x
-        ly: item/offset/y + item/label/offset/y - fp-label-above
+        lx: item/offset/x
+        ly: item/offset/y - fp-label-above
+        if pair? item/label/offset [
+            lx: lx + item/label/offset/x
+            ly: ly + item/label/offset/y
+        ]
         append cmds compose [
-            text (as-pair lx ly) (item/label/text)
+            text (as-pair lx ly) (any [item/label/text ""])
         ]
     ]
 
-    ; ── Body ────────────────────────────────────────────────────────────────────────────
+    ; ── Body ─────────────────────────────────────────────────────────────────────────────
     either item/data-type = 'string [
         ; String: campo blanco a partir de item/offset
         either item/type = 'str-control [
             append cmds compose [
                 pen 80.80.80  line-width 1  fill-pen 255.255.255
                 box (as-pair item/offset/x item/offset/y)
-                   (as-pair (item/offset/x + fp-item-width) (item/offset/y + fp-str-height)) 2
+                   (as-pair (item/offset/x + fp-item-width) (item/offset/y + fp-label-height)) 2
             ]
         ][
             append cmds compose [
                 pen 80.80.80  line-width 2  fill-pen 245.245.245
                 box (as-pair item/offset/x item/offset/y)
-                   (as-pair (item/offset/x + fp-item-width) (item/offset/y + fp-str-height)) 2
+                   (as-pair (item/offset/x + fp-item-width) (item/offset/y + fp-label-height)) 2
             ]
         ]
         append cmds compose [
-            fill-pen 20.20.20  pen off
-            text (as-pair (item/offset/x + 4) (item/offset/y + 5)) (fp-value-text item)
+            pen off  fill-pen 20.20.20
+            text (as-pair (item/offset/x + 4) (item/offset/y + 4)) (fp-value-text item)
         ]
     ][
         ; Numeric / Boolean: caja de color
@@ -262,24 +261,26 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
         ]
     ]
 
-    ; ── Selección: marco alrededor del body + recuadro rallado en label ───────────────────
-    bh: either item/data-type = 'string [fp-str-height] [fp-item-height]
+    ; ── Selección: marcos rallados en body y label ────────────────────────────────────────
+    bh: either item/data-type = 'string [fp-label-height] [fp-item-height]
     if selected? [
-        ; Marco rallado alrededor del body
         append cmds compose [pen (fp-selected-color)  line-width 2  fill-pen off]
         append cmds dashed-box
             (item/offset/x - 3) (item/offset/y - 3)
             (item/offset/x + fp-item-width + 3) (item/offset/y + bh + 3)
             6 4
-        append cmds [line-width 1]
-        ; Marco rallado alrededor del label
         if all [item/label  object? item/label  item/label/visible] [
-            lx: item/offset/x + item/label/offset/x
-            ly: item/offset/y + item/label/offset/y - fp-label-above
+            lx: item/offset/x
+            ly: item/offset/y - fp-label-above
+            if pair? item/label/offset [
+                lx: lx + item/label/offset/x
+                ly: ly + item/label/offset/y
+            ]
             lw: max 30 (7 * length? any [item/label/text ""])
             append cmds compose [pen (fp-selected-color)  line-width 1  fill-pen off]
             append cmds dashed-box (lx - 2) (ly - 2) (lx + lw + 2) (ly + 15) 4 3
         ]
+        append cmds [line-width 1]
     ]
     cmds
 ]
@@ -307,15 +308,19 @@ hit-fp-zone: func [model mx my /local item lx ly lw bh] [
     foreach item (reverse copy model/front-panel) [
         ; Zona de label — misma fórmula que render
         if all [item/label  object? item/label  item/label/visible] [
-            lx: item/offset/x + item/label/offset/x
-            ly: item/offset/y + item/label/offset/y - fp-label-above
+            lx: item/offset/x
+            ly: item/offset/y - fp-label-above
+            if pair? item/label/offset [
+                lx: lx + item/label/offset/x
+                ly: ly + item/label/offset/y
+            ]
             lw: max 30 (7 * length? any [item/label/text ""])
             if all [mx >= lx  mx <= (lx + lw)  my >= (ly - 2)  my <= (ly + 14)] [
                 return reduce [item 'label]
             ]
         ]
         ; Zona de body
-        bh: either item/data-type = 'string [fp-str-height] [fp-item-height]
+        bh: either item/data-type = 'string [fp-label-height] [fp-item-height]
         if all [
             mx >= item/offset/x  mx <= (item/offset/x + fp-item-width)
             my >= item/offset/y  my <= (item/offset/y + bh)
@@ -476,28 +481,31 @@ render-panel: func [model panel-width panel-height /local panel-face] [
         draw:    render-fp-panel model panel-width panel-height
         actors:  make object! [
 
-            on-down: func [face event /local mx my zone item w h] [
-                mx: event/offset/x
-                my: event/offset/y
+            on-down: func [face event /local mouse-x mouse-y zone item w h lbl-dx lbl-dy] [
+                mouse-x: event/offset/x
+                mouse-y: event/offset/y
                 w: face/extra/size/x
                 h: face/extra/size/y
-                zone: hit-fp-zone face/extra mx my
+                zone: hit-fp-zone face/extra mouse-x mouse-y
 
                 either zone [
                     item: zone/1
                     face/extra/selected-fp: item
                     face/extra/drag-fp:     item
                     either zone/2 = 'label [
-                        ; Arrastrar solo la label
-                        ; drag-off = distancia del ratón a la posición absoluta del label
                         face/extra/drag-is-label: true
+                        lbl-dx: 0
+                        lbl-dy: 0
+                        if pair? item/label/offset [
+                            lbl-dx: item/label/offset/x
+                            lbl-dy: item/label/offset/y
+                        ]
                         face/extra/drag-off: as-pair
-                            (mx - item/offset/x - item/label/offset/x)
-                            (my - item/offset/y - item/label/offset/y + fp-label-above)
+                            (mouse-x - item/offset/x - lbl-dx)
+                            (mouse-y - item/offset/y - lbl-dy + fp-label-above)
                     ][
-                        ; Arrastrar el body — label sigue automáticamente (recalcula en render)
                         face/extra/drag-is-label: false
-                        face/extra/drag-off: as-pair (mx - item/offset/x) (my - item/offset/y)
+                        face/extra/drag-off: as-pair (mouse-x - item/offset/x) (mouse-y - item/offset/y)
                     ]
                     face/draw: render-fp-panel face/extra w h
                 ][
@@ -506,24 +514,22 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                 ]
             ]
 
-            on-over: func [face event /local mx my w h item] [
-                mx: event/offset/x
-                my: event/offset/y
+            on-over: func [face event /local mouse-x mouse-y w h item] [
+                mouse-x: event/offset/x
+                mouse-y: event/offset/y
                 w: face/extra/size/x
                 h: face/extra/size/y
 
                 if all [face/extra/drag-fp  face/extra/drag-off  event/down?] [
                     item: face/extra/drag-fp
                     either face/extra/drag-is-label [
-                        ; Solo mueve el label: recalcula el delta respecto al body
                         item/label/offset: as-pair
-                            (mx - face/extra/drag-off/x - item/offset/x)
-                            (my - face/extra/drag-off/y - item/offset/y + fp-label-above)
+                            (mouse-x - face/extra/drag-off/x - item/offset/x)
+                            (mouse-y - face/extra/drag-off/y - item/offset/y + fp-label-above)
                     ][
-                        ; Mueve el body — label sigue automáticamente en render
                         item/offset: as-pair
-                            (mx - face/extra/drag-off/x)
-                            (my - face/extra/drag-off/y)
+                            (mouse-x - face/extra/drag-off/x)
+                            (mouse-y - face/extra/drag-off/y)
                     ]
                     face/draw: render-fp-panel face/extra w h
                 ]
@@ -726,12 +732,12 @@ compile-panel: func [model /local cmds item ctrl-field-name ind-var-name] [
 ; ══════════════════════════════════════════════════════════
 make-demo-model: func [] [
     make object! [
-        front-panel:  copy []
-        selected-fp:  none
-        drag-fp:      none
-        drag-off:     none
+        front-panel:   copy []
+        selected-fp:   none
+        drag-fp:       none
+        drag-off:      none
         drag-is-label: false
-        size:         400x300
+        size:          400x300
     ]
 ]
 

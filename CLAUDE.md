@@ -29,10 +29,10 @@ QTorres/
 ├── docs/
 │   ├── arquitectura.md     # Arquitectura de módulos
 │   ├── plan.md             # Plan por fases
-│   ├── decisiones.md       # Decisiones técnicas (DT-001 a DT-024)
+│   ├── decisiones.md       # Decisiones técnicas (DT-001 a DT-026)
 │   ├── retos.md            # Riesgos y dificultades
 │   └── tipos-de-fichero.md # Mapeo LabVIEW → QTorres
-│   └── labview-comportamiento.md # Notas de arquitectura: comportamiento de labels en LabVIEW
+│   └── labview-comportamiento.md # Arquitectura de LabVIEW: renderizado, modos, estilos, widgets custom
 ├── src/
 │   ├── qtorres.red         # Punto de entrada (stub)
 │   ├── graph/
@@ -71,6 +71,16 @@ El objetivo es implementar `src/` de forma modular.
 **Próximo paso: Fase 1.** Empezar por Issue #22 (identidad visual) o Issue #20 (borrar wire/nodo).
 
 ## Decisiones técnicas clave
+
+### DT-026 — CRÍTICO: NO usar widgets nativos en el editor del Front Panel
+
+**El editor (panel.red) renderiza TODO con Draw dialect sobre `base` face. NUNCA poner faces reales (`field`, `button`, `slider`) en el `pane` del canvas del editor.**
+
+Por qué: Red/View usa widgets nativos del SO. Un `field` en el `pane` de un `base` intercepta TODOS los eventos de ratón en su área — hace imposible drag, resize, select y delete. Se intentó en 3 rondas de fixes sin éxito. LabVIEW usa un engine de renderizado propio (por eso puede hacerlo) — Red/View no.
+
+- Edición de valores por defecto: usar `view/no-wait` con diálogo (patrón ya establecido en panel.red)
+- Edición inline con cursor: **Fase 2** — widget Draw-based propio (ver DT-026 en decisiones.md)
+- En el `.qvi` compilado: sí se pueden usar `field` nativos (no hay editor compitiendo)
 
 ### DT-009 (la más importante para el compilador)
 El compilador genera **Red/View completo** para VIs principales, NO código de terminal.
@@ -229,5 +239,4 @@ Cubre sintaxis core, View, Draw, VID, Parse, patrones idiomáticos y gotchas.
 - Formato de ficheros: `docs/tipos-de-fichero.md`
 - Riesgos conocidos: `docs/retos.md`
 - Bugs GTK Linux: `docs/GTK_ISSUES.md`
-- **Comportamiento de LabVIEW:** `docs/labview-comportamiento.md` — **leer antes de tomar decisiones de arquitectura sobre UI, labels y edición de elementos**
-- **Especificación visual:** `docs/visual-spec.md` — **leer antes de implementar cualquier elemento visual** (documento vivo, crece con cada feature)
+- **Arquitectura LabVIEW:** `docs/labview-comportamiento.md` — **leer antes de tomar decisiones sobre renderizado de widgets, modos edit/run, o controles custom**

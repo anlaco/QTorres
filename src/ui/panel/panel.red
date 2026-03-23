@@ -97,7 +97,13 @@ make-fp-item: func [
     ; Name: usar explícito, o generar automáticamente
     item/name: any [select spec 'name  rejoin [form item/type "_" item/id]]
 
+    ; Offset: usar explícito o default
+    item/offset: any [select spec 'offset  0x0]
+
     ; Label: acepta bloque [text: "..." ...] o string
+    ; label/offset = DELTA desde la posición por defecto.
+    ; Por defecto 0x0: label aparece fp-label-above px encima del body.
+    ; La posición real se calcula en render: (item/offset/x + delta/x, item/offset/y - fp-label-above + delta/y)
     lbl-spec: select spec 'label
     item/label: case [
         block? lbl-spec [
@@ -129,9 +135,6 @@ make-fp-item: func [
             ]
         ]
     ]
-
-    ; Offset: usar explícito o default
-    item/offset: any [select spec 'offset  0x0]
 
     item
 ]
@@ -466,6 +469,7 @@ open-fp-palette: func [face x y] [
 
 render-panel: func [model panel-width panel-height /local panel-face] [
     model/size: as-pair panel-width panel-height
+    if none? select model 'drag-is-label [model/drag-is-label: false]
 
     panel-face: make face! [
         type:    'base
@@ -656,7 +660,7 @@ save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
             id: (item/id)
             type: (item/type)
             name: (item/name)
-            label: [text: (item/label/text) visible: (item/label/visible)]
+            label: [text: (item/label/text) visible: (item/label/visible) offset: (item/label/offset)]
             default: (item/default)
             offset: (item/offset)
         ]
@@ -669,29 +673,52 @@ save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
 ; ══════════════════════════════════════════════════════════
 ; COMPILE PANEL — generate VID layout for .qvi executable (Phase 5)
 ; ══════════════════════════════════════════════════════════
-gen-panel-var-name: func [item] [
-    to-word rejoin ["f" capitalize item/name]
+gen-panel-var-name: func [item /local s fc] [
+    s: copy item/name
+    if not empty? s [
+        fc: uppercase copy/part s 1
+        s: rejoin [fc  skip s 1]
+    ]
+    to-word rejoin ["f" s]
 ]
 
-gen-indicator-var-name: func [item] [
-    to-word rejoin ["l" capitalize item/name]
+gen-indicator-var-name: func [item /local s fc] [
+    s: copy item/name
+    if not empty? s [
+        fc: uppercase copy/part s 1
+        s: rejoin [fc  skip s 1]
+    ]
+    to-word rejoin ["l" s]
 ]
 
 compile-panel: func [model /local cmds item ctrl-field-name ind-var-name] [
     cmds: copy []
 
     foreach item model/front-panel [
-        either item/type = 'control [
-            ctrl-field-name: gen-panel-var-name item
-            append cmds compose [
-                label (item/label/text)
-                (to-set-word ctrl-field-name) field 120 (form item/default)
+        case [
+            find [control str-control] item/type [
+                ctrl-field-name: gen-panel-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ctrl-field-name) field 120 (form item/default)
+                    return
+                ]
             ]
-        ][
-            ind-var-name: gen-indicator-var-name item
-            append cmds compose [
-                label (item/label/text)
-                (to-set-word ind-var-name) text 120 (form item/default)
+            item/type = 'bool-control [
+                ctrl-field-name: gen-panel-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ctrl-field-name) check (item/label/text) (item/default)
+                    return
+                ]
+            ]
+            true [  ; indicator, bool-indicator, str-indicator
+                ind-var-name: gen-indicator-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ind-var-name) text 120 (form item/default)
+                    return
+                ]
             ]
         ]
     ]
@@ -719,19 +746,19 @@ add-demo-items: func [model /local ctrl1 ctrl2 ind1] [
         id: 1  type: 'control  name: "ctrl_1"
         label: [text: "A" visible: true]
         default: 5.0
-        offset: 20x20
+        offset: 20x50
     ]
     ctrl2: make-fp-item compose [
         id: 2  type: 'control  name: "ctrl_2"
         label: [text: "B" visible: true]
         default: 3.0
-        offset: 20x90
+        offset: 20x120
     ]
     ind1: make-fp-item compose [
         id: 3  type: 'indicator  name: "ind_1"
         label: [text: "Resultado" visible: true]
         default: 0.0
-        offset: 20x160
+        offset: 20x190
     ]
     append model/front-panel ctrl1
     append model/front-panel ctrl2

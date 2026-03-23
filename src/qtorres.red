@@ -46,10 +46,11 @@ show-save-dialog: func [model [object!] /local dlg default-name] [
 ; ── Modelo unificado BD + FP ─────────────────────────────────────
 app-model: make-diagram-model
 app-model: make app-model [
-    name:       "untitled"
-    size:       380x490
-    canvas-ref: none        ; face del BD — para refrescar desde panel.red
-    panel-ref:  none        ; face del FP — para refrescar desde canvas.red
+    name:          "untitled"
+    size:          380x490
+    canvas-ref:    none        ; face del BD — para refrescar desde panel.red
+    panel-ref:     none        ; face del FP — para refrescar desde canvas.red
+    drag-is-label: false
 ]
 
 ; ── save-vi-full: serializa BD + FP juntos ───────────────────────

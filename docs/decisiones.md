@@ -759,3 +759,79 @@ fichero usuario → do (cargado en runtime, p.ej. .qvi)
 - El orden de carga está distribuido en 7 ficheros (no en un único manifiesto). El comentario en `qtorres.red` documenta la cadena completa.
 - Añadir un módulo requiere editar 2 ficheros (el predecesor y el nuevo).
 - Tests que hacen `do %modulo.red` cargan la cadena completa (más de lo necesario), pero es inocuo porque las definiciones de funciones son idempotentes y el código demo está protegido con guards `if find form system/options/script`.
+
+---
+
+## DT-026: Widgets Draw-based — renderizado custom sobre `base` face
+
+**Fecha:** 2026-03-22
+**Estado:** Adoptada
+
+**Contexto:** Al implementar el String Control en el Front Panel (Issue #10), se intentó usar faces reales de Red/View (`field`) como widgets dentro del editor. Esto provocó conflictos irresolubles:
+
+- Un `field` en el `pane` de un `base` intercepta TODOS los eventos de ratón en su área, imposibilitando drag, resize y delete del control.
+- Red/View usa **widgets nativos del SO** (Win32/GTK). No se pueden personalizar visualmente más allá de lo que el SO permite.
+- En GTK/Linux, manipular faces hijas del pane causa crashes (`gtk_widget_grab_focus` assertion).
+
+Se investigó cómo resuelven esto herramientas similares:
+
+| Herramienta | Arquitectura de widgets |
+|-------------|------------------------|
+| **LabVIEW** | Motor de renderizado custom propio. Los controles NO son widgets nativos. El mismo objeto existe en edit y run mode; solo cambia el enrutamiento de eventos. |
+| **Pure Data / Max** | Mismo objeto, mode flag. Edit mode = mover. Run mode = interactuar. |
+| **Node-RED** | Separación total: editor (canvas) ≠ runtime (dashboard web). |
+| **myOpenLab** | Formas simples en editor, widgets Swing reales en runtime. |
+
+**Dato clave verificado:** Red/View usa widgets nativos del SO (confirmado en el blog de Red 0.6.0: *"Red relies on native widgets"*). Solo `base` + `draw` ofrece renderizado custom. Esto significa que QTorres NO puede usar la misma face en ambos modos como hace LabVIEW, porque LabVIEW tiene un engine propio.
+
+**Decisión:** Todos los controles del Front Panel se renderizan con **Draw dialect sobre `base` face** en el editor. En el código compilado (.qvi), el compilador genera la UI apropiada para cada control (puede ser VID, puede ser `base` + Draw, según el tipo).
+
+**Arquitectura de dos modos:**
+
+| Aspecto | Modo edición (IDE) | Modo ejecución (.qvi compilado) |
+|---------|--------------------|---------------------------------|
+| Renderizado | Draw puro sobre `base` | Mix: `field` nativos para input simple, `base` + Draw para controles complejos (gauges, gráficas, knobs) |
+| Interacción | Drag, resize, select, delete, editar label, editar default vía diálogo | Operar controles: escribir valores, clicar botones, mover sliders |
+| Conflicto eventos | Ninguno — todo es Draw, un solo `base` | Ninguno — no hay editor compitiendo por eventos |
+| Personalización visual | Total (Draw permite cualquier forma/color) | Total para controles Draw, limitada para nativos |
+
+**Formato de control — tres ejes independientes (inspirado en LabVIEW):**
+
+```red
+control [
+    id: 1
+    type: 'numeric
+    representation: 'DBL     ; tipo de dato: I8, I16, I32, U8, U16, U32, SGL, DBL
+    format: [
+        notation: 'decimal   ; 'decimal, 'hex, 'octal, 'binary, 'scientific
+        digits: 3            ; decimales a mostrar
+        prefix: ""           ; ej. "0x" para hex
+    ]
+    name: "ctrl_1"
+    label: [text: "Voltage" visible: true offset: 0x0]
+    default: 5.0
+]
+```
+
+- **representation** → afecta al tipo de dato del wire y del compilador
+- **format** → afecta solo al renderizado visual (cómo se muestra el valor)
+- **value** → dato actual en runtime
+
+**Widgets custom a largo plazo:**
+
+El patrón Draw-based permite diseñar widgets propios sin límite:
+1. Cada widget es una función `render-widget: func [item] [...]` que retorna un bloque Draw
+2. Cada widget define sus zonas de hit-testing
+3. En runtime, el compilador genera el código apropiado (Draw o nativo según convenga)
+4. Cuando haya 3-4 tipos de widgets, extraer patrón común a `src/ui/widgets/`
+
+**Alternativas descartadas:**
+
+| Alternativa | Por qué se descartó |
+|-------------|---------------------|
+| Faces reales (`field`) en el editor | Conflicto de eventos irreconciliable. Un `field` en pane captura clics e impide drag/select/delete. |
+| Intercambiar actores en faces reales | Red/View usa widgets nativos del SO. No es como LabVIEW que tiene engine propio. Un `field` nativo sigue capturando eventos aunque cambies actors. |
+| Librería `red-spaces` como dependencia | Framework completo en alpha, rompe cero-dependencias, obliga a adoptar su dialecto VID/S. |
+| Librería de widgets propia ahora | Prematuro. Primero implementar widgets concretos, después extraer abstracción. |
+
+**Referencia:** Ver `docs/labview-comportamiento.md` para detalles del modelo de LabVIEW.

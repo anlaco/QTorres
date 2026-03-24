@@ -1,5 +1,25 @@
 # QTorres — Contexto para Claude Code
 
+> Última actualización: 2026-03-24
+
+## Reglas absolutas — NUNCA violar
+
+Estas reglas son inviolables. No importa qué Issue estés implementando ni qué parezca razonable.
+**Si alguna de tus acciones viola cualquiera de estas reglas, PARA y replantea.**
+
+1. **NUNCA** poner faces nativas (`field`, `button`, `slider`) en el `pane` del canvas del editor. Renderizar TODO con Draw sobre `base`. (DT-026)
+2. **PROHIBIDO** `do` con bloques dinámicos, `load` de strings, o `compose` en runtime del `.qvi` generado. El código generado debe compilar con `red -c`. (DT-028)
+3. **Todo** en Red-Lang, sin excepciones. Sin dependencias externas. (DT-001)
+4. **NUNCA** usar herencia profunda (A → B → C). Composición + prototipos + constructores siempre. (DT-023)
+5. **NUNCA** implementar zoom en el canvas. (visual-spec 1.1)
+6. **NUNCA** permitir múltiples wires a un puerto de entrada. (visual-spec 5.2)
+7. **NUNCA** generar strings intermedios en el compilador. Siempre manipular bloques Red. (DT-008)
+8. **NUNCA** empezar una fase sin completar la anterior. Respetar el orden del backlog.
+9. **SIEMPRE** implementar dentro de los ficheros existentes en `src/`. No crear módulos nuevos sin aprobación explícita.
+10. **SIEMPRE** ejecutar los tests (`red-cli tests/run-all.red`) tras cada cambio. No commitear con tests rotos.
+11. **SIEMPRE** consultar el skill de Red-Lang (`skills/red-lang/SKILL.md`) antes de escribir código Red, especialmente Draw y View.
+12. **SIEMPRE** respetar la separación de responsabilidades entre módulos (ver sección "Problemas conocidos de arquitectura").
+
 ## Qué es este proyecto
 
 QTorres es una alternativa open source a LabVIEW construida íntegramente en Red-Lang. El usuario construye programas arrastrando bloques y conectándolos con wires, igual que en LabVIEW. Al guardar, QTorres genera un fichero `.qvi` con código Red/View completo que al ejecutarse muestra el Front Panel como una ventana, igual que LabVIEW.
@@ -24,51 +44,65 @@ Sin dependencias externas. Un solo binario. Funciona en Linux, Windows y macOS.
 
 ```
 QTorres/
-├── CLAUDE.md               # Este fichero
+├── CLAUDE.md               # Este fichero — contexto principal para IA
 ├── README.md
 ├── docs/
 │   ├── arquitectura.md     # Arquitectura de módulos
 │   ├── plan.md             # Plan por fases
-│   ├── decisiones.md       # Decisiones técnicas (DT-001 a DT-026)
+│   ├── decisiones.md       # Decisiones técnicas (DT-001 a DT-029)
+│   ├── PLANNING.md         # Decisiones pendientes críticas
 │   ├── retos.md            # Riesgos y dificultades
-│   └── tipos-de-fichero.md # Mapeo LabVIEW → QTorres
-│   └── labview-comportamiento.md # Arquitectura de LabVIEW: renderizado, modos, estilos, widgets custom
+│   ├── visual-spec.md      # Especificación visual (documento vivo)
+│   ├── tipos-de-fichero.md # Mapeo LabVIEW → QTorres
+│   ├── labview-comportamiento.md # Arquitectura LabVIEW: renderizado, modos, estilos
+│   └── GTK_ISSUES.md       # Bugs del backend GTK en Linux
 ├── src/
-│   ├── qtorres.red         # Punto de entrada (stub)
+│   ├── qtorres.red         # Punto de entrada + toolbar + ventana principal (211 líneas)
 │   ├── graph/
-│   │   ├── model.red       # Modelo: make-label, base-element, make-node, make-wire, gen-name (DT-022/023/024)
-│   │   └── blocks.red      # Registro de bloques + dialecto block-def (stub)
+│   │   ├── model.red       # Modelo: make-label, base-element, make-node, make-wire, gen-name (251 líneas)
+│   │   └── blocks.red      # Registro de bloques + dialecto block-def — 23 primitivas (244 líneas)
 │   ├── compiler/
-│   │   └── compiler.red    # Compilador (stub documentado)
+│   │   └── compiler.red    # Compilador: topo-sort, bind-emit, compile-body/diagram (336 líneas)
 │   ├── runner/
-│   │   └── runner.red      # Runner (stub documentado)
+│   │   └── runner.red      # Runner: ejecución en memoria con do (33 líneas)
 │   ├── io/
-│   │   └── file-io.red     # File I/O (stub documentado)
+│   │   └── file-io.red     # File I/O: serialize, format, save/load .qvi (298 líneas)
 │   └── ui/
 │       ├── diagram/
-│       │   └── canvas.red  # Block Diagram canvas (stub)
+│       │   └── canvas.red  # Block Diagram canvas: render, hit-test, eventos (856 líneas)
 │       └── panel/
-│           └── panel.red   # Front Panel (stub)
+│           └── panel.red   # Front Panel: render, hit-test, compile-panel (818 líneas)
+├── tests/
+│   ├── run-all.red         # Runner de tests automatizados
+│   ├── test-blocks.red     # Tests del registro de bloques (23 bloques, puertos, emit)
+│   ├── test-topo.red       # Tests de topological sort (lineal, diamante, vacío, ciclos)
+│   └── test-compiler.red   # Tests del compilador (bind-emit, compile-body, round-trip)
 ├── examples/
 │   ├── suma-basica.qvi     # Ejemplo de VI simple
 │   ├── suma-subvi.qvi      # Ejemplo de sub-VI
 │   └── programa-con-subvi.qvi
-├── red-cli                 # Permite ejecutar codigo de Red si GUI.
-└── red-view                # Permite probar codigo de red en GUI. Tambien permite ejecutar aplicaciones con view
+├── .github/workflows/      # CI: tests automáticos en push/PR a main
+├── red-cli                 # Ejecutar código Red sin GUI
+└── red-view                # Ejecutar código Red con GUI (View)
 ```
 
 ## Estado actual
 
-**Fase 0 completada.** `src/ui/diagram/canvas.red` implementa los 4 spikes (Issues #1-#4 cerrados):
-- Bloques arrastrables con drag & drop
-- Wires con routing de punto medio
-- Hit testing sobre bloques, puertos y wires
-- Stress test con 20 nodos y 15 wires fluido
+**Fase 0 ✅ COMPLETADA.** Spike técnico validado (Issues #1-#4 cerrados).
 
-**Los módulos `src/` son stubs documentados.** La arquitectura está diseñada pero sin implementar.
-El objetivo es implementar `src/` de forma modular.
+**Fase 1 ✅ COMPLETADA.** Pipeline end-to-end funcional:
+- Modelo de datos con composición (DT-022/023/024)
+- 23 bloques primitivos registrados (math, I/O, boolean, compare, string)
+- Compilador con topo-sort (Kahn) y generación Red/View
+- Runner en memoria, File I/O con round-trip, Front Panel con Draw
+- Tests automatizados + CI en GitHub Actions
 
-**Próximo paso: Fase 1.** Empezar por Issue #22 (identidad visual) o Issue #20 (borrar wire/nodo).
+**Fase 2 — EN PROGRESO.** Tipos de datos y estructuras de control:
+- ~~#9 Tipo booleano~~ ✅
+- ~~#10 Tipo string~~ ✅
+- #14 While Loop ← EN PROGRESO (rama sin pushear, shift register pendiente)
+
+**Próximo paso:** Completar Issue #14 (While Loop).
 
 ## Decisiones técnicas clave
 
@@ -137,6 +171,27 @@ Prototipo `base-element` + constructores `make-node`, `make-wire`. Patrón idiom
 `label/text` = texto visual libre, editable por el usuario, duplicados OK.
 Son independientes. El compilador usa `name`, la UI usa `label/text`.
 
+### DT-027 — CRÍTICO: Concurrencia cooperativa (rate/on-time)
+Red no tiene multihilo. QTorres simula concurrencia con timers de Red/View:
+- While Loop = timer (`face/rate` + `on-time`) que ejecuta una iteración por tick
+- Múltiples loops = múltiples timers independientes, Red despacha en round-robin
+- Event Structure = timer que comprueba cola de eventos
+- Notifiers = `object!` compartido entre callbacks
+- Fase 2: `do-events` intercalado. Fase 2.5: migrar a timers. Fase 3: notifiers.
+- **El código generado es agnóstico al modelo de concurrencia** — si Red añade actors/CSP, se reemplaza sin cambiar la arquitectura.
+
+### DT-028 — CRÍTICO: Compilabilidad (cero código dinámico)
+El `.qvi` generado **debe compilarse** con `red -c` a ejecutable nativo.
+- **PROHIBIDO** en código generado: `do` con bloques dinámicos, `load` de strings, `compose` en runtime
+- **PERMITIDO**: `view layout [...]` estático, funciones con nombre, `face/rate` + `on-time`
+- `compose` se ejecuta en el compilador de QTorres (al generar), NO en el `.qvi` generado
+
+### DT-029: Error handling progresivo
+- **Nivel 0 (Fase 2)**: Error nativo de Red — programa se para. Sin cables de error.
+- **Nivel 1 (Fase 3)**: `try/catch` por nodo en sub-VIs. Error se propaga por orden topológico.
+- **Nivel 2 (Fase 4)**: Error cluster completo — puertos `error-in`/`error-out`, wire amarillo, imprescindible para hardware.
+- El modelo de datos **ya permite** puertos de tipo `'error`. No hay deuda técnica por esperar.
+
 ### Formato completo del qvi-diagram
 ```red
 qvi-diagram: [
@@ -165,6 +220,7 @@ qvi-diagram: [
 1. Leer el Issue en GitHub (`gh issue view N --repo anlaco/QTorres`)
 2. Implementar en el módulo correspondiente de `src/`
 3. Verificar con los ejemplos de `examples/`
+4. Ejecutar los tests (`red-cli tests/run-all.red`) y verificar que pasan
 5. Cerrar el Issue cuando esté completo (`gh issue close N --repo anlaco/QTorres`)
 
 ### Orden de los Issues (backlog)
@@ -178,8 +234,8 @@ Trabajar siempre en orden de Fase. No empezar una fase sin completar la anterior
 
 **Fase 2 — Tipos de datos y estructuras (orden decidido 2026-03-22):**
 1. ~~#9 Tipo booleano~~ ✅
-2. #10 Tipo string ← SIGUIENTE
-3. #14 While Loop
+2. ~~#10 Tipo string~~ ✅
+3. #14 While Loop ← EN PROGRESO (rama sin pushear, shift register pendiente)
 4. #15 For Loop
 5. #11 Array 1D
 6. #16 Case Structure
@@ -207,14 +263,20 @@ Spec visual: cada tipo implementa su aspecto según `docs/visual-spec.md`.
 # Ejecutar un ejemplo
 red examples/suma-basica.qvi
 
+# Ejecutar tests automatizados
+red-cli tests/run-all.red
+
+# Ejecutar la aplicación completa
+red-view src/qtorres.red
+
 # Ver Issues pendientes
-gh issue list --repo anlaco/QTorres --label "fase-0"
+gh issue list --repo anlaco/QTorres --label "fase-2"
 
 # Ver un Issue concreto
-gh issue view 1 --repo anlaco/QTorres
+gh issue view 14 --repo anlaco/QTorres
 
 # Cerrar un Issue
-gh issue close 1 --repo anlaco/QTorres --comment "Implementado en src/ui/diagram/canvas.red"
+gh issue close 14 --repo anlaco/QTorres --comment "Implementado en src/..."
 ```
 
 ## Convenciones de código
@@ -240,3 +302,58 @@ Cubre sintaxis core, View, Draw, VID, Parse, patrones idiomáticos y gotchas.
 - Riesgos conocidos: `docs/retos.md`
 - Bugs GTK Linux: `docs/GTK_ISSUES.md`
 - **Arquitectura LabVIEW:** `docs/labview-comportamiento.md` — **leer antes de tomar decisiones sobre renderizado de widgets, modos edit/run, o controles custom**
+
+## Problemas conocidos de arquitectura
+
+> **Estas deudas técnicas son conocidas y aceptadas.** Se corregirán en refactorings planificados.
+> Mientras tanto, una IA NO debe agravar estos problemas al implementar nuevas features.
+
+### Responsabilidades mal ubicadas
+
+| Función | Está en | Debería estar en | Por qué |
+|---------|---------|-------------------|---------|
+| `compile-panel`, `gen-panel-var-name`, `gen-standalone-code` | panel.red | compiler.red | Lógica de compilación en un módulo de UI |
+| `save-panel-to-diagram`, `load-panel-from-diagram` | panel.red | file-io.red | Serialización en un módulo de UI |
+| `make-diagram-model` | canvas.red | model.red | Creación de modelo en un módulo de UI |
+| `make-fp-item` | panel.red | model.red | Constructor de datos en un módulo de UI |
+| Lógica de `btn-run` (50+ líneas inline) | qtorres.red | función nombrada (ej: `run-diagram`) | Lógica de negocio inline en un actor de face |
+
+### Dependencia circular canvas.red <-> panel.red
+
+- `canvas.red` llama a `render-fp-panel` (definida en panel.red)
+- `panel.red` llama a `render-bd`, `gen-node-id` (definidas en canvas.red)
+
+Funciona porque el chain loading carga canvas antes que panel, pero:
+- Ninguno puede testearse aisladamente
+- El orden de `#include` es frágil
+- **Regla para IA:** NO agravar esta dependencia. Si necesitas sincronizar BD↔FP, usar el patrón existente; no crear nuevas dependencias cruzadas.
+
+### Ficheros demasiado grandes (riesgo de pérdida de contexto)
+
+| Fichero | Líneas | Riesgo |
+|---------|--------|--------|
+| canvas.red | 856 | **ALTO** — 10+ responsabilidades mezcladas. Render, hit-test, eventos, diálogos, paleta, CRUD, modelo, demo. |
+| panel.red | 818 | **ALTO** — Render + hit-test + eventos + serialización + compilación + diálogos + demo. |
+| compiler.red | 336 | Medio — `compile-diagram` tiene conocimiento de VID widgets. |
+| file-io.red | 298 | Medio — `format-qvi` recorre `ui-layout` por índice (frágil). |
+
+**Regla para IA:** Al trabajar en canvas.red o panel.red, leer el fichero COMPLETO antes de hacer cambios. No asumir que entiendes la estructura por haber leído solo una parte.
+
+### Abstracciones que faltan
+
+1. **`find-node-by-id`** — El patrón `foreach node model/nodes [if node/id = target-id [...]]` se repite ~15 veces en canvas.red, compiler.red, panel.red y qtorres.red. Debería ser una función en model.red.
+2. **`set-config`** — El patrón `either pos: find node/config 'default [pos/2: val] [append node/config reduce ['default val]]` se repite 3 veces en canvas.red. Debería ser un helper en model.red.
+3. **Conocimiento de tipos disperso** — El comportamiento por tipo (`bool-const`, `str-const`, etc.) está hardcodeado en canvas.red, panel.red, compiler.red y blocks.red. Añadir un tipo nuevo requiere tocar 4+ ficheros en 10+ ubicaciones. blocks.red debería llevar hints de renderizado/compilación.
+
+### Estado global compartido
+
+`app-model` (definido en qtorres.red) es el único modelo compartido. canvas.red, panel.red y qtorres.red lo leen y mutan a través de `face/extra`. No hay mecanismo de notificación — cada módulo muta directamente y llama al render del otro.
+
+### Plan de corrección (NO ejecutar ahora)
+
+Estos refactorings se harán como Issues dedicados cuando haya un hueco entre features:
+1. Extraer `make-diagram-model` y `make-fp-item` → model.red
+2. Mover `compile-panel` + helpers → compiler.red
+3. Mover `save/load-panel-*` → file-io.red
+4. Añadir `find-node-by-id` y `set-config` a model.red
+5. Romper la dependencia circular canvas↔panel con callbacks

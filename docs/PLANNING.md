@@ -54,6 +54,8 @@ Las decisiones que resuelven P1 están en `decisiones.md` como DT-010 a DT-019. 
 
 Issues #8 y #9 están desbloqueados para implementación.
 
+> **Nota (2026-03-24):** P1 está completamente resuelto. Issues #8 (conectar módulos), #9 (booleano), #26 (.qvi formato) ya cerrados.
+
 ---
 
 ## [P2] Modelo del grafo en memoria
@@ -104,7 +106,7 @@ Cómo se traduce el grafo visual dataflow a ejecución real.
 
 4. **Timing determinista:** ¿Se necesita control de timing (ejecutar N veces por segundo)? ¿Cómo se implementa con el runtime de Red?
 
-5. **Errores en tiempo de ejecución:** ¿Cómo se propagan los errores por los cables (al estilo LabVIEW con el cluster de error)? ¿Desde qué fase del proyecto?
+5. **Errores en tiempo de ejecución:** ~~¿Cómo se propagan los errores por los cables (al estilo LabVIEW con el cluster de error)? ¿Desde qué fase del proyecto?~~ → **RESUELTO (DT-029):** Implementación progresiva en 3 niveles. Nivel 0 (Fase 2): error nativo de Red. Nivel 1 (Fase 3): try/catch por nodo. Nivel 2 (Fase 4): error cluster completo con wires.
 
 ### Módulos afectados
 
@@ -112,14 +114,50 @@ Cómo se traduce el grafo visual dataflow a ejecución real.
 - `src/runner/runner.red`
 - Issues #6, #7, #8, #10
 
+> **Nota (2026-03-24):** Issues #6, #7, #8 ya cerrados (Fase 1). #10 (string) cerrado. Las preguntas 1-2 de P3 están parcialmente resueltas por la implementación actual del compilador (topo-sort Kahn, dialecto emit).
+
+---
+
+## [P4] Concurrencia y compilabilidad
+
+**Estado:** RESUELTO — ver decisiones DT-027, DT-028, DT-029 en `decisiones.md`
+
+### Preguntas resueltas (2026-03-24)
+
+1. **Concurrencia sin multihilo — RESUELTO (DT-027):**
+   - Modelo de concurrencia cooperativa basado en `rate`/`on-time` de Red/View
+   - Cada loop/event structure es un callback de timer, no un `while` bloqueante
+   - Múltiples loops = múltiples timers, Red despacha en round-robin
+   - Fase 2: `do-events` intercalado (suficiente para un loop). Fase 2.5: migrar a timers. Fase 3: notifiers y procesos en segundo plano
+   - Si Red implementa actors/CSP, se reemplaza el scheduler sin cambiar la arquitectura
+
+2. **Compilabilidad del código generado — RESUELTO (DT-028):**
+   - Todo el código generado es estático — cero `do` dinámico, cero `load` en runtime
+   - `compose` se ejecuta en el compilador de QTorres, no en el `.qvi` generado
+   - Cualquier `.qvi` debe poder compilarse con `red -c` a ejecutable nativo
+   - Restricción: funciones con nombre, no bloques dinámicos
+
+3. **Error handling — RESUELTO (DT-029):**
+   - Nivel 0 (Fase 2): error nativo de Red (programa se para)
+   - Nivel 1 (Fase 3): try/catch por nodo en sub-VIs
+   - Nivel 2 (Fase 4): error cluster completo con puertos y wires de error
+   - El modelo de datos ya permite puertos de tipo `'error` — no hay bloqueo futuro
+
+### Módulos afectados
+
+- `src/compiler/compiler.red` — genera código compatible con timers y estático
+- `src/runner/runner.red` — ejecuta con `do` en memoria (DT-010)
+- `src/graph/model.red` — puertos de error reservados en el modelo
+
 ---
 
 ## Orden de resolución sugerido
 
 ```
-P1 (formato .qvi)
-  └── P2 (modelo en memoria)   ← se puede avanzar en paralelo con P1
-        └── P3 (motor dataflow) ← depende de P1 y P2
+P1 (formato .qvi) ✅ RESUELTO
+  └── P2 (modelo en memoria)    ← PARCIALMENTE RESUELTO
+        └── P3 (motor dataflow) ← preguntas abiertas, DT-029 resuelve errores
+              └── P4 (concurrencia/compilabilidad) ✅ RESUELTO
 ```
 
-P1 y P2 se pueden explorar en paralelo. P3 depende de tener P1 y P2 resueltos.
+P1 y P4 están resueltos. P2 tiene preguntas abiertas (sync FP↔BD, undo/redo). P3 depende de P1 y P2.

@@ -1,95 +1,83 @@
-# Progress — Issue #9: Tipo Booleano
+# Progress — Issue #14: While Loop
 
 ## Session Log
 
-### 2026-03-22 — Implementación completa
-**Tema:** Issue #9 — Tipo booleano en todo el sistema
+### 2026-03-23 — Planificación final (v3: dos entregas)
+**Tema:** Plan definitivo con 2 entregas incrementales
 
-**Acciones:**
-- Phase 1: Type System — `port-out-type`, `port-in-type`, `col-wire-bool`, `wire-data-color`, wire color dinámico en `render-bd`, guard de tipos en `on-down`
-- Phase 2.1: blocks.red — 9 bloques nuevos (bool-const, bool-control, bool-indicator, and-op, or-op, not-op, gt-op, lt-op, eq-op)
-- Phase 2.2-2.3: canvas.red — paleta Lógica/Comparadores + type-label switch
-- Phase 2.4-2.6: panel.red — campo data-type, LED render, toggle bool-control, paleta FP, save/load actualizado
-- Phase 2.7: compiler.red — node-boolean-input? helper, compile-diagram genera `check` face para boolean inputs
-- Phase 2.8: Tests — 28 nuevos asserts; **98/98 PASS**
+**Evolución del plan:**
+- v1: sin shift registers → usuario pidió incluirlos
+- v2: todo junto → demasiado trabajo de una vez
+- v3: **dos entregas** — 14a (loop básico) → 14b (shift registers)
 
-**Errores encontrados y resueltos:**
-- `find block false` no fiable en Red → usar `do body` + verificar variable directamente
-- Test de `and-op NO es input` incorrecto: `node-boolean-input?` chequea tipo del output (boolean), no la categoría del bloque → corregido
+**Entrega 14a (Phases 0-6):**
+- Modelo: make-structure con nodes, wires, cond-wire
+- Render: rectángulo con terminales condición (●) e iteración (i)
+- Hit-test: nodo interno > terminal > resize > borde > fondo
+- Interacción: drag estructura, drag nodo interno, resize, wiring interno
+- Compilador: `until [...]` con variable _i
+- Serialización: structures en qvi-diagram (coords relativas)
+- Tests + ejemplo while-loop-basico.qvi
 
-**Estado:** Implementación completa, tests verdes, pendiente commit y PR
+**Entrega 14b (Phases 7-12):**
+- Modelo: make-shift-register, 6 tipos de wire especial
+- Render: terminales ▲/▼ en bordes, color por tipo
+- Interacción: wire externo → SR-left, SR-right → externo, añadir/borrar SR
+- Compilador: inicialización SRs, actualización dentro del until, lectura fuera
+- Topological sort: structure como nodo virtual con dependencias externas
+- Tests + ejemplo while-loop-suma.qvi (suma acumulativa)
 
----
+**Estado:** Plan aprobado, listo para implementar Phase 0
 
-# Progress — Issue #7: Front Panel modular (histórico)
+### 2026-03-23 — Phase 0 completada
+**Implementado:**
+- `make-structure` en model.red — constructor para estructuras contenedoras (while-loop)
+- `make-diagram` actualizado con campo `structures: copy []`
+- `while-loop` registrado en blocks.red (categoría 'structure)
+- `gen-name 'while-loop` funciona: produce "while-loop_1", "while-loop_2", etc.
+- 27 tests nuevos en test-model.red (159/159 PASS)
 
-## Session Log
+**Gotchas encontrados:**
+- En Red 0.6.6, bloques literales `[visible: true]` almacenan `true` como word!, no logic!. Hay que usar `compose [visible: (true)]` para insertar el valor logic!.
+- `true = true` devuelve false en Red (word vs logic). Usar `logic?` + valor directo.
+- `#[true]` literal no soportado en Red 0.6.6. Evitarlo.
 
-### 2026-03-20 — Sesión inicial
-**Tema:** Planificación de Issue #7  
-**Acciones:**
-- Leído issue #7 (GitHub API — Classic Projects deprecated, usé --json)
-- Leído `docs/arquitectura.md` (328 líneas)
-- Leído `src/ui/diagram/canvas.red` (574 líneas) — referencia para drag & drop
-- Leído stub `src/ui/panel/panel.red` (12 líneas)
-- Leído skill `planning-with-files` y templates
-- Creados `task_plan.md`, `findings.md`, `progress.md`
+**Tests base:** 159/159 PASS
 
-**Decisiones iniciales:**
-- 7 fases: modelo → parser → render → binding → persistencia → integración → test
-- Reutilizar patrón drag & drop de canvas.red
-- `fp-item` como objeto análogo a nodo con `base-element`
-- `offset` (pair!) para posiciones arrastrables
+### 2026-03-23 — Phase 1 completada
+**Implementado:**
+- `render-wire-list` helper: extrae lógica de wires de render-bd, reutilizable
+- `render-node-list` helper: extrae lógica de nodos de render-bd, reutilizable
+- `render-structure`: rectángulo + label + terminal i (cuadrado azul) + terminal ● (círculo verde) + handle resize + borde selección cian + nodos/wires internos
+- `render-bd` refactorizado: usa helpers, renderiza estructuras antes que nodos normales
+- Estado estructura en `make-diagram-model`: selected-struct, drag-struct, drag-struct-off, resize-struct
 
-**Estado:** Plan creado
+**Tests:** 159/159 PASS (sin tests nuevos de render — son funciones puras visuales)
 
-### 2026-03-20 — Revisión arquitectónica
-**Tema:** Validación contra decisiones técnicas y Red-lang  
-**Acciones:**
-- Leído skill Red-lang completo (secciones View, Draw, VID)
-- Leído `docs/decisiones.md` (DT-001 a DT-024)
-- Re-analizado DT-009 (compiler genera Red/View completo)
+### 2026-03-24 — Revisión visual 14a + corrección de bugs
+**Verificado manualmente:**
+- Añadir/borrar While Loop, render completo, resize, drag, nodos internos, wires internos
+- Wire desde [i] a nodo interno, wire condición a [●], delete interno, save/load round-trip
+- Compilador genera `until [...]` correcto, Run ejecuta sin error
 
-**Problema identificado:**
-- Plan original mezclaba dos modos distintos
-- En modo edición no se pueden usar `field`/`text` con drag
-- DT-009 aplica al `.qvi` ejecutable, no a la edición
+**Bugs encontrados y corregidos:**
+1. **Bug #3 — Selección visual**: clic en nodo interno mostraba borde rojo en toda la estructura. Fix: `render-structure` solo muestra borde selección si `none? model/selected-node`.
+2. **Bug #4 — Delete doble**: GTK dispara on-key dos veces (key-down + key-up). El primer Delete borraba el nodo interno pero dejaba `selected-struct` activo; el segundo Delete borraba la estructura. Fix: limpiar `selected-struct` tras borrar nodo interno.
+3. **Bug #5 — [i] no wireable**: el terminal [i] no podía iniciar wires. Fix: al clic en [i], crear virtual iter-node (id=-3), almacenar en `wire-src-struct`, wire se crea en `st/wires` con `from-port: _while_N_i`. Registrado bloque 'iter en blocks.red.
+4. **Bug #5b — Wire [i] sale mal**: fórmula `bx + 8 + to-integer tx / 2` se evaluaba como `(bx + 8 + tx) / 2` por precedencia left-to-right de Red. Fix: precomputar `half-tx: to-integer (tx / 2)`.
+5. **Bug #7 — Nodo externo atrapado**: nodo arrastrado sobre while quedaba inaccesible. Fix: mover `hit-node` (externo) antes de `point-in-structure?` en prioridad de on-down.
+6. **Bug topological-sort ciclo**: wires virtuales (from-node < 0) contaban como dependencia real en in-degree. Fix: `if w/from-node >= 0` en el cálculo de in-degree.
+7. **Bug Load sin structures**: `qtorres.red` btn-load no copiaba `loaded/structures` al app-model. Fix: añadir `app-model/structures: loaded/structures`.
+8. **Bug case+all en Red**: `case [all [A B] [...]]` no funciona como esperado — Red parsea `all` como condición truthy y `[A B]` como acción. Fix: reescribir `canvas-delete-selected` con `if/exit` explícitos.
 
-**Corrección arquitectónica:**
-- Dos modos: **edición** (Draw canvas) vs **ejecución** (VID layout)
-- Fase 2: `render-panel` → base + Draw (drag & drop)
-- Fase 5: `compile-panel` → VID layout (DT-009)
-- Eliminado "binding" como fase separada (es parte de compile)
+**Gotchas Red importantes:**
+- `case [all [A B] [action]]` → Red parsea `all` (truthy word) + `[A B]` (action block), NO `all [A B]` como condición
+- `bx + 8 + to-integer tx / 2` → Red evalúa left-to-right: `(bx + 8 + 14) / 2`, no `bx + 8 + 7`
+- GTK on-key dispara DOS veces por pulsación (key-down + key-up)
 
-**Fases corregidas:**
-1. Modelo `fp-item` + `make-fp-item`
-2. `render-panel` (Draw canvas para edición)
-3. Parser desde `front-panel:` del qvi-diagram
-4. Persistencia de `offset` en qvi-diagram
-5. `compile-panel` (VID layout para .qvi ejecutable)
-6. Demo standalone
-7. Integración en app → Issue #8
+**Tests:** 186/186 PASS (25 bloques registrados: +1 iter virtual)
 
-**Commit:** Corrección del plan completa
-**Estado:** Plan validado, listo para implementar
-
-### 2026-03-20 — Implementación Issue #7
-**Tema:** Implementación de las fases 1-6  
-**Acciones:**
-- Fase 1: Añadido `make-fp-item` a `src/graph/model.red` (object con id, type, name, label, default, value, offset)
-- Fase 2: Implementado `render-panel` en `src/ui/panel/panel.red` — face base + Draw
-  - Drag & drop con `on-over` + `event/down?` (patrón canvas.red)
-  - Hit-testing `hit-fp-item` para seleccionar elementos
-  - `open-edit-dialog` para editar valores inline
-- Fase 3: `load-panel-from-diagram` — parser del bloque `front-panel:`
-- Fase 4: `save-panel-to-diagram` — serialización con offsets
-- Fase 5: `compile-panel` — genera VID layout para .qvi ejecutable
-- Fase 6: Demo standalone funcionando
-
-**Errores encontrados:**
-- Error de sintaxis en `gen-standalone-code` con `reduce compose [...]` → corregido usando `rejoin` + `mold`
-
-**Commits:**
-- `6c8bc1a` — Issue #7: Front Panel modular — phases 1-6 complete
-
-**Estado:** Fases 1-6 completas. Fase 7 (integración) = Issue #8.
+**Pendientes menores (no bloqueantes):**
+- [i] offset visual ligeramente desplazado
+- Hit-test resize requiere clic un poco fuera del borde
+- Terminal [i] no movible (futuro)

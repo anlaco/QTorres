@@ -235,7 +235,7 @@ Trabajar siempre en orden de Fase. No empezar una fase sin completar la anterior
 **Fase 2 — Tipos de datos y estructuras (orden decidido 2026-03-22):**
 1. ~~#9 Tipo booleano~~ ✅
 2. ~~#10 Tipo string~~ ✅
-3. #14 While Loop ← EN PROGRESO (rama sin pushear, shift register pendiente)
+3. #14 While Loop ← EN PROGRESO (shift register pendiente)
 4. #15 For Loop
 5. #11 Array 1D
 6. #16 Case Structure

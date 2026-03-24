@@ -1,0 +1,66 @@
+Red [Title: "untitled" Needs: 'View]
+
+qvi-diagram: [
+    meta: [description: "" version: 1 author: "" tags: []]
+    icon: []
+    block-diagram: [
+        nodes: [
+        ]
+        wires: [
+        ]
+        structures: [
+        while-loop [
+            id: 1  name: "while-loop_1"  label: [text: "While Loop" visible: true]
+            x: 153.0  y: 128.0  w: 526.0  h: 278.0
+            condition: [from: 2 port: result]
+            nodes: [
+                    node [
+    id: 2 type: gt-op
+    name: "gt-op_1"
+    label: [text: "" visible: false]
+    x: 323.0 y: 63.0
+]
+                    node [
+    id: 3 type: const
+    name: "const_1"
+    label: [text: "" visible: false]
+    x: 92.0 y: 182.0
+    config: [default: 100000.0]
+]
+            ]
+            wires: [
+                    wire [
+    from: -3 from-port: _while-loop_1_i
+    to: 2 to-port: a
+]
+                    wire [
+    from: 3 from-port: result
+    to: 2 to-port: b
+]
+            ]
+        ]
+        ]
+    ]
+]
+
+; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
+either empty? system/options/args [
+    view layout [
+        text "Iteración:"
+        lbl-iter: text "0" 120x24
+        button "Run" [
+            _while-loop_1_i: 0
+            until [
+                const_1_result: 100000.0
+                gt-op_1_result: _while-loop_1_i > const_1_result
+                _while-loop_1_i: _while-loop_1_i + 1
+                lbl-iter/text: form _while-loop_1_i
+                do-events/no-wait
+                gt-op_1_result
+            ]
+            lbl-iter/text: "¡Listo!"
+        ]
+    ]
+][
+    _while-loop_1_i: 0 until [const_1_result: 100000.0 gt-op_1_result: _while-loop_1_i > const_1_result _while-loop_1_i: _while-loop_1_i + 1 do-events/no-wait gt-op_1_result]
+]

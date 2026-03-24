@@ -302,10 +302,12 @@ wl-st1/cond-wire: make object! [from: 51  port: 'result]
 
 wl-code1: compile-structure wl-st1
 assert "código con condición no está vacío"        (not empty? wl-code1)
-; Ejecutar y verificar que corrió 1 vez
-do wl-code1
-assert "counter _while_1_i vale 1 tras 1 vuelta"  (1 = _while_1_i)
-assert "cond_node_result es true (bool-const)"     (logic? cond_node_result)
+; Verificar estructura del until-body (no ejecutamos: do-events requiere View)
+wl-until-idx1: index? find wl-code1 'until
+wl-body1: wl-code1/(wl-until-idx1 + 1)
+assert "until-body contiene do-events/no-wait"     (not none? find wl-body1 'do-events/no-wait)
+assert "do-events/no-wait precede a la condición"  ((index? find wl-body1 'do-events/no-wait) < (length? wl-body1))
+assert "condición sigue siendo el último elemento" (word? last wl-body1)
 
 suite "compile-structure — while-loop en compile-body (diagrama completo)"
 
@@ -345,9 +347,9 @@ wl-nocond: make-structure [id: 70  name: "while_3"]
 wl-nc-code: compile-structure wl-nocond
 wl-nc-until-idx: index? find wl-nc-code 'until
 wl-nc-body: wl-nc-code/(wl-nc-until-idx + 1)
+assert "until-body contiene do-events/no-wait"       (not none? find wl-nc-body 'do-events/no-wait)
+; Condición no conectada → último elemento es logic! true (después de do-events)
 assert "cond no conectada: body termina en logic!"   (logic? last wl-nc-body)
-do wl-nc-code
-assert "_while_3_i es 1 (1 vuelta con cond=true)"   (1 = _while_3_i)
 
 ; ── Tests file-io round-trip con structures ──────────────────────
 suite "file-io — round-trip while-loop"

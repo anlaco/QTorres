@@ -241,6 +241,10 @@ compile-structure: func [
     append until-body to-word "+"
     append until-body 1
 
+    ; Ceder control a la GUI una vez por iteración (DT-027 Fase 2)
+    ; do-events/no-wait: procesa eventos pendientes y vuelve inmediatamente
+    append until-body 'do-events/no-wait
+
     ; Condición final (última expresión del until)
     cond-expr: either st/cond-wire [
         cond-node: none

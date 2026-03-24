@@ -270,3 +270,122 @@ assert "valores iniciales son objetos distintos" (not same? sc-a/value sc-b/valu
 sc-a/value: "hello"
 assert "cambiar control no afecta indicador"    ("" = sc-b/value)
 assert "control tiene nuevo valor"              ("hello" = sc-a/value)
+
+; ── Tests compile-structure (while-loop) ────────────────────────────
+suite "compile-structure — estructura vacía sin condición"
+
+reset-name-counters
+wl-empty: make-structure []
+wl-code: compile-structure wl-empty
+
+assert "código generado no está vacío"             (not empty? wl-code)
+assert "primer elemento es set-word! (init _i)"    (set-word? first wl-code)
+assert "variable _i inicializada a 0"              (0 = wl-code/2)
+assert "contiene 'until'"                          (not none? find wl-code 'until)
+
+wl-until-idx: index? find wl-code 'until
+wl-until-body: wl-code/(wl-until-idx + 1)
+assert "cuerpo del until es un bloque"             (block? wl-until-body)
+; Condición sin wire: último elemento es logic! true
+assert "condición no conectada produce logic!"     (logic? last wl-until-body)
+
+suite "compile-structure — ejecutar loop básico (cond: bool-const true)"
+
+reset-name-counters
+wl-st1: make-structure [id: 50  name: "while_1"  x: 100  y: 100]
+; Nodo interno: bool-const true (condición = true → 1 iteración)
+wl-nd1: make-node [id: 51  type: 'bool-const  name: "cond_node"  x: 110  y: 120]
+wl-nd1/config: reduce ['default true]
+append wl-st1/nodes wl-nd1
+; Conectar terminal condición
+wl-st1/cond-wire: make object! [from: 51  port: 'result]
+
+wl-code1: compile-structure wl-st1
+assert "código con condición no está vacío"        (not empty? wl-code1)
+; Ejecutar y verificar que corrió 1 vez
+do wl-code1
+assert "counter _while_1_i vale 1 tras 1 vuelta"  (1 = _while_1_i)
+assert "cond_node_result es true (bool-const)"     (logic? cond_node_result)
+
+suite "compile-structure — while-loop en compile-body (diagrama completo)"
+
+reset-name-counters
+wl-diag2: make-diagram "while-test-vi"
+; Estructura con add interno: suma _i + 0.0 en cada iteración
+wl-st2: make-structure [id: 60  name: "while_2"  x: 50  y: 50]
+wl-add: make-node [id: 61  type: 'add  name: "iadd_1"  x: 70  y: 70]
+wl-gt:  make-node [id: 62  type: 'gt-op  name: "igt_1"  x: 130  y: 70]
+; Constante 3.0 (límite)
+wl-lim: make-node [id: 63  type: 'const  name: "ilim_1"  x: 70  y: 130]
+wl-lim/config: reduce ['default 3.0]
+append wl-st2/nodes wl-add
+append wl-st2/nodes wl-gt
+append wl-st2/nodes wl-lim
+; Wire: ilim_1/result → igt_1/a y igt_1/b (comparación simple: 3.0 > 3.0 = false → varias vueltas)
+; En realidad usamos: gt(_i+0, 3.0) como condición
+; Wire: ilim_1 → iadd_1/a  (a = 3.0 constante)
+append wl-st2/wires make-wire [from: 63  from-port: 'result  to: 61  to-port: 'a]
+append wl-st2/wires make-wire [from: 63  from-port: 'result  to: 61  to-port: 'b]
+; Condición: bool-const = false → loop corre para siempre  → usar true
+wl-cond2: make-node [id: 64  type: 'bool-const  name: "wcond"  x: 150  y: 120]
+wl-cond2/config: reduce ['default true]
+append wl-st2/nodes wl-cond2
+wl-st2/cond-wire: make object! [from: 64  port: 'result]
+append wl-diag2/structures wl-st2
+
+wl-body2: compile-body wl-diag2
+assert "compile-body con estructura no está vacío"  (not empty? wl-body2)
+assert "código contiene 'until'"                    (not none? find wl-body2 'until)
+
+suite "compile-structure — condición no conectada produce true"
+
+reset-name-counters
+wl-nocond: make-structure [id: 70  name: "while_3"]
+; Sin nodes, sin cond-wire
+wl-nc-code: compile-structure wl-nocond
+wl-nc-until-idx: index? find wl-nc-code 'until
+wl-nc-body: wl-nc-code/(wl-nc-until-idx + 1)
+assert "cond no conectada: body termina en logic!"   (logic? last wl-nc-body)
+do wl-nc-code
+assert "_while_3_i es 1 (1 vuelta con cond=true)"   (1 = _while_3_i)
+
+; ── Tests file-io round-trip con structures ──────────────────────
+suite "file-io — round-trip while-loop"
+
+reset-name-counters
+wl-rt-diag: make-diagram "while-rt-vi"
+; Estructura simple con un nodo interno
+wl-rt-st: make-structure [id: 80  name: "while_rt"  x: 50  y: 50  w: 280  h: 160]
+wl-rt-nd: make-node [id: 81  type: 'bool-const  name: "bcrt"  x: 80  y: 90]
+wl-rt-nd/config: reduce ['default true]
+append wl-rt-st/nodes wl-rt-nd
+wl-rt-st/cond-wire: make object! [from: 81  port: 'result]
+append wl-rt-diag/structures wl-rt-st
+
+; Serializar
+wl-rt-qd: serialize-diagram wl-rt-diag
+bd-rt: select wl-rt-qd to-set-word 'block-diagram
+assert "block-diagram tiene campo structures"   (block? select bd-rt to-set-word 'structures)
+structs-rt: select bd-rt to-set-word 'structures
+assert "structures no está vacío"               (not empty? structs-rt)
+assert "primer elemento es while-loop"          ('while-loop = first structs-rt)
+
+; Round-trip save/load
+wl-rt-file: %/tmp/qtorres-while-rt.qvi
+save-vi wl-rt-file wl-rt-diag
+assert "save-vi crea fichero con structures"    (exists? wl-rt-file)
+
+wl-loaded: load-vi wl-rt-file
+if exists? wl-rt-file [delete wl-rt-file]
+
+assert "load-vi devuelve objeto"                (object? wl-loaded)
+assert "structures cargadas: 1"                 (1 = length? wl-loaded/structures)
+wl-ls: first wl-loaded/structures
+assert "estructura cargada: nombre correcto"    ("while_rt" = wl-ls/name)
+assert "estructura cargada: x correcto"         (50 = wl-ls/x)
+assert "estructura cargada: w correcto"         (280 = wl-ls/w)
+assert "estructura cargada: 1 nodo interno"     (1 = length? wl-ls/nodes)
+assert "nodo interno: coords absolutas x"       (80 = wl-ls/nodes/1/x)
+assert "nodo interno: coords absolutas y"       (90 = wl-ls/nodes/1/y)
+assert "cond-wire cargado"                      (object? wl-ls/cond-wire)
+assert "cond-wire: from correcto"               (81 = wl-ls/cond-wire/from)

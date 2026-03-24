@@ -50,7 +50,10 @@ topological-sort: func [
     ]
 
     foreach w wires [
-        in-degree/(w/to-node): in-degree/(w/to-node) + 1
+        ; Ignorar wires virtuales (from-node < 0 = terminal [i] u otro virtual)
+        if w/from-node >= 0 [
+            in-degree/(w/to-node): in-degree/(w/to-node) + 1
+        ]
     ]
 
     queue: copy []
@@ -148,10 +151,16 @@ build-bindings: func [
     foreach p bdef/inputs [
         foreach w diagram/wires [
             if all [w/to-node = node/id  (to-word w/to-port) = p/name] [
-                foreach src diagram/nodes [
-                    if src/id = w/from-node [
-                        append bindings p/name
-                        append bindings port-var src w/from-port
+                either w/from-node < 0 [
+                    ; Nodo virtual (terminal [i]): from-port ES la variable iter directamente
+                    append bindings p/name
+                    append bindings w/from-port
+                ][
+                    foreach src diagram/nodes [
+                        if src/id = w/from-node [
+                            append bindings p/name
+                            append bindings port-var src w/from-port
+                        ]
                     ]
                 ]
             ]
@@ -187,15 +196,82 @@ node-string-input?: func [node /local bdef] [
 ]
 
 ; ══════════════════════════════════════════════════
+; COMPILE-STRUCTURE
+; ══════════════════════════════════════════════════
+;
+; Genera el bloque de código para una estructura while-loop:
+;   _while_N_i: 0
+;   until [
+;       <nodos internos compilados>
+;       _while_N_i: _while_N_i + 1
+;       <condición>   ; true si no conectada
+;   ]
+
+compile-structure: func [
+    st [object!]
+    /local iter-sym sub-diag sorted code until-body node bdef cond-expr cond-node
+][
+    iter-sym: to-word rejoin ["_" st/name "_i"]
+
+    ; Sub-diagrama ficticio: expone nodes/wires para topological-sort y build-bindings
+    sub-diag: make object! [
+        nodes: st/nodes
+        wires: st/wires
+    ]
+
+    code: copy []
+
+    ; Inicialización del contador de iteración
+    append code to-set-word iter-sym
+    append code 0
+
+    ; Compilar cuerpo interno
+    until-body: copy []
+    sorted: either empty? st/nodes [copy []] [topological-sort sub-diag]
+    foreach node sorted [
+        bdef: find-block node/type
+        if all [bdef  bdef/emit] [
+            append until-body bind-emit bdef/emit (build-bindings node sub-diag bdef)
+        ]
+    ]
+
+    ; Incrementar iteración: _iter: _iter + 1
+    append until-body to-set-word iter-sym
+    append until-body iter-sym
+    append until-body to-word "+"
+    append until-body 1
+
+    ; Condición final (última expresión del until)
+    cond-expr: either st/cond-wire [
+        cond-node: none
+        foreach nd st/nodes [if nd/id = st/cond-wire/from [cond-node: nd]]
+        either cond-node [
+            port-var cond-node st/cond-wire/port
+        ][
+            true
+        ]
+    ][
+        true  ; sin condición conectada: ejecuta una vez (semantics de 14a)
+    ]
+    append until-body cond-expr
+
+    ; until [body]
+    append code 'until
+    append/only code until-body
+
+    code
+]
+
+; ══════════════════════════════════════════════════
 ; COMPILE-BODY
 ; ══════════════════════════════════════════════════
 ;
 ; Genera el bloque de cómputo headless listo para ejecutar con do.
-; Incluye todos los nodos: inputs (const), math (add/sub...) y outputs (display).
+; Incluye todos los nodos normales y las estructuras.
 
 compile-body: func [
     diagram [object!]
-    /local sorted code node bdef
+    /local sorted code node bdef st
 ][
     sorted: topological-sort diagram
     code: copy []
@@ -203,6 +279,14 @@ compile-body: func [
         bdef: find-block node/type
         if all [bdef  bdef/emit] [
             append code bind-emit bdef/emit (build-bindings node diagram bdef)
+        ]
+    ]
+    ; Compilar estructuras (while-loop) — después de los nodos normales en 14a
+    if all [object? diagram  in diagram 'structures  block? diagram/structures] [
+        foreach st diagram/structures [
+            if st/type = 'while-loop [
+                append code compile-structure st
+            ]
         ]
     ]
     code
@@ -310,6 +394,15 @@ compile-diagram: func [
             ]
         ]
     ]
+    ; Añadir estructuras while-loop al run-body (sin deps externas en 14a)
+    if all [object? diagram  in diagram 'structures  block? diagram/structures] [
+        foreach st diagram/structures [
+            if st/type = 'while-loop [
+                append run-body compile-structure st
+            ]
+        ]
+    ]
+
     append ui-layout 'button
     append ui-layout "Run"
     append/only ui-layout run-body

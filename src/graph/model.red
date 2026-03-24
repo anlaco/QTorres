@@ -230,8 +230,42 @@ make-wire: func [
     w
 ]
 
+make-structure: func [
+    "Crea una estructura contenedora (while-loop) del Block Diagram"
+    spec [block!]
+    /local s lbl-spec
+][
+    s: make object! [
+        id:        0
+        type:      'while-loop
+        name:      ""
+        label:     none
+        x:         0
+        y:         0
+        w:         300
+        h:         200
+        nodes:     copy []
+        wires:     copy []
+        cond-wire: none
+    ]
+    s/id:   any [select spec 'id    0]
+    s/type: any [select spec 'type  'while-loop]
+    s/x:    any [select spec 'x     0]
+    s/y:    any [select spec 'y     0]
+    s/w:    any [select spec 'w     300]
+    s/h:    any [select spec 'h     200]
+    s/name: any [select spec 'name  gen-name to-word s/type]
+    lbl-spec: select spec 'label
+    s/label: case [
+        block? lbl-spec  [make-label lbl-spec]
+        string? lbl-spec [make-label compose [text: (lbl-spec) visible: (true)]]
+        true             [make-label compose [text: "While Loop" visible: (true) offset: 0x-15]]
+    ]
+    s
+]
+
 make-diagram: func [
-    "Crea un diagrama (contenedor de nodos y wires)"
+    "Crea un diagrama (contenedor de nodos, wires y estructuras)"
     title [string!]
 ][
     make object! [
@@ -239,6 +273,7 @@ make-diagram: func [
         connector:   none
         nodes:       copy []
         wires:       copy []
+        structures:  copy []
         controls:    copy []
         indicators:  copy []
         front-panel: copy []

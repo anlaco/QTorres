@@ -156,13 +156,15 @@ btn-load: make face! [
             if path [
                 loaded: attempt [load-vi path]
                 if loaded [
-                    app-model/nodes:         loaded/nodes
-                    app-model/wires:         loaded/wires
-                    app-model/name:          loaded/name
-                    app-model/front-panel:   loaded/front-panel
-                    app-model/selected-node: none
-                    app-model/selected-wire: none
-                    app-model/selected-fp:   none
+                    app-model/nodes:          loaded/nodes
+                    app-model/wires:          loaded/wires
+                    app-model/structures:     either in loaded 'structures [loaded/structures] [copy []]
+                    app-model/name:           loaded/name
+                    app-model/front-panel:    loaded/front-panel
+                    app-model/selected-node:  none
+                    app-model/selected-wire:  none
+                    app-model/selected-struct: none
+                    app-model/selected-fp:    none
                     canvas-face/draw: render-bd app-model
                     show canvas-face
                     panel-face/draw: render-fp-panel app-model panel-face/size/x panel-face/size/y

@@ -241,4 +241,21 @@ block 'eq-op 'compare [
 ]
 
 
+; ── Estructuras ───────────────────────────────────────────
+; Las estructuras son contenedores, no tienen puertos externos en 14a
+; (sin shift registers, sin wires cruzando bordes).
+; La lógica de compilación se implementa en compile-structure.
+
+block 'while-loop 'structure [
+    ; Terminales internos virtuales (no son puertos normales):
+    ;   i        — iteración, salida 'number hacia nodos internos
+    ;   cond     — condición, entrada 'boolean desde nodo interno
+]
+
+; Terminal de iteración como bloque virtual (para type-check al cablear)
+block 'iter 'structure-virtual [
+    out i 'number
+    ; sin emit: la variable _while_N_i ya la genera compile-structure
+]
+
 #include %../compiler/compiler.red

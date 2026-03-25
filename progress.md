@@ -1,4 +1,33 @@
-# Progress — Issue #14: While Loop
+# Progress — Issue #15: For Loop
+
+## Session Log
+
+### 2026-03-25 — Implementación completa
+
+**Tests:** 271/271 PASS (partíamos de 241/241 al cerrar #14)
+
+**Fases completadas:**
+- Phase 0: Modelo (model.red label por tipo, blocks.red registra 'for-loop)
+- Phase 1: Render (terminal [N] cuadrado naranja top-left, [●] solo while-loop)
+- Phase 2: Interacción (wiring [N], paleta "For", delete limpia wire N)
+- Phase 3: Compilador (compile-structure bifurcado, `loop N [...]`, to-integer, /no-gui)
+- Phase 4: Serialización (for-loop en serialize/load/format-qvi)
+- Phase 5: Tests + ejemplo for-loop-basico.qvi (0+1+...+9=45)
+
+**Bug corregido durante #15:**
+- `make-wire` convierte `to-port` a `word!` — todas las comparaciones `"count"` cambiadas a `'count`
+- `compile-structure` emitía `do-events/no-wait` también en rama headless → cuelga
+  Solución: refinamiento `/no-gui` en `compile-structure`; `compile-body` usa `/no-gui`
+- `compile-body` y `compile-diagram` solo manejaban `'while-loop` → `'for-loop` se saltaba
+  Solución: `find [while-loop for-loop] item/type` en ambos
+
+**Ejecución del ejemplo headless:**
+`./red-cli examples/for-loop-basico.qvi headless` → `Resultado: 45.0`
+(sin args → rama GUI, requiere red-view; con cualquier arg → rama headless)
+
+---
+
+# Progress histórico — Issue #14: While Loop
 
 ## Session Log
 
@@ -81,3 +110,79 @@
 - [i] offset visual ligeramente desplazado
 - Hit-test resize requiere clic un poco fuera del borde
 - Terminal [i] no movible (futuro)
+
+### 2026-03-24 — Entrega 14a COMPLETA — inicio 14b (shift registers)
+**Estado confirmado:** 187/187 PASS. Todas las fases 0-6 verificadas en código.
+- compile-structure en compiler.red (funciones: compile-structure, compile-body, compile-diagram)
+- round-trip while-loop en test-compiler.red (suites de test-file-io)
+- examples/while-loop-basico.qvi presente
+- task_plan.md actualizado (phases 4-6 checked)
+
+### 2026-03-24 — Phase 7 completada (shift register model)
+**Implementado:**
+- `make-shift-register` en model.red — constructor con id, name, data-type, init-value, y-offset
+- `shift-regs: copy []` añadido a `make-structure` (campo nuevo)
+- init-value por defecto: `""` si data-type = 'string, `0.0` en todos los demás casos
+- 21 tests nuevos en test-model.red (208/208 PASS)
+
+**14b COMPLETA — Shift Registers**
+- ~~Phase 7: make-shift-register en model.red~~ ✅
+- ~~Phase 8: render terminales ▲/▼ en canvas.red~~ ✅
+- ~~Phase 9: hit-test + wiring de SRs~~ ✅
+- ~~Phase 10: compilador con inicialización/actualización SRs~~ ✅
+- ~~Phase 11: serialización SRs en file-io.red~~ ✅
+- ~~Phase 12: tests + ejemplo while-loop-suma.qvi~~ ✅
+
+### 2026-03-24 — Phase 8 completada (render SR)
+**Implementado en canvas.red:**
+- Constante `sr-terminal-half: 6`
+- Helper `sr-type-color` — mismo patrón que `wire-data-color` (number=naranja, bool=verde, string=rosa)
+- `render-structure` step 5: loop sobre `st/shift-regs`:
+  - ▲ (triángulo apuntando arriba) en borde izquierdo (lectura)
+  - ▼ (triángulo apuntando abajo) en borde derecho (escritura)
+  - texto `init-value` junto al ▲ (visible cuando sin wire externo)
+- Steps 5-10 existentes renumerados a 6-11
+**Tests:** 208/208 PASS (solo render, sin tests de render puro)
+
+### 2026-03-24 — Phase 9 completada (interacción SR en canvas)
+**Implementado en canvas.red:**
+- `make-diagram-model` extendido: `wire-src-sr`, `selected-sr`
+- `hit-structure-sr`: detecta clic en ▲/▼, devuelve `[struct sr 'left|'right]`
+- `render-structure` y `render-bd`: wires SR (int SR-left, int SR-right, ext→▲, ▼→ext)
+- Helpers: `add-sr-to-structure`, `open-add-sr-dialog`, `apply-sr-init-value`, `open-sr-edit-dialog`
+- `canvas-delete-selected`: borra SR + todos sus wires internos y externos
+- `on-down` prioridad 2.5: crea wires SR (validación de tipo, dirección)
+- `on-up`: completa wires SR
+- `on-dbl-click` priority 0: editar init-value de SR
+- `open-palette` con botón "Add SR"
+**Tests:** 208/208 PASS (solo render, sin tests de render puro)
+
+### 2026-03-24 — Phase 10 completada (compilador SR)
+**Implementado en compiler.red:**
+- `build-sorted-items`: topo-sort unificado de nodos + estructuras, usando IDs externos de wires SR
+- `compile-structure` actualizado: nueva firma `[st outer-diagram]`
+  - Inicialización de SRs antes del `until` (literal o variable de nodo fuente externo)
+  - Actualización de SRs dentro del `until` (antes del incremento de iteración)
+- `compile-body` actualizado: usa `build-sorted-items`, maneja nodos y estructuras en un solo loop
+- `compile-diagram` actualizado: usa `build-sorted-items`, elimina bloque "Añadir estructuras" separado
+- `test-compiler.red` actualizado: 3 llamadas a `compile-structure` actualizadas con `empty-outer`
+**Tests:** 208/208 PASS
+
+### 2026-03-24 — Phase 11 completada (serialización SR en file-io)
+**Implementado en file-io.red:**
+- `serialize-diagram`: añade bloque `shift-registers: [sr [...] sr [...]]` en cada estructura
+- `format-qvi`: formatea `shift-registers:` con indentación correcta (omitido si vacío)
+- `load-vi`: parsea `sr [...]` y reconstruye con `make-shift-register`, sincroniza names
+- Wires externos SR se serializan automáticamente (están en `diagram/wires`)
+- 15 tests nuevos en test-compiler.red (suite "file-io — round-trip shift registers")
+**Tests:** 223/223 PASS
+
+### 2026-03-24 — Phase 12 completada + Issue #14 CERRADO
+**Implementado:**
+- `make-node` en model.red: carga `config` desde spec (habilita round-trip de valores de constantes)
+- `serialize-nodes` en file-io.red: incluye `config:` en el bloque si no está vacío
+- `compile-diagram` en compiler.red: indicadores conectados a SR-right encuentran la variable `_sr_name`
+- `topological-sort`: ignorar wires con `to-node < 0` (fix para SR-right virtual en sub-diagramas)
+- Tests 12.2-12.4 (SR init, múltiples SRs, SR con wire externo) + test config round-trip
+- `examples/while-loop-suma.qvi`: suma 0+1+...+9 = 45 usando SR — funciona headless y UI
+**Tests:** 241/241 PASS

@@ -65,15 +65,14 @@ serialize-diagram: func [
     nodes-block:  serialize-nodes  diagram/nodes
     wires-block:  serialize-wires  diagram/wires
 
-    ; ── Structures (while-loop) ────────────────────────────────────
+    ; ── Structures (while-loop, for-loop) ──────────────────────────────
     structs-block: copy []
     if all [object? diagram  in diagram 'structures  block? diagram/structures] [
         foreach st diagram/structures [
-            lbl-block: either all [st/label  object? st/label] [
-                compose [text: (st/label/text)  visible: (st/label/visible)]
-            ][
-                compose [text: "While Loop"  visible: (true)]
+            lbl-text: either all [st/label  object? st/label] [st/label/text] [
+                either st/type = 'for-loop ["For Loop"] ["While Loop"]
             ]
+            lbl-block: compose [text: (lbl-text)  visible: (true)]
             ; Shift registers
             sr-block: copy []
             foreach sr st/shift-regs [
@@ -86,20 +85,31 @@ serialize-diagram: func [
             ; Nodos internos: coords RELATIVAS a la estructura
             st-nodes-block: serialize-nodes/relative st/nodes st/x st/y
             st-wires-block: serialize-wires st/wires
-            ; Wire de condición
-            cond-spec: either st/cond-wire [
-                compose [from: (st/cond-wire/from)  port: (st/cond-wire/port)]
+            ; Keyword de estructura según tipo
+            append structs-block st/type
+            ; Bloque de datos: condition solo para while-loop
+            either st/type = 'for-loop [
+                append/only structs-block compose/only [
+                    id: (st/id)  name: (st/name)  label: (lbl-block)
+                    x: (st/x)  y: (st/y)  w: (st/w)  h: (st/h)
+                    shift-registers: (sr-block)
+                    nodes: (st-nodes-block)
+                    wires: (st-wires-block)
+                ]
             ][
-                none
-            ]
-            append structs-block 'while-loop
-            append/only structs-block compose/only [
-                id: (st/id)  name: (st/name)  label: (lbl-block)
-                x: (st/x)  y: (st/y)  w: (st/w)  h: (st/h)
-                shift-registers: (sr-block)
-                condition: (either cond-spec [cond-spec] [[]])
-                nodes: (st-nodes-block)
-                wires: (st-wires-block)
+                cond-spec: either st/cond-wire [
+                    compose [from: (st/cond-wire/from)  port: (st/cond-wire/port)]
+                ][
+                    none
+                ]
+                append/only structs-block compose/only [
+                    id: (st/id)  name: (st/name)  label: (lbl-block)
+                    x: (st/x)  y: (st/y)  w: (st/w)  h: (st/h)
+                    shift-registers: (sr-block)
+                    condition: (either cond-spec [cond-spec] [[]])
+                    nodes: (st-nodes-block)
+                    wires: (st-wires-block)
+                ]
             ]
         ]
     ]
@@ -169,7 +179,7 @@ format-qvi: func [
     if all [structs-raw  not empty? structs-raw] [
         parse structs-raw [
             any [
-                'while-loop set struct-block block! (
+                set struct-kw ['while-loop | 'for-loop] set struct-block block! (
                     st-nodes-raw: any [select struct-block 'nodes  []]
                     st-wires-raw: any [select struct-block 'wires  []]
                     st-srs-raw:   any [select struct-block 'shift-registers  []]
@@ -198,7 +208,7 @@ format-qvi: func [
                         ]
                     ]
                     append structs-str rejoin [
-                        "        while-loop [^/"
+                        "        " form struct-kw " [^/"
                         "            id: " mold any [select struct-block 'id  0]
                         "  name: " mold any [select struct-block 'name  ""]
                         "  label: " mold any [select struct-block 'label  []] "^/"
@@ -209,7 +219,10 @@ format-qvi: func [
                         either empty? st-srs-str [""] [rejoin [
                             "            shift-registers: [^/" st-srs-str "            ]^/"
                         ]]
-                        "            condition: " mold any [select struct-block 'condition  []] "^/"
+                        ; condition solo en while-loop
+                        either struct-kw = 'while-loop [
+                            rejoin ["            condition: " mold any [select struct-block 'condition  []] "^/"]
+                        ][""]
                         "            nodes: [^/" st-nodes-str "            ]^/"
                         "            wires: [^/" st-wires-str "            ]^/"
                         "        ]^/"
@@ -431,19 +444,20 @@ load-vi: func [
     if nodes-data  [d/nodes: load-node-list nodes-data names]
     if wires-data  [d/wires: load-wire-list wires-data]
 
-    ; ── Cargar structures (while-loop) ────────────────────────────
+    ; ── Cargar structures (while-loop, for-loop) ──────────────────
     if all [structs-data  block? structs-data] [
         parse structs-data [
             any [
-                'while-loop set st-spec block! (
+                set st-kw ['while-loop | 'for-loop] set st-spec block! (
                     st: make-structure compose [
-                        id: (any [select st-spec 'id  0])
-                        name: (any [select st-spec 'name  ""])
-                        x: (any [select st-spec 'x  0])
-                        y: (any [select st-spec 'y  0])
-                        w: (any [select st-spec 'w  300])
-                        h: (any [select st-spec 'h  200])
-                        label: (any [select st-spec 'label  [text: "While Loop"]])
+                        id:   (any [select st-spec 'id   0])
+                        type: (st-kw)
+                        name: (any [select st-spec 'name ""])
+                        x:    (any [select st-spec 'x    0])
+                        y:    (any [select st-spec 'y    0])
+                        w:    (any [select st-spec 'w    300])
+                        h:    (any [select st-spec 'h    200])
+                        label: (any [select st-spec 'label  compose [text: (either st-kw = 'for-loop ["For Loop"] ["While Loop"])]])
                     ]
                     ; Shift registers
                     sr-data: any [select st-spec 'shift-registers  []]
@@ -468,15 +482,17 @@ load-vi: func [
                     ; Wires internos
                     st-wires: any [select st-spec 'wires  []]
                     st/wires: load-wire-list st-wires
-                    ; Wire de condición
-                    cond-data: select st-spec 'condition
-                    st/cond-wire: either all [cond-data  not empty? cond-data] [
-                        make object! [
-                            from: any [select cond-data 'from  0]
-                            port: any [select cond-data 'port  'result]
+                    ; Wire de condición solo para while-loop
+                    if st-kw = 'while-loop [
+                        cond-data: select st-spec 'condition
+                        st/cond-wire: either all [cond-data  not empty? cond-data] [
+                            make object! [
+                                from: any [select cond-data 'from  0]
+                                port: any [select cond-data 'port  'result]
+                            ]
+                        ][
+                            none
                         ]
-                    ][
-                        none
                     ]
                     if st/name [append names st/name]
                     append d/structures st

@@ -1,0 +1,80 @@
+Red [Title: "for-loop-basico" Needs: 'View]
+
+; Ejemplo: suma acumulativa 0+1+2+...+(N-1) usando For Loop con Shift Register
+;
+; Estructura del diagrama:
+;   ctrl_n  (control numérico, N=10)  → terminal [N] del For Loop
+;   for-loop_1 (For Loop, 10 iteraciones, i: 0..9)
+;     SR: sr_acc  (acumulador, init 0.0)
+;     Interno:
+;       iadd  (add)  — sr_acc + i  → nuevo acc
+;     SR sr_acc → ind_1 (indicator)
+;
+; Resultado esperado: 0+1+2+...+9 = 45.0
+
+qvi-diagram: [
+    meta: [description: "Suma 0+1+...+(N-1) con For Loop y Shift Register" version: 1 author: "" tags: [for-loop sr]]
+    icon: []
+    block-diagram: [
+        nodes: [
+            node [id: 1  type: 'control    name: "ctrl_n"
+                  label: [text: "N" visible: true]  x: 40  y: 80  config: [default 10.0]]
+            node [id: 2  type: 'indicator  name: "ind_1"
+                  label: [text: "Resultado" visible: true]  x: 520  y: 150]
+        ]
+        wires: [
+            wire [from: 1  from-port: result  to: 3  to-port: count]
+            wire [from: 3  from-port: sr_acc  to: 2  to-port: value]
+        ]
+        structures: [
+            for-loop [
+                id: 3  name: "for-loop_1"  label: [text: "For Loop" visible: true]
+                x: 120  y: 60  w: 340  h: 180
+                shift-registers: [
+                    sr [id: 10  name: "sr_acc"  data-type: 'number  init-value: 0.0  y-offset: 60]
+                ]
+                nodes: [
+                    node [id: 4  type: 'add  name: "iadd"
+                          label: [text: "Add" visible: false]  x: 70  y: 60]
+                ]
+                wires: [
+                    wire [from: -1  from-port: sr_acc        to: 4  to-port: a]
+                    wire [from: -3  from-port: _for-loop_1_i  to: 4  to-port: b]
+                    wire [from: 4   from-port: result         to: -2  to-port: sr_acc]
+                ]
+            ]
+        ]
+    ]
+]
+
+; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
+either empty? system/options/args [
+    view layout [
+        text "N:" f_ctrl_n: field "10.0" return
+        text "Resultado:" t_ind_1: text "---" return
+        button "Run" [
+            ctrl_n_result: to-float f_ctrl_n/text
+            _for-loop_1_N: to-integer ctrl_n_result
+            _sr_acc: 0.0
+            _for-loop_1_i: 0
+            loop _for-loop_1_N [
+                iadd_result: _sr_acc + _for-loop_1_i
+                _sr_acc: iadd_result
+                _for-loop_1_i: _for-loop_1_i + 1
+                do-events/no-wait
+            ]
+            t_ind_1/text: form _sr_acc
+        ]
+    ]
+][
+    ctrl_n_result: 10.0
+    _for-loop_1_N: to-integer ctrl_n_result
+    _sr_acc: 0.0
+    _for-loop_1_i: 0
+    loop _for-loop_1_N [
+        iadd_result: _sr_acc + _for-loop_1_i
+        _sr_acc: iadd_result
+        _for-loop_1_i: _for-loop_1_i + 1
+    ]
+    print rejoin ["Resultado: " _sr_acc]
+]

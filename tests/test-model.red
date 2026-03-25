@@ -131,3 +131,27 @@ s6: make-structure []
 s7: make-structure []
 append s6/shift-regs make-shift-register []
 assert "shift-regs son independientes"          (0 = length? s7/shift-regs)
+
+; ── make-structure — for-loop ────────────────────────────────────────
+
+suite "make-structure — for-loop defaults"
+
+reset-name-counters
+sf: make-structure [type: 'for-loop]
+
+assert "for-loop tipo correcto"                 (sf/type = 'for-loop)
+assert "for-loop name generado"                 (sf/name = "for-loop_1")
+assert "for-loop label texto"                   (sf/label/text = "For Loop")
+assert "for-loop cond-wire none"                (none? sf/cond-wire)
+assert "for-loop shift-regs vacio"              (0 = length? sf/shift-regs)
+assert "for-loop w default 300"                 (sf/w = 300)
+assert "for-loop h default 200"                 (sf/h = 200)
+
+suite "make-structure — for-loop label independiente de while-loop"
+
+reset-name-counters
+sw: make-structure []
+sf2: make-structure [type: 'for-loop]
+
+assert "while label texto"                      (sw/label/text = "While Loop")
+assert "for label texto"                        (sf2/label/text = "For Loop")

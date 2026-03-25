@@ -539,3 +539,107 @@ assert "config round-trip: nodo cargado"         (object? cfg-rt-ln)
 assert "config round-trip: name correcto"        ("cfg_c" = cfg-rt-ln/name)
 assert "config round-trip: config no vacío"      (not empty? cfg-rt-ln/config)
 assert "config round-trip: valor 42.0"           (42.0 = select cfg-rt-ln/config 'default)
+
+; ── Tests compile-structure (for-loop) ──────────────────────────────
+
+suite "compile-structure — for-loop sin wire N devuelve bloque vacío"
+
+reset-name-counters
+fl-empty-outer: make object! [nodes: copy []  wires: copy []  structures: copy []]
+fl-no-n: make-structure [id: 500  type: 'for-loop  name: "for-loop_no_n"  x: 0  y: 0]
+fl-no-n-code: compile-structure fl-no-n fl-empty-outer
+
+assert "sin N: código vacío (error)"             (empty? fl-no-n-code)
+
+suite "compile-structure — for-loop básico con N=5"
+
+reset-name-counters
+; Diagrama externo con nodo const N=5
+fl-diag: make-diagram "fl-vi"
+fl-n-nd: make-node [id: 600  type: 'const  name: "n_val"  x: 0  y: 0]
+fl-n-nd/config: reduce ['default 5.0]
+append fl-diag/nodes fl-n-nd
+
+; Estructura for-loop
+fl-st: make-structure [id: 601  type: 'for-loop  name: "for-loop_1"  x: 100  y: 100]
+append fl-diag/structures fl-st
+
+; Wire externo: n_val/result → fl-st/count
+append fl-diag/wires make-wire [from: 600  from-port: 'result  to: 601  to-port: "count"]
+
+fl-code: compile-structure fl-st fl-diag
+
+; Verificar estructura del código generado
+fl-n-sw:  find fl-code to-set-word '_for-loop_1_N
+fl-i-sw:  find fl-code to-set-word '_for-loop_1_i
+fl-loop-idx: index? find fl-code 'loop
+
+assert "N inicializado"                          (not none? fl-n-sw)
+assert "N usa to-integer"                        ('to-integer = fl-n-sw/2)
+assert "N referencia variable del nodo"          ('n_val_result = fl-n-sw/3)
+assert "_i inicializado a 0"                     (not none? fl-i-sw)
+assert "código contiene 'loop'"                  (not none? find fl-code 'loop)
+assert "'loop' sigue a N sym"                    (fl-loop-idx > (index? fl-n-sw))
+fl-loop-n-sym: fl-code/(fl-loop-idx + 1)
+fl-loop-body:  fl-code/(fl-loop-idx + 2)
+assert "loop recibe el sym de N"                 (fl-loop-n-sym = '_for-loop_1_N)
+assert "cuerpo del loop es un bloque"            (block? fl-loop-body)
+assert "cuerpo NO contiene 'until'"              (none? find fl-loop-body 'until)
+
+suite "compile-structure — for-loop: _i se incrementa dentro del loop"
+
+fl-i-inc: find fl-loop-body to-set-word '_for-loop_1_i
+assert "_i se incrementa en el body"             (not none? fl-i-inc)
+assert "incremento en 1"                         (1 = fl-i-inc/4)
+
+suite "compile-structure — for-loop con SR"
+
+reset-name-counters
+fl-sr-diag: make-diagram "fl-sr-vi"
+fl-sr-n-nd: make-node [id: 700  type: 'const  name: "fl_n"  x: 0  y: 0]
+fl-sr-n-nd/config: reduce ['default 10.0]
+append fl-sr-diag/nodes fl-sr-n-nd
+
+fl-sr-st: make-structure [id: 701  type: 'for-loop  name: "for-loop_sr"  x: 100  y: 100]
+fl-sr: make-shift-register [id: 702  name: "fl_acc"  data-type: 'number  init-value: 0.0  y-offset: 40]
+append fl-sr-st/shift-regs fl-sr
+append fl-sr-diag/structures fl-sr-st
+
+append fl-sr-diag/wires make-wire [from: 700  from-port: 'result  to: 701  to-port: "count"]
+
+fl-sr-code: compile-structure fl-sr-st fl-sr-diag
+fl-sr-acc-sw: find fl-sr-code to-set-word '_fl_acc
+
+assert "SR acc inicializado"                     (not none? fl-sr-acc-sw)
+assert "SR acc init-value 0.0"                   (0.0 = fl-sr-acc-sw/2)
+assert "código contiene 'loop'"                  (not none? find fl-sr-code 'loop)
+
+suite "file-io — round-trip for-loop"
+
+reset-name-counters
+fl-rt-diag: make-diagram "fl-rt-vi"
+fl-rt-n-nd: make-node [id: 800  type: 'const  name: "fl_rt_n"  x: 50  y: 50]
+fl-rt-n-nd/config: reduce ['default 5.0]
+append fl-rt-diag/nodes fl-rt-n-nd
+
+fl-rt-st: make-structure [id: 801  type: 'for-loop  name: "for-loop_rt"  x: 100  y: 100]
+append fl-rt-diag/structures fl-rt-st
+append fl-rt-diag/wires make-wire [from: 800  from-port: 'result  to: 801  to-port: "count"]
+
+fl-rt-file: %/tmp/qtorres-fl-rt.qvi
+save-vi fl-rt-file fl-rt-diag
+fl-rt-loaded: load-vi fl-rt-file
+if exists? fl-rt-file [delete fl-rt-file]
+
+fl-rt-structs: fl-rt-loaded/structures
+assert "round-trip: estructura cargada"          (1 = length? fl-rt-structs)
+assert "round-trip: tipo for-loop"               ('for-loop = fl-rt-structs/1/type)
+assert "round-trip: name correcto"               ("for-loop_rt" = fl-rt-structs/1/name)
+assert "round-trip: label For Loop"              ("For Loop" = fl-rt-structs/1/label/text)
+; Wire de N en diagram/wires
+fl-rt-n-wire: none
+foreach w fl-rt-loaded/wires [
+    if all [w/to-node = 801  w/to-port = 'count] [fl-rt-n-wire: w]
+]
+assert "round-trip: wire N en diagram/wires"     (not none? fl-rt-n-wire)
+assert "round-trip: wire N from correcto"        (800 = fl-rt-n-wire/from-node)

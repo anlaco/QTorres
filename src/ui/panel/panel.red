@@ -24,11 +24,11 @@ fp-run-button-height: 30
 fp-text-dy: either system/platform = 'Linux [8] [0]
 
 fp-color?: func [item-type] [
-    either find [control bool-control str-control] item-type [fp-control-color] [fp-indicator-color]
+    either find [control bool-control str-control arr-control] item-type [fp-control-color] [fp-indicator-color]
 ]
 
 fp-border-color?: func [item-type] [
-    either find [control bool-control str-control] item-type [fp-control-color - 20.20.20] [fp-indicator-color - 20.20.20]
+    either find [control bool-control str-control arr-control] item-type [fp-control-color - 20.20.20] [fp-indicator-color - 20.20.20]
 ]
 
 fp-type-label?: func [item-type] [
@@ -39,6 +39,8 @@ fp-type-label?: func [item-type] [
         item-type = 'bool-indicator ["TF"]
         item-type = 'str-control    ["STR"]
         item-type = 'str-indicator  ["STR"]
+        item-type = 'arr-control    ["ARR"]
+        item-type = 'arr-indicator  ["ARR"]
         true                        [uppercase form item-type]
     ]
 ]
@@ -52,6 +54,8 @@ fp-default-label: func [item-type] [
         item-type = 'bool-indicator ["Boolean"]
         item-type = 'str-control    ["String"]
         item-type = 'str-indicator  ["String"]
+        item-type = 'arr-control    ["Array"]
+        item-type = 'arr-indicator  ["Array"]
         true                        ["Numeric"]
     ]
 ]
@@ -68,6 +72,7 @@ make-fp-item: func [
         data-type: case [
             find [bool-control bool-indicator] raw-type ['boolean]
             find [str-control  str-indicator]  raw-type ['string]
+            find [arr-control  arr-indicator]  raw-type ['array]
             true                               ['numeric]
         ]
         name:      any [select spec 'name      ""]
@@ -80,6 +85,10 @@ make-fp-item: func [
                 ; copy siempre: las literales "" en Red son constantes compartidas
                 copy any [select spec 'default  ""]
             ]
+            find [arr-control arr-indicator] raw-type [
+                ; copy siempre: los bloques [] son constantes compartidas en Red
+                copy any [select spec 'default  copy []]
+            ]
             true [
                 any [select spec 'default  0.0]
             ]
@@ -88,9 +97,12 @@ make-fp-item: func [
         offset:    any [select spec 'offset    0x0]
     ]
     item/type: raw-type
-    ; copy para strings: garantiza que control e indicador son objetos independientes
+    ; copy para strings y arrays: garantiza que control e indicador son objetos independientes
     item/value: case [
         find [str-control str-indicator] raw-type [
+            copy any [select spec 'value  item/default]
+        ]
+        find [arr-control arr-indicator] raw-type [
             copy any [select spec 'value  item/default]
         ]
         true [
@@ -144,7 +156,11 @@ make-fp-item: func [
 ]
 
 fp-value-text: func [item] [
-    form item/value
+    either block? item/value [
+        rejoin ["[" form item/value "]"]
+    ][
+        form item/value
+    ]
 ]
 
 ; ══════════════════════════════════════════════════════════
@@ -213,7 +229,8 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
     ]
 
     ; ── Body ─────────────────────────────────────────────────────────────────────────────
-    either item/data-type = 'string [
+    case [
+        item/data-type = 'string [
         ; String: campo blanco a partir de item/offset
         either item/type = 'str-control [
             append cmds compose [
@@ -232,7 +249,34 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
             pen 20.20.20  fill-pen off
             text (as-pair (item/offset/x + 4) (item/offset/y + 4 + fp-text-dy)) (fp-value-text item)
         ]
-    ][
+    ]
+        item/data-type = 'array [
+        ; Array: caja de color con borde doble + valor como texto
+        col: fp-color? item/type
+        border-col: fp-border-color? item/type
+        ; Borde exterior
+        append cmds compose [
+            pen (border-col)  line-width 3  fill-pen (col)
+            box (as-pair item/offset/x item/offset/y)
+               (as-pair (item/offset/x + fp-item-width) (item/offset/y + fp-item-height)) 4
+        ]
+        ; Borde interior (doble)
+        append cmds compose [
+            pen (col + 20.20.20)  line-width 1  fill-pen off
+            box (as-pair (item/offset/x + 4) (item/offset/y + 4))
+               (as-pair (item/offset/x + fp-item-width - 4) (item/offset/y + fp-item-height - 4)) 3
+        ]
+        append cmds compose [
+            pen 220.230.240  fill-pen off
+            text (as-pair (item/offset/x + 4) (item/offset/y + 5 + fp-text-dy)) "ARR"
+        ]
+        append cmds compose [
+            pen 255.255.255  fill-pen off
+            text (as-pair (item/offset/x + 4) (item/offset/y + fp-item-height - 14 + fp-text-dy))
+                 (fp-value-text item)
+        ]
+    ]
+        true [
         ; Numeric / Boolean: caja de color
         col: fp-color? item/type
         border-col: fp-border-color? item/type
@@ -262,6 +306,7 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
             ]
         ]
     ]
+    ]  ; end case
 
     ; ── Selección: marcos rallados en body y label ────────────────────────────────────────
     bh: either item/data-type = 'string [fp-label-height] [fp-item-height]
@@ -376,6 +421,44 @@ open-str-fp-edit-dialog: func [item panel-face model /local cur-val] [
     ]
 ]
 
+; Aplica valor array (texto separado por espacios) a un item del FP y refresca.
+fp-arr-apply-and-refresh: func [itm txt pnl mdl /local parts nums v] [
+    parts: split txt " "
+    nums: copy []
+    foreach p parts [
+        v: attempt [to-float p]
+        if v [append nums v]
+    ]
+    itm/value: nums
+    pnl/draw: render-fp-panel mdl mdl/size/x mdl/size/y
+]
+
+; Abre diálogo para editar el valor de un arr-control en el FP.
+open-arr-fp-edit-dialog: func [item panel-face model /local cur-val cur-text] [
+    cur-val: any [item/value  copy []]
+    cur-text: trim form cur-val
+    view/no-wait compose/deep [
+        title "Editar array"
+        text "Valores (separados por espacios):" return
+        field 250 (cur-text)
+        on-enter [
+            fp-arr-apply-and-refresh (item) copy face/text (panel-face) (model)
+            unview
+        ]
+        return
+        button "OK" [
+            foreach pf face/parent/pane [
+                if pf/type = 'field [
+                    fp-arr-apply-and-refresh (item) copy pf/text (panel-face) (model)
+                    break
+                ]
+            ]
+            unview
+        ]
+        button "Cancelar" [unview]
+    ]
+]
+
 open-edit-dialog: func [item panel-face model /local label-text default-text] [
     edit-dialog-item:  item
     edit-dialog-panel: panel-face
@@ -410,23 +493,27 @@ fp-palette-panel: none
 fp-palette-x:     0
 fp-palette-y:     0
 
-fp-palette-add-item: func [item-type /local new-id item model w h _cref nid bd-y] [
+fp-palette-add-item: func [item-type /local new-id item model w h _cref nid bd-y def-val spec] [
     model:  fp-palette-panel/extra
     w:      model/size/x
     h:      model/size/y
     new-id: 1 + length? model/front-panel
-    item: make-fp-item compose/deep [
-        id:      (new-id)
-        type:    (item-type)
-        name:    (rejoin [form item-type "_" new-id])
-        label:   [text: (fp-default-label item-type) visible: true]
-        default: (case [
-            find [bool-control bool-indicator] item-type [false]
-            find [str-control  str-indicator]  item-type [copy ""]
-            true                               [0.0]
-        ])
-        offset:  (as-pair fp-palette-x fp-palette-y)
+    def-val: case [
+        find [bool-control bool-indicator] item-type [false]
+        find [str-control  str-indicator]  item-type [copy ""]
+        find [arr-control  arr-indicator]  item-type [copy []]
+        true                               [0.0]
     ]
+    ; Construir spec con append/only para default: evitar splice de block! values
+    spec: copy []
+    repend spec [to-set-word 'id  new-id  to-set-word 'type  item-type
+                 to-set-word 'name  rejoin [form item-type "_" new-id]]
+    append spec to-set-word 'label
+    append/only spec compose/deep [text: (fp-default-label item-type) visible: true]
+    append spec to-set-word 'default
+    either block? def-val [append/only spec def-val] [append spec def-val]
+    repend spec [to-set-word 'offset  as-pair fp-palette-x fp-palette-y]
+    item: make-fp-item spec
     append model/front-panel item
     fp-palette-panel/draw: render-fp-panel model w h
     show fp-palette-panel
@@ -460,6 +547,8 @@ open-fp-palette: func [face x y] [
         button 100 "Bool Indicator" [fp-palette-add-item 'bool-indicator] return
         button 100 "Str Control"    [fp-palette-add-item 'str-control]    return
         button 100 "Str Indicator"  [fp-palette-add-item 'str-indicator]  return
+        button 100 "Arr Control"    [fp-palette-add-item 'arr-control]    return
+        button 100 "Arr Indicator"  [fp-palette-add-item 'arr-indicator]  return
         button      "Cancelar"      [unview]
     ]
 ]
@@ -558,6 +647,9 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                     all [hit  hit/type = 'str-control] [
                         open-str-fp-edit-dialog hit face face/extra
                     ]
+                    all [hit  hit/type = 'arr-control] [
+                        open-arr-fp-edit-dialog hit face face/extra
+                    ]
                     all [hit  hit/type = 'control] [
                         open-edit-dialog hit face face/extra
                     ]
@@ -575,6 +667,7 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                         face/draw: render-fp-panel face/extra face/extra/size/x face/extra/size/y
                     ]
                     all [hit  hit/type = 'str-control]   [open-str-fp-edit-dialog hit face face/extra]
+                    all [hit  hit/type = 'arr-control]   [open-arr-fp-edit-dialog hit face face/extra]
                     all [hit  hit/type = 'control]        [open-edit-dialog hit face face/extra]
                     ; indicador: no hacer nada
                 ]
@@ -626,13 +719,14 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
         offset-y: 20
         parse fp-block [
             any [
-                set kw ['control | 'indicator | 'bool-control | 'bool-indicator | 'str-control | 'str-indicator]
+                set kw ['control | 'indicator | 'bool-control | 'bool-indicator | 'str-control | 'str-indicator | 'arr-control | 'arr-indicator]
                 set fp-item-spec block! (
                     item: make-fp-item fp-item-spec
                     item/type:      kw
                     item/data-type: case [
                         find [bool-control bool-indicator] kw ['boolean]
                         find [str-control  str-indicator]  kw ['string]
+                        find [arr-control  arr-indicator]  kw ['array]
                         true                               ['numeric]
                     ]
                     if all [zero? item/offset/x  zero? item/offset/y] [
@@ -661,16 +755,19 @@ save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
             item/type = 'bool-indicator ['bool-indicator]
             item/type = 'str-control    ['str-control]
             item/type = 'str-indicator  ['str-indicator]
+            item/type = 'arr-control    ['arr-control]
+            item/type = 'arr-indicator  ['arr-indicator]
             true                        ['indicator]
         ]
-        spec: compose/deep [
-            id: (item/id)
-            type: (item/type)
-            name: (item/name)
-            label: [text: (item/label/text) visible: (item/label/visible) offset: (item/label/offset)]
-            default: (item/default)
-            offset: (item/offset)
-        ]
+        ; Construir spec con append/only para el default:
+        ; compose/deep aplana block! values (splice) — no es válido para arr-control
+        spec: copy []
+        repend spec [to-set-word 'id  item/id  to-set-word 'type  item/type  to-set-word 'name  item/name]
+        append spec to-set-word 'label
+        append/only spec compose/deep [text: (item/label/text) visible: (item/label/visible) offset: (item/label/offset)]
+        append spec to-set-word 'default
+        either block? item/default [append/only spec copy item/default] [append spec item/default]
+        repend spec [to-set-word 'offset  item/offset]
         append items kw
         append/only items spec
     ]
@@ -719,7 +816,16 @@ compile-panel: func [model /local cmds item ctrl-field-name ind-var-name] [
                     return
                 ]
             ]
-            true [  ; indicator, bool-indicator, str-indicator
+            item/type = 'arr-control [
+                ; Array control: valor fijo en el .qvi (no hay field editable — DT-028)
+                ind-var-name: gen-indicator-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ind-var-name) text 120 (rejoin ["[" form item/default "]"])
+                    return
+                ]
+            ]
+            true [  ; indicator, bool-indicator, str-indicator, arr-indicator
                 ind-var-name: gen-indicator-var-name item
                 append cmds compose [
                     label (item/label/text)

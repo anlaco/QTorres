@@ -264,4 +264,54 @@ block 'iter 'structure-virtual [
     ; sin emit: la variable _X_N_i ya la genera compile-structure
 ]
 
+; ── Array helpers ─────────────────────────────────────────
+; bind-emit no maneja path! con refinements (copy/part) — se encapsula en función
+arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]
+
+; ── Array ─────────────────────────────────────────────────
+
+block 'arr-const 'input [
+    out result 'array
+    config default 'array []
+    emit [result: copy default]
+]
+
+block 'arr-control 'input [
+    out result 'array
+    config default 'array []
+    emit [result: copy default]
+]
+
+block 'arr-indicator 'output [
+    in value 'array
+]
+
+block 'build-array 'array [
+    in a 'number
+    in b 'number
+    out result 'array
+    emit [result: reduce [a b]]
+]
+
+block 'index-array 'array [
+    in arr 'array
+    in index 'number
+    out result 'number
+    emit [result: pick arr to-integer index + 1]
+]
+
+block 'array-size 'array [
+    in arr 'array
+    out result 'number
+    emit [result: to-float length? arr]
+]
+
+block 'array-subset 'array [
+    in arr 'array
+    in start 'number
+    in length 'number
+    out result 'array
+    emit [result: arr-subset-helper arr start length]
+]
+
 #include %../compiler/compiler.red

@@ -252,10 +252,16 @@ block 'while-loop 'structure [
     ;   cond     — condición, entrada 'boolean desde nodo interno
 ]
 
+block 'for-loop 'structure [
+    ; Terminales:
+    ;   N    — cuenta de iteraciones, entrada 'number desde nodo EXTERNO (obligatorio)
+    ;   i    — iteración 0-based, salida 'number hacia nodos internos
+]
+
 ; Terminal de iteración como bloque virtual (para type-check al cablear)
 block 'iter 'structure-virtual [
     out i 'number
-    ; sin emit: la variable _while_N_i ya la genera compile-structure
+    ; sin emit: la variable _X_N_i ya la genera compile-structure
 ]
 
 #include %../compiler/compiler.red

@@ -297,8 +297,9 @@ node-string-input?: func [node /local bdef] [
 compile-structure: func [
     st           [object!]
     outer-diagram [object!]
-    /local iter-sym sub-diag sorted code until-body node bdef cond-expr cond-node
-           sr sr-sym init-val w src src-node
+    /no-gui       ; omite do-events/no-wait (modo headless — sin View)
+    /local iter-sym sub-diag sorted code loop-body until-body node bdef cond-expr cond-node
+           sr sr-sym init-val w src src-node n-sym n-val
 ][
     iter-sym: to-word rejoin ["_" st/name "_i"]
 
@@ -309,6 +310,95 @@ compile-structure: func [
     ]
 
     code: copy []
+
+    ; ── FOR-LOOP: compila a loop N [...] ───────────────────────
+    if st/type = 'for-loop [
+        ; Resolver wire de N obligatorio desde outer-diagram/wires
+        n-sym: to-word rejoin ["_" st/name "_N"]
+        n-val: none
+        foreach w outer-diagram/wires [
+            if all [w/to-node = st/id  w/to-port = 'count] [
+                foreach src outer-diagram/nodes [
+                    if src/id = w/from-node [
+                        n-val: port-var src to-word w/from-port
+                    ]
+                ]
+            ]
+        ]
+        if none? n-val [
+            print rejoin ["ERROR: For Loop '" st/name "' — terminal N no conectado (obligatorio)"]
+            return copy []
+        ]
+
+        ; Init N (to-integer: controles producen float!, loop requiere integer!)
+        append code to-set-word n-sym
+        append code 'to-integer
+        append code n-val
+
+        ; Init SRs (mismo patrón que while-loop)
+        foreach sr st/shift-regs [
+            sr-sym:   to-word rejoin ["_" sr/name]
+            init-val: sr/init-value
+            foreach w outer-diagram/wires [
+                if all [w/to-node = st/id  (to-word w/to-port) = to-word sr/name] [
+                    foreach src outer-diagram/nodes [
+                        if src/id = w/from-node [
+                            init-val: port-var src to-word w/from-port
+                        ]
+                    ]
+                ]
+            ]
+            append code to-set-word sr-sym
+            append code init-val
+        ]
+
+        ; Init contador de iteración
+        append code to-set-word iter-sym
+        append code 0
+
+        ; Compilar cuerpo interno
+        loop-body: copy []
+        sorted: either empty? st/nodes [copy []] [topological-sort sub-diag]
+        foreach node sorted [
+            bdef: find-block node/type
+            if all [bdef  bdef/emit] [
+                append loop-body bind-emit bdef/emit (build-bindings node sub-diag bdef)
+            ]
+        ]
+
+        ; Actualización de SRs
+        foreach sr st/shift-regs [
+            sr-sym: to-word rejoin ["_" sr/name]
+            foreach w st/wires [
+                if all [w/to-node = -2  (to-word w/to-port) = to-word sr/name] [
+                    foreach src-node st/nodes [
+                        if src-node/id = w/from-node [
+                            append loop-body to-set-word sr-sym
+                            append loop-body port-var src-node to-word w/from-port
+                        ]
+                    ]
+                ]
+            ]
+        ]
+
+        ; Incrementar _i
+        append loop-body to-set-word iter-sym
+        append loop-body iter-sym
+        append loop-body to-word "+"
+        append loop-body 1
+
+        ; GUI responsiva (DT-027) — solo en modo UI (no en headless)
+        unless no-gui [append/only loop-body to-path [do-events no-wait]]
+
+        ; loop N [body]
+        append code 'loop
+        append code n-sym
+        append/only code loop-body
+
+        return code
+    ]
+
+    ; ── WHILE-LOOP: compila a until [...] ──────────────────────
 
     ; ── Inicialización de shift registers ──────────────────────
     foreach sr st/shift-regs [
@@ -365,7 +455,8 @@ compile-structure: func [
 
     ; Ceder control a la GUI una vez por iteración (DT-027 Fase 2)
     ; do-events/no-wait: procesa eventos pendientes y vuelve inmediatamente
-    append/only until-body to-path [do-events no-wait]
+    ; Solo en modo UI — en headless no hay View y do-events cuelga
+    unless no-gui [append/only until-body to-path [do-events no-wait]]
 
     ; Condición final (última expresión del until)
     cond-expr: either st/cond-wire [
@@ -403,9 +494,9 @@ compile-body: func [
     code: copy []
     foreach item sorted [
         either in item 'shift-regs [
-            ; Estructura (while-loop u otra)
-            if item/type = 'while-loop [
-                append code compile-structure item diagram
+            ; Estructura — headless: sin do-events/no-wait
+            if find [while-loop for-loop] item/type [
+                append code compile-structure/no-gui item diagram
             ]
         ][
             ; Nodo normal
@@ -441,8 +532,8 @@ compile-diagram: func [
     run-body: copy []
     foreach item sorted [
         either in item 'shift-regs [
-            ; Estructura while-loop
-            if item/type = 'while-loop [
+            ; Estructura — modo GUI: con do-events/no-wait
+            if find [while-loop for-loop] item/type [
                 append run-body compile-structure item diagram
             ]
         ][

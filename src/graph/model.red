@@ -288,7 +288,8 @@ make-structure: func [
     s/label: case [
         block? lbl-spec  [make-label lbl-spec]
         string? lbl-spec [make-label compose [text: (lbl-spec) visible: (true)]]
-        true             [make-label compose [text: "While Loop" visible: (true) offset: 0x-15]]
+        s/type = 'for-loop [make-label compose [text: "For Loop"  visible: (true) offset: 0x-15]]
+        true               [make-label compose [text: "While Loop" visible: (true) offset: 0x-15]]
     ]
     s
 ]

@@ -33,6 +33,7 @@ do %test-blocks.red
 do %test-model.red
 do %test-topo-sort.red
 do %test-compiler.red
+do %test-array.red
 
 ; ── Resumen ──────────────────────────────────────────────────────────
 total: pass-count + fail-count

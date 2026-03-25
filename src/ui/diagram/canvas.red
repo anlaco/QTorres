@@ -75,6 +75,7 @@ wire-data-color: func [data-type] [
     case [
         data-type = 'boolean [col-wire-bool]
         data-type = 'string  [col-wire-str]
+        data-type = 'array   [col-wire]   ; mismo naranja que number, diferenciado por línea doble
         true                 [col-wire]
     ]
 ]
@@ -93,6 +94,7 @@ sr-type-color: func [data-type] [
     case [
         data-type = 'boolean [col-wire-bool]
         data-type = 'string  [col-wire-str]
+        data-type = 'array   [col-wire]
         true                 [col-wire]
     ]
 ]
@@ -226,15 +228,27 @@ render-wire-list: func [
             mid-x:  to-integer (out-xy/x + in-xy/x) / 2
             wire-dtype: port-out-type src-node wire/from-port
             wire-color: either same? wire selected-wire [col-wire-sel] [wire-data-color wire-dtype]
-            either all [wire-dtype = 'string  not same? wire selected-wire] [
-                append cmds compose [pen (wire-color)  line-width 2]
-                append cmds draw-dashed-segment out-xy              as-pair mid-x out-xy/y
-                append cmds draw-dashed-segment as-pair mid-x out-xy/y  as-pair mid-x in-xy/y
-                append cmds draw-dashed-segment as-pair mid-x in-xy/y  in-xy
-            ][
-                append cmds compose [
-                    pen (wire-color)  line-width 2
-                    line (out-xy) (as-pair mid-x out-xy/y) (as-pair mid-x in-xy/y) (in-xy)
+            case [
+                all [wire-dtype = 'string  not same? wire selected-wire] [
+                    append cmds compose [pen (wire-color)  line-width 2]
+                    append cmds draw-dashed-segment out-xy              as-pair mid-x out-xy/y
+                    append cmds draw-dashed-segment as-pair mid-x out-xy/y  as-pair mid-x in-xy/y
+                    append cmds draw-dashed-segment as-pair mid-x in-xy/y  in-xy
+                ]
+                all [wire-dtype = 'array  not same? wire selected-wire] [
+                    ; Línea doble: trazo grueso exterior + trazo fino interior del color del canvas
+                    append cmds compose [
+                        pen (wire-color)  line-width 4
+                        line (out-xy) (as-pair mid-x out-xy/y) (as-pair mid-x in-xy/y) (in-xy)
+                        pen col-canvas  line-width 1
+                        line (out-xy) (as-pair mid-x out-xy/y) (as-pair mid-x in-xy/y) (in-xy)
+                    ]
+                ]
+                true [
+                    append cmds compose [
+                        pen (wire-color)  line-width 2
+                        line (out-xy) (as-pair mid-x out-xy/y) (as-pair mid-x in-xy/y) (in-xy)
+                    ]
                 ]
             ]
         ]
@@ -283,6 +297,13 @@ render-node-list: func [
             concat         ["CONCAT"]
             str-length     ["LEN"]
             to-string      ["→STR"]
+            arr-const      [rejoin ["[" form any [select node/config 'default  copy []] "]"]]
+            arr-control    ["ARR"]
+            arr-indicator  ["ARR"]
+            build-array    ["BUILD[]"]
+            index-array    ["IDX[]"]
+            array-size     ["SIZE[]"]
+            array-subset   ["SUB[]"]
         ] [uppercase form node/type]
         either all [node/label  object? node/label  node/label/visible] [
             append cmds compose [
@@ -990,6 +1011,56 @@ apply-str-value: func [node new-text /local pos] [
     ]
 ]
 
+; Actualiza node/config 'default con un block! de valores numéricos parseados desde texto.
+; El usuario introduce valores separados por espacios, ej: "1.0 2.0 3.0"
+apply-arr-value: func [node new-text /local pos vals tok parsed-block] [
+    parsed-block: copy []
+    vals: split trim new-text " "
+    foreach tok vals [
+        tok: trim tok
+        if not empty? tok [
+            append parsed-block any [attempt [to-float tok]  attempt [to-integer tok]  0.0]
+        ]
+    ]
+    either pos: find node/config 'default [
+        pos/2: parsed-block
+    ][
+        append node/config reduce ['default parsed-block]
+    ]
+]
+
+arr-apply-and-refresh: func [nd txt cnv] [
+    apply-arr-value nd txt
+    cnv/draw: render-bd cnv/extra
+]
+
+; Abre diálogo para editar el valor de un array constante.
+; El usuario introduce números separados por espacios: "1.0 2.0 3.0"
+open-arr-edit-dialog: func [node canvas-face /local cur-val cur-text] [
+    cur-val: any [select node/config 'default  copy []]
+    cur-text: form cur-val   ; "1.0 2.0 3.0"
+    view/no-wait compose/deep [
+        title "Editar array"
+        text "Valores (separados por espacios):" return
+        field 250 (cur-text)
+        on-enter [
+            arr-apply-and-refresh (node) copy face/text (canvas-face)
+            unview
+        ]
+        return
+        button "OK" [
+            foreach pf face/parent/pane [
+                if pf/type = 'field [
+                    arr-apply-and-refresh (node) copy pf/text (canvas-face)
+                    break
+                ]
+            ]
+            unview
+        ]
+        button "Cancelar" [unview]
+    ]
+]
+
 apply-rename-label: func [node new-text] [
     either empty? new-text [
         if all [node/label  object? node/label] [
@@ -1078,6 +1149,12 @@ open-palette: func [face x y /struct target-struct] [
         button 80 "Concat"   [palette-add-node 'concat]         return
         button 80 "Len"      [palette-add-node 'str-length]
         button 80 "→STR"     [palette-add-node 'to-string]      return
+        text "Array:"  return
+        button 80 "Arr-Const" [palette-add-node 'arr-const]
+        button 80 "Build[]"   [palette-add-node 'build-array]    return
+        button 80 "Index[]"   [palette-add-node 'index-array]
+        button 80 "Size[]"    [palette-add-node 'array-size]     return
+        button 80 "Subset[]"  [palette-add-node 'array-subset]   return
         text "Estructuras:"  return
         button 80 "While"    [palette-add-structure 'while-loop]
         button 80 "For"      [palette-add-structure 'for-loop]   return
@@ -1732,6 +1809,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     node: st-hit/2
                     if node/type = 'const [open-const-edit-dialog node face  exit]
                     if find [str-const str-control] node/type [open-str-edit-dialog node face  exit]
+                    if find [arr-const arr-control] node/type [open-arr-edit-dialog node face  exit]
                     rename-dialog-node:   node
                     rename-dialog-canvas: face
                     rename-dialog-field:  none
@@ -1767,6 +1845,10 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     ]
                     if find [str-const str-control] node/type [
                         open-str-edit-dialog node face
+                        exit
+                    ]
+                    if find [arr-const arr-control] node/type [
+                        open-arr-edit-dialog node face
                         exit
                     ]
                     rename-dialog-node:   node

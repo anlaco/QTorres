@@ -164,7 +164,12 @@ bind-emit: func [
         case [
             word? item [
                 v: select bindings item
-                append result either none? v [item] [v]
+                either none? v [
+                    append result item
+                ][
+                    ; /only para block! values (ej: array defaults) — evita aplanar
+                    either block? v [append/only result v] [append result v]
+                ]
             ]
             set-word? item [
                 k: to-word item
@@ -254,10 +259,20 @@ build-bindings: func [
         ; any [none false] = none en Red → usar either/none? explícito
         cfg-val: either none? select node/config cfg/name [cfg/default] [select node/config cfg/name]
         append bindings cfg/name
-        append bindings cfg-val
+        ; /only evita aplanar block! values (ej: array defaults como [1.0 2.0])
+        append/only bindings cfg-val
     ]
 
     bindings
+]
+
+; Devuelve true si el primer output del bloque es de tipo array.
+node-array-input?: func [node /local bdef] [
+    bdef: find-block to-word node/type
+    if all [bdef  not empty? bdef/outputs] [
+        return bdef/outputs/1/type = 'array
+    ]
+    false
 ]
 
 ; Devuelve true si el primer output del bloque es de tipo booleano.
@@ -542,16 +557,26 @@ compile-diagram: func [
             if none? bdef [continue]
             case [
                 bdef/category = 'input [
-                    face-sym: to-word rejoin ["f_" node/id]
                     case [
-                        node-boolean-input? node [
-                            append run-body compose [(to-set-word port-var node 'result) (to-path reduce [face-sym 'data])]
-                        ]
-                        node-string-input? node [
-                            append run-body compose [(to-set-word port-var node 'result) (to-path reduce [face-sym 'text])]
+                        node-array-input? node [
+                            ; Array control: valor fijo del config (no hay field editable — DT-028)
+                            if bdef/emit [
+                                append run-body bind-emit bdef/emit (build-bindings node diagram bdef)
+                            ]
                         ]
                         true [
-                            append run-body compose [(to-set-word port-var node 'result) to-float (to-path reduce [face-sym 'text])]
+                            face-sym: to-word rejoin ["f_" node/id]
+                            case [
+                                node-boolean-input? node [
+                                    append run-body compose [(to-set-word port-var node 'result) (to-path reduce [face-sym 'data])]
+                                ]
+                                node-string-input? node [
+                                    append run-body compose [(to-set-word port-var node 'result) (to-path reduce [face-sym 'text])]
+                                ]
+                                true [
+                                    append run-body compose [(to-set-word port-var node 'result) to-float (to-path reduce [face-sym 'text])]
+                                ]
+                            ]
                         ]
                     ]
                 ]
@@ -596,6 +621,9 @@ compile-diagram: func [
         bdef: find-block node/type
         if none? bdef [continue]
         if bdef/category = 'input [
+            ; Array control: sin widget — valor fijo, no aparece en UI layout
+            if node-array-input? node [continue]
+
             face-n: to-word rejoin ["f_" node/id]
             ; any [none false] = none en Red (false es falsy) → usar either/none? explícito
             cfg-val: either none? select node/config 'default [

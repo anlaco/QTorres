@@ -298,6 +298,8 @@ format-qvi: func [
         "    ]^/"
         either empty? fp-str [""] [rejoin ["    front-panel: [^/" fp-str "    ]^/"]]
         "]^/^/"
+        "; --- Helpers de runtime ---^/"
+        "arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]^/^/"
         "; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---^/"
         "either empty? system/options/args [^/"
         "    view layout [^/"

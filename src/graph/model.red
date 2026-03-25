@@ -249,7 +249,7 @@ make-shift-register: func [
     sr/id:         any [select spec 'id          0]
     sr/data-type:  dt
     sr/init-value: either none? select spec 'init-value [
-        case [dt = 'string [""]  dt = 'boolean [false]  true [0.0]]
+        case [dt = 'string [""]  dt = 'boolean [false]  dt = 'array [copy []]  true [0.0]]
     ][
         select spec 'init-value
     ]

@@ -371,10 +371,23 @@ render-structure: func [
         text (as-pair (bx + 11) (by2 - tx - 5)) "i"
     ]
 
-    ; 4) Terminal condición [●] — círculo verde abajo-derecha
-    append cmds compose [
-        pen (col-struct-border)  line-width 1  fill-pen (col-struct-term-cond)
-        circle (as-pair (bx2 - 16) (by2 - 16)) 8
+    ; 4) Terminal condición [●] — círculo verde abajo-derecha (solo while-loop)
+    if st/type = 'while-loop [
+        append cmds compose [
+            pen (col-struct-border)  line-width 1  fill-pen (col-struct-term-cond)
+            circle (as-pair (bx2 - 16) (by2 - 16)) 8
+        ]
+    ]
+
+    ; 4b) Terminal count [N] — cuadrado naranja arriba-izquierda (solo for-loop)
+    if st/type = 'for-loop [
+        append cmds compose [
+            pen (col-struct-border)  line-width 1  fill-pen (col-wire)
+            box (as-pair (bx + 8) (by + 8))
+                (as-pair (bx + 8 + tx) (by + 8 + tx)) 2
+            pen off  fill-pen col-text
+            text (as-pair (bx + 11) (by + 11)) "N"
+        ]
     ]
 
     ; 5) Terminales shift register — ▲ borde izquierdo, ▼ borde derecho
@@ -544,10 +557,30 @@ render-bd: func [model /local cmds src-port-xy mid st] [
     ; 2) Wires permanentes normales
     append cmds render-wire-list model/wires model/nodes model/selected-wire
 
-    ; 2b) Wires externos de shift registers (ext→▲ y ▼→ext)
+    ; 2b) Wires externos de shift registers (ext→▲ y ▼→ext) y wire N de for-loop
     if block? model/structures [
         foreach _sst model/structures [
             foreach _sw model/wires [
+                ; For-loop: External → [N] (to-node = structure ID, to-port = "count")
+                if all [_sst/type = 'for-loop  _sw/to-node = _sst/id  _sw/to-port = 'count] [
+                    do [
+                        _snd: none
+                        foreach _nd model/nodes [if _nd/id = _sw/from-node [_snd: _nd]]
+                        if _snd [
+                            _sout: port-xy _snd _sw/from-port 'out
+                            _htx: to-integer (struct-terminal-size / 2)
+                            _ndst: as-pair (to-integer _sst/x + 8 + _htx)
+                                           (to-integer _sst/y + 8 + _htx)
+                            _smx: to-integer (_sout/x + _ndst/x) / 2
+                            append cmds compose [
+                                pen (col-wire)  line-width 2
+                                line (_sout) (as-pair _smx _sout/y)
+                                     (as-pair _smx _ndst/y) (_ndst)
+                                line-width 1
+                            ]
+                        ]
+                    ]
+                ]
                 ; External → SR-left (to-node = structure ID)
                 if _sw/to-node = _sst/id [
                     do [
@@ -686,21 +719,30 @@ hit-structure-node: func [model mouse-x mouse-y /local st node] [
 ; Devuelve [struct 'cond|'iter] si el punto cae sobre un terminal, o none.
 ; 'iter = terminal iteración [i] abajo-izquierda
 ; 'cond = terminal condición [●] abajo-derecha
-hit-structure-terminal: func [model mouse-x mouse-y /local st bx by2 bx2 tx tol] [
+hit-structure-terminal: func [model mouse-x mouse-y /local st bx by by2 bx2 tx tol] [
     tol: 8
     foreach st model/structures [
-        bx: st/x  by2: st/y + st/h  bx2: st/x + st/w
+        bx: st/x  by: st/y  by2: st/y + st/h  bx2: st/x + st/w
         tx: struct-terminal-size
-        ; Terminal iteración: cuadrado (bx+8, by2-tx-8) → (bx+8+tx, by2-8)
+        ; Terminal iteración [i]: cuadrado (bx+8, by2-tx-8) → (bx+8+tx, by2-8) — ambos tipos
         if all [
             mouse-x >= (bx + 8 - tol)  mouse-x <= (bx + 8 + tx + tol)
             mouse-y >= (by2 - tx - 8 - tol)  mouse-y <= (by2 - 8 + tol)
         ] [return reduce [st 'iter]]
-        ; Terminal condición: círculo en (bx2-16, by2-16) radio 8
-        if all [
-            (absolute (mouse-x - (bx2 - 16))) <= (8 + tol)
-            (absolute (mouse-y - (by2 - 16))) <= (8 + tol)
-        ] [return reduce [st 'cond]]
+        ; Terminal condición [●]: círculo en (bx2-16, by2-16) radio 8 — solo while-loop
+        if st/type = 'while-loop [
+            if all [
+                (absolute (mouse-x - (bx2 - 16))) <= (8 + tol)
+                (absolute (mouse-y - (by2 - 16))) <= (8 + tol)
+            ] [return reduce [st 'cond]]
+        ]
+        ; Terminal count [N]: cuadrado (bx+8, by+8) → (bx+8+tx, by+8+tx) — solo for-loop
+        if st/type = 'for-loop [
+            if all [
+                mouse-x >= (bx + 8 - tol)  mouse-x <= (bx + 8 + tx + tol)
+                mouse-y >= (by + 8 - tol)   mouse-y <= (by + 8 + tx + tol)
+            ] [return reduce [st 'count]]
+        ]
     ]
     none
 ]
@@ -997,10 +1039,10 @@ palette-add-node: func [node-type /local n nid model] [
 ]
 
 ; Crea una nueva estructura while-loop y la añade al diagrama.
-palette-add-structure: func [/local nid st model] [
+palette-add-structure: func [type [word!] /local nid st model] [
     model: palette-canvas/extra
     nid: gen-node-id model
-    st: make-structure compose [id: (nid) x: (palette-pos-x) y: (palette-pos-y)]
+    st: make-structure compose [id: (nid) type: (type) x: (palette-pos-x) y: (palette-pos-y)]
     append model/structures st
     palette-canvas/draw: render-bd model
     show palette-canvas
@@ -1037,7 +1079,8 @@ open-palette: func [face x y /struct target-struct] [
         button 80 "Len"      [palette-add-node 'str-length]
         button 80 "→STR"     [palette-add-node 'to-string]      return
         text "Estructuras:"  return
-        button 80 "While"    [palette-add-structure]             return
+        button 80 "While"    [palette-add-structure 'while-loop]
+        button 80 "For"      [palette-add-structure 'for-loop]   return
         button 80 "Add SR"   [
             if palette-struct [
                 unview
@@ -1202,6 +1245,12 @@ canvas-delete-selected: func [canvas /local model node-id node-name node-type st
     ; Estructura completa seleccionada (borde, sin nodo seleccionado)
     if model/selected-struct [
         st: model/selected-struct
+        ; Limpiar wire de N si es for-loop
+        if st/type = 'for-loop [
+            remove-each w model/wires [
+                all [w/to-node = st/id  w/to-port = 'count]
+            ]
+        ]
         remove-each s model/structures [same? s st]
         model/selected-struct: none
         canvas/draw: render-bd model
@@ -1423,7 +1472,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                         return none
                     ]
 
-                    ; Si hay wire-src activo + terminal condición → conectar
+                    ; Si hay wire-src activo + terminal condición → conectar (while-loop)
                     if all [model/wire-src  hit-result/2 = 'cond] [
                         either (port-out-type model/wire-src model/wire-port) = 'boolean [
                             ; Guardar cond-wire en la estructura
@@ -1438,6 +1487,34 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                                 port-xy model/wire-src model/wire-port 'out
                                 as-pair (hit-result/1/x + hit-result/1/w - 16)
                                         (hit-result/1/y + hit-result/1/h - 16)
+                            ]
+                        ]
+                        model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none  model/wire-src-sr: none
+                        face/draw: render-bd model
+                        return none
+                    ]
+                    ; Si hay wire-src activo + terminal [N] → conectar (for-loop, externo)
+                    if all [model/wire-src  hit-result/2 = 'count] [
+                        do [
+                            _fst: hit-result/1
+                            _htx: to-integer (struct-terminal-size / 2)
+                            _ndst: as-pair (to-integer _fst/x + 8 + _htx)
+                                           (to-integer _fst/y + 8 + _htx)
+                            either (port-out-type model/wire-src model/wire-port) = 'number [
+                                ; Eliminar wire previo de N si existía
+                                remove-each _w model/wires [
+                                    all [_w/to-node = _fst/id  _w/to-port = 'count]
+                                ]
+                                append model/wires make-wire compose [
+                                    from: (model/wire-src/id)  from-port: (model/wire-port)
+                                    to: (_fst/id)  to-port: "count"
+                                ]
+                                model/broken-wire: none
+                            ][
+                                model/broken-wire: reduce [
+                                    port-xy model/wire-src model/wire-port 'out
+                                    _ndst
+                                ]
                             ]
                         ]
                         model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none  model/wire-src-sr: none

@@ -1,4 +1,11 @@
-# Task Plan — Issue #14: While Loop
+# Task Plan — Issue #15: For Loop — COMPLETADO ✅
+
+Tests finales: 271/271 PASS
+Ver progress.md para detalles.
+
+---
+
+# Task Plan histórico — Issue #14: While Loop
 
 ## Meta
 | Campo | Valor |
@@ -169,13 +176,13 @@ En el sort principal: cada structure es un **nodo virtual**.
 - Dentro del until: topological sort del sub-diagrama (structure/nodes + structure/wires)
 
 ### Tasks
-- [ ] 4.1 `compile-structure` — genera bloque `until [...]` para while-loop
-- [ ] 4.2 Topological sort del sub-diagrama
-- [ ] 4.3 Inyectar terminal iteración (_while_M_i: 0, incremento)
-- [ ] 4.4 Resolver terminal condición como última expresión del until
-- [ ] 4.5 Caso borde: condición no conectada → `true` (ejecuta una vez)
-- [ ] 4.6 Integrar en `compile-body`: structures se compilan con nodos normales
-- [ ] 4.7 Integrar en `compile-diagram` (run-body del botón Run)
+- [x] 4.1 `compile-structure` — genera bloque `until [...]` para while-loop
+- [x] 4.2 Topological sort del sub-diagrama
+- [x] 4.3 Inyectar terminal iteración (_while_M_i: 0, incremento)
+- [x] 4.4 Resolver terminal condición como última expresión del until
+- [x] 4.5 Caso borde: condición no conectada → `true` (ejecuta una vez)
+- [x] 4.6 Integrar en `compile-body`: structures se compilan con nodos normales
+- [x] 4.7 Integrar en `compile-diagram` (run-body del botón Run)
 
 ---
 
@@ -206,10 +213,10 @@ block-diagram: [
 ```
 
 ### Tasks
-- [ ] 5.1 `serialize-diagram`: incluir `structures:` con nodos internos en coords relativas
-- [ ] 5.2 `load-vi`: parsear `structures:`, reconstruir con make-structure, convertir coords relativas → absolutas
-- [ ] 5.3 `format-qvi`: formatear structures en .qvi multi-línea
-- [ ] 5.4 Test round-trip: save → load → save
+- [x] 5.1 `serialize-diagram`: incluir `structures:` con nodos internos en coords relativas
+- [x] 5.2 `load-vi`: parsear `structures:`, reconstruir con make-structure, convertir coords relativas → absolutas
+- [x] 5.3 `format-qvi`: formatear structures en .qvi multi-línea
+- [x] 5.4 Test round-trip: save → load → save
 
 ---
 
@@ -218,13 +225,13 @@ block-diagram: [
 **Módulos:** tests/, examples/
 
 ### Tasks
-- [ ] 6.1 Tests modelo: make-structure, fields, defaults
-- [ ] 6.2 Tests compilador: while-loop con condición → until correcto
-- [ ] 6.3 Tests compilador: terminal iteración accesible
-- [ ] 6.4 Tests compilador: condición no conectada → true
-- [ ] 6.5 Tests file-io: round-trip con structures
-- [ ] 6.6 Ejemplo: `examples/while-loop-basico.qvi` — cuenta de 0 a 9
-- [ ] 6.7 Verificación visual manual
+- [x] 6.1 Tests modelo: make-structure, fields, defaults
+- [x] 6.2 Tests compilador: while-loop con condición → until correcto
+- [x] 6.3 Tests compilador: terminal iteración accesible
+- [x] 6.4 Tests compilador: condición no conectada → true
+- [x] 6.5 Tests file-io: round-trip con structures
+- [x] 6.6 Ejemplo: `examples/while-loop-basico.qvi` — cuenta de 0 a 9
+- [x] 6.7 Verificación visual manual
 
 ---
 
@@ -278,9 +285,9 @@ structure/shift-regs: [sr-object-1  sr-object-2  ...]
 Convención IDs negativos: -1 = SR-left virtual, -2 = SR-right virtual, -3 = iteración virtual.
 
 ### Tasks
-- [ ] 7.1 `make-shift-register` en model.red
-- [ ] 7.2 Añadir `shift-regs: copy []` a make-structure
-- [ ] 7.3 Definir convención de wires a/desde SRs (IDs virtuales o campo especial)
+- [x] 7.1 `make-shift-register` en model.red
+- [x] 7.2 Añadir `shift-regs: copy []` a make-structure
+- [x] 7.3 Definir convención de wires a/desde SRs (IDs virtuales o campo especial)
 
 ---
 
@@ -305,9 +312,9 @@ Color = según data-type del SR (naranja number, verde bool, rosa string)
 ```
 
 ### Tasks
-- [ ] 8.1 Renderizar terminales SR (▲ izq, ▼ der) en los bordes
-- [ ] 8.2 Renderizar wires externos a/desde SRs
-- [ ] 8.3 Texto con init-value cuando SR no tiene wire conectado
+- [x] 8.1 Renderizar terminales SR (▲ izq, ▼ der) en los bordes
+- [x] 8.2 Renderizar wires externos a/desde SRs
+- [x] 8.3 Texto con init-value cuando SR no tiene wire conectado
 
 ---
 
@@ -316,20 +323,20 @@ Color = según data-type del SR (naranja number, verde bool, rosa string)
 **Módulos:** canvas.red
 
 ### Tasks
-- [ ] 9.1 Hit-test en terminales SR (▲/▼)
-- [ ] 9.2 Wire externo → SR-left (clic en puerto de nodo externo → clic en ▲)
-- [ ] 9.3 Wire SR-right → externo (clic en ▼ → clic en puerto de nodo externo)
-- [ ] 9.4 Wire interno desde SR-left (clic en ▲ interior → nodo interno)
-- [ ] 9.5 Wire interno a SR-right (nodo interno → clic en ▼ interior)
-- [ ] 9.6 Añadir SR: botón en menú/paleta o doble clic en borde
-- [ ] 9.7 Borrar SR: delete cuando SR seleccionado + limpiar wires asociados
-- [ ] 9.8 Doble clic en SR: editar valor inicial (diálogo)
-- [ ] 9.9 Type guard: wire a SR valida tipo compatible
+- [x] 9.1 Hit-test en terminales SR (▲/▼)
+- [x] 9.2 Wire externo → SR-left (clic en puerto de nodo externo → clic en ▲)
+- [x] 9.3 Wire SR-right → externo (clic en ▼ → clic en puerto de nodo externo)
+- [x] 9.4 Wire interno desde SR-left (clic en ▲ interior → nodo interno)
+- [x] 9.5 Wire interno a SR-right (nodo interno → clic en ▼ interior)
+- [x] 9.6 Añadir SR: botón en menú/paleta o doble clic en borde
+- [x] 9.7 Borrar SR: delete cuando SR seleccionado + limpiar wires asociados
+- [x] 9.8 Doble clic en SR: editar valor inicial (diálogo)
+- [x] 9.9 Type guard: wire a SR valida tipo compatible
 
 ---
 
 ## Phase 10 — Compilador con shift registers
-**Estado:** pending
+**Estado:** complete
 **Módulos:** compiler.red
 
 ### Generación de código
@@ -360,16 +367,16 @@ Con shift registers, la structure tiene dependencias externas:
 - La structure participa en el sort principal como nodo virtual con in-degree/out-degree
 
 ### Tasks
-- [ ] 10.1 Inicialización de SRs antes del until
-- [ ] 10.2 Resolver bindings: SR-left como fuente, SR-right como destino
-- [ ] 10.3 Actualizar SRs dentro del until (wires internos → SR-right)
-- [ ] 10.4 Topological sort: structure con dependencias externas (wires a/desde SRs)
-- [ ] 10.5 Nodos externos leen SRs tras el loop
+- [x] 10.1 Inicialización de SRs antes del until
+- [x] 10.2 Resolver bindings: SR-left como fuente, SR-right como destino
+- [x] 10.3 Actualizar SRs dentro del until (wires internos → SR-right)
+- [x] 10.4 Topological sort: structure con dependencias externas (wires a/desde SRs)
+- [x] 10.5 Nodos externos leen SRs tras el loop
 
 ---
 
 ## Phase 11 — Serialización de shift registers
-**Estado:** pending
+**Estado:** complete
 **Módulos:** file-io.red
 
 ### Formato qvi-diagram extendido
@@ -390,24 +397,24 @@ structures: [
 ```
 
 ### Tasks
-- [ ] 11.1 Serializar shift-registers dentro de la estructura
-- [ ] 11.2 Cargar shift-registers desde qvi-diagram
-- [ ] 11.3 Serializar wires externos a/desde SRs (en diagram/wires con to/from: structure-id)
-- [ ] 11.4 Test round-trip con SRs
+- [x] 11.1 Serializar shift-registers dentro de la estructura
+- [x] 11.2 Cargar shift-registers desde qvi-diagram
+- [x] 11.3 Serializar wires externos a/desde SRs (en diagram/wires con to/from: structure-id)
+- [x] 11.4 Test round-trip con SRs
 
 ---
 
 ## Phase 12 — Tests y ejemplo con shift registers
-**Estado:** pending
+**Estado:** complete
 
 ### Tasks
-- [ ] 12.1 Tests: make-shift-register, fields
-- [ ] 12.2 Tests compilador: SR inicialización + actualización
-- [ ] 12.3 Tests compilador: múltiples SRs
-- [ ] 12.4 Tests compilador: SR con wire externo (valor inicial dinámico)
-- [ ] 12.5 Tests file-io: round-trip con SRs
-- [ ] 12.6 Ejemplo: `examples/while-loop-suma.qvi` — suma acumulativa 1 a 10 con SR
-- [ ] 12.7 Verificación visual manual
+- [x] 12.1 Tests: make-shift-register, fields
+- [x] 12.2 Tests compilador: SR inicialización + actualización
+- [x] 12.3 Tests compilador: múltiples SRs
+- [x] 12.4 Tests compilador: SR con wire externo (valor inicial dinámico)
+- [x] 12.5 Tests file-io: round-trip con SRs
+- [x] 12.6 Ejemplo: `examples/while-loop-suma.qvi` — suma acumulativa 1 a 10 con SR
+- [x] 12.7 Verificación visual manual
 
 ---
 

@@ -124,7 +124,7 @@ Los controles de entrada se convierten en `field` editables. Los indicadores de 
 
 **Bloque 1 — Tipos básicos**
 1. [x] Tipo booleano: wire verde, control LED, indicador LED (#9) ✅
-2. [ ] Tipo string: wire rosa con patrón característico, control field, indicador text (#10)
+2. [x] Tipo string: wire rosa con patrón característico, control field, indicador text (#10) ✅
 
 **Bloque 2 — Estructuras de control**
 3. [ ] While Loop con terminal de condición (#14)
@@ -215,7 +215,7 @@ Esta fase es esencial para el público objetivo (mismo que LabVIEW: ingeniería 
 
 Trabajar siempre Issues en orden de Fase. No empezar una fase sin completar la anterior.
 
-**Próximo:** Fase 2 — Issue #10 (tipo string).
+**Próximo:** Fase 2 — Issue #14 (While Loop).
 
 ---
 

@@ -102,7 +102,7 @@ El `.qvi` se ejecuta directamente con `red mi-vi.qvi` sin QTorres instalado.
 ## DT-006: Sub-VIs como funciones Red + guarda qtorres-runtime
 
 **Fecha:** 2026-03-14  
-**Estado:** Adoptada  
+**Estado:** Parcialmente superseded por DT-017  
 
 **Contexto:** Definir cómo un VI se reutiliza dentro de otro VI (sub-VI).
 
@@ -835,3 +835,240 @@ El patrón Draw-based permite diseñar widgets propios sin límite:
 | Librería de widgets propia ahora | Prematuro. Primero implementar widgets concretos, después extraer abstracción. |
 
 **Referencia:** Ver `docs/labview-comportamiento.md` para detalles del modelo de LabVIEW.
+
+---
+
+## DT-027: Concurrencia cooperativa — scheduler basado en `rate`/`on-time`
+
+**Fecha:** 2026-03-24
+**Estado:** Adoptada
+
+**Contexto:** LabVIEW tiene un scheduler multihilo propio que ejecuta varios diagramas en paralelo. Red no tiene multihilo. Esto afecta a features futuras: Event Structures, procesos en segundo plano, notifiers, y múltiples loops corriendo simultáneamente. La decisión debe tomarse ahora para no cerrar puertas arquitectónicas.
+
+**Problema:** Red ejecuta en un solo hilo. Un `while` bloqueante congela la GUI. Dos loops "paralelos" no pueden ejecutarse simultáneamente.
+
+**Decisión:** QTorres adopta un modelo de **concurrencia cooperativa** basado en `rate`/`on-time` de Red/View. Cada estructura que necesite ejecución continuada (While Loop, Event Structure, proceso en segundo plano) se implementa como un **callback de timer** que ejecuta una iteración por tick. El loop de eventos de Red/View actúa como scheduler central.
+
+**Modelo de ejecución:**
+
+| Concepto LabVIEW | Implementación QTorres | Mecanismo Red |
+|------------------|----------------------|---------------|
+| While Loop | Timer que ejecuta una iteración por tick | `face/rate` + `on-time` |
+| Event Structure | Timer que comprueba cola de eventos | `face/rate` + `on-time` con cola |
+| Notifier | Variable compartida + flag de cambio | `object!` compartido entre callbacks |
+| Proceso en segundo plano | Timer independiente con su propio rate | Otra face con `rate` propio |
+| Paralelismo (2 loops) | Dos timers con sus propios rates | Dos faces con `rate`, Red despacha ambos |
+
+**Código generado — estructura tipo:**
+
+```red
+Red [title: "mi-programa" Needs: 'View]
+
+qvi-diagram: [...]
+
+;-- Estado de los loops
+loop-1-state: context [
+    running: true
+    shift-reg-1: 0       ; shift register
+    iteration: 0
+]
+
+;-- Lógica de una iteración del loop 1
+loop-1-tick: func [] [
+    if not loop-1-state/running [exit]
+    ; ... cuerpo del while ...
+    loop-1-state/shift-reg-1: nuevo-valor
+    loop-1-state/iteration: loop-1-state/iteration + 1
+    ; condición de parada
+    if condicion-stop [loop-1-state/running: false]
+]
+
+view layout [
+    ; Controles e indicadores...
+
+    ;-- Timer invisible que ejecuta el loop
+    loop-1-timer: base 0x0 rate 100 on-time [loop-1-tick]
+]
+```
+
+**Implicaciones para el compilador:**
+
+1. Un While Loop NO genera `while [...] [...]` de Red. Genera un `context` con estado + una función tick + una face con `rate`.
+2. El `rate` determina la frecuencia de ejecución (iteraciones/segundo). Valor por defecto: 100 (10 ms por tick). Configurable por el usuario.
+3. Múltiples loops generan múltiples timers independientes. Red despacha los `on-time` de todos en round-robin.
+4. El botón Stop del Front Panel pone `running: false` en el state del loop.
+5. Los Shift Registers son campos del `context` de estado del loop (persistentes entre iteraciones).
+
+**Rendimiento vs LabVIEW:**
+
+| Escenario | LabVIEW | QTorres | Impacto |
+|-----------|---------|---------|---------|
+| Un loop + UI responsiva | Hilo dedicado | Timer cooperativo | ~10-30% overhead por cesión a GUI |
+| Dos loops en paralelo | Dos hilos reales | Dos timers, time-slicing | ~50% throughput por loop |
+| Adquisición con esperas | Hilo bloqueado, otros siguen | Timer con callback, funciona | Similar (cuello de botella = hardware) |
+| Cálculo numérico intensivo | Multihilo, N cores | Single-thread | N veces más lento |
+
+Para instrumentación y control (target de QTorres), la diferencia es pequeña. El cuello de botella es siempre el hardware.
+
+**Evolución futura:**
+
+- Si Red implementa actors/CSP (en su roadmap), el scheduler cooperativo se reemplaza por concurrencia real sin cambiar la arquitectura del compilador. El código generado es agnóstico al modelo de concurrencia subyacente.
+- Con un equipo y Red/System, se podría implementar un thread pool propio para I/O no bloqueante (Fase 4+). La interfaz del compilador no cambiaría — solo la implementación del tick.
+
+**Restricción de diseño (ver DT-028):** El código generado por los timers debe ser **estático** — funciones con nombre, no bloques dinámicos construidos en runtime. Esto garantiza compilabilidad con `red -c`.
+
+**Fase de implementación:**
+- **Fase 2 (ahora):** While/For loops con `do-events` intercalado (suficiente para un solo loop). Preparar la estructura de estado del loop compatible con el modelo de timers.
+- **Fase 2.5:** Migrar loops a `rate`/`on-time` cuando se implemente Event Structure o se necesiten dos loops simultáneos.
+- **Fase 3:** Notifiers y procesos en segundo plano.
+
+**Alternativas descartadas:**
+
+| Alternativa | Por qué se descartó |
+|-------------|---------------------|
+| `do-events` dentro de `while` | Funciona para un loop, no escala a múltiples loops paralelos |
+| `make reactor!` para dataflow reactivo | Mezcla paradigmas. LabVIEW es dataflow por ejecución, no reactivo. Complejidad innecesaria |
+| Red/System threads desde el inicio | La capa View no es thread-safe. Requiere message-passing al hilo principal. Prematuro |
+| Esperar multihilo nativo de Red | Sin fecha concreta. No podemos depender de esto |
+
+---
+
+## DT-028: Compilabilidad — cero código dinámico en el código generado
+
+**Fecha:** 2026-03-24
+**Estado:** Adoptada
+
+**Contexto:** Un objetivo clave de QTorres es que el `.qvi` generado se pueda compilar con `red -c` a un ejecutable nativo standalone. Esto es una ventaja competitiva frente a LabVIEW (que necesita el runtime completo). El compilador de Red (`red -c`) tiene limitaciones con código dinámico.
+
+**Problema:** `do` con bloques construidos en runtime NO funciona en código compilado. Red necesita el intérprete para evaluar código dinámico. Si el compilador de QTorres genera código que use `do` dinámico, `load` en runtime, o `compose` evaluado en runtime, el `.qvi` no será compilable.
+
+**Decisión:** Todo el código que genera el compilador de QTorres es **estático y resolvible en tiempo de compilación**. El código generado es un bloque Red literal que no se auto-construye ni se auto-modifica.
+
+**Reglas para el compilador de QTorres:**
+
+| Permitido | Prohibido |
+|-----------|-----------|
+| `view layout [...]` estático | `do` con bloques construidos en runtime |
+| Funciones con nombre (`loop-1-tick: func [...]`) | `load` de strings en runtime |
+| `compose` evaluado al generar el `.qvi` (tiempo de compilación QTorres) | `compose` evaluado en runtime del `.qvi` |
+| Variables globales predefinidas | `make function!` dinámico |
+| `on-time [loop-1-tick]` (referencia a función existente) | `on-time [do dynamic-block]` |
+
+**Ejemplo correcto:**
+```red
+; El compilador de QTorres genera este código LITERAL en el .qvi
+loop-1-tick: func [] [
+    if not loop-1-state/running [exit]
+    loop-1-state/i: loop-1-state/i + 1
+    ctrl_1-face/text: form loop-1-state/i
+]
+```
+
+**Ejemplo incorrecto:**
+```red
+; PROHIBIDO — código que se construye a sí mismo en runtime
+code: compose [ctrl_1-face/text: form (value)]
+do code
+```
+
+**Lo que SÍ compila con `red -c`:**
+- `view layout [...]`
+- Funciones definidas con `func`/`function`/`does`
+- `face/rate` + `on-time`
+- `make reactor!`
+- `make object!` / `context`
+- Todas las operaciones de View/Draw
+
+**Lo que NO compila:**
+- `do string!` o `do block!` construido dinámicamente
+- `load string!`
+- `call` con scripts Red
+- Cualquier forma de eval en runtime
+
+**Consecuencia:** El compilador de QTorres trabaja con bloques Red (DT-008) y usa `compose` internamente para construir el código generado. Pero el resultado final — el código que se escribe en el `.qvi` — es estático. `compose` se ejecuta en el compilador de QTorres, no en el `.qvi` generado.
+
+**Verificación:** Cualquier `.qvi` generado debe poder compilarse con `red -c nombre.qvi` sin errores. Esto se puede añadir como test de CI cuando tengamos pipeline.
+
+---
+
+## DT-029: Error handling — puertos reservados, implementación progresiva
+
+**Fecha:** 2026-03-24
+**Estado:** Adoptada
+
+**Contexto:** LabVIEW propaga errores por el diagrama usando un "error cluster" — un cable que pasa de nodo a nodo con información de error. Si un nodo falla, los siguientes ven el error y no ejecutan su lógica. Esto es imprescindible para hardware (comunicaciones que fallan constantemente). QTorres necesita un plan de error handling que no bloquee el desarrollo actual pero que no haga imposible la implementación futura.
+
+**Problema:** Si el modelo de datos (nodos, puertos, wires) no contempla puertos de error desde el inicio, añadirlos después requiere cambiar el modelo, el compilador, el canvas, el wiring — un refactoring masivo.
+
+**Decisión:** Implementación progresiva en tres niveles:
+
+### Nivel 0 — Ahora (Fase 2): Error nativo de Red
+
+El código generado no tiene manejo de errores explícito. Si algo falla en runtime, Red lanza un error nativo y el programa se para. Es tosco pero funcional para la fase actual.
+
+**Único cambio ahora:** Reservar en el modelo de datos la capacidad de tener puertos de error. Concretamente:
+- El campo `ports` de un nodo ya acepta puertos de cualquier tipo. Un puerto de tipo `'error` es válido en el modelo.
+- NO se muestra en la UI, NO se compila, NO se conecta con wires. Solo existe como posibilidad en la estructura de datos.
+- Coste: cero. No hay código nuevo, solo la garantía de que el modelo no impide añadirlo.
+
+### Nivel 1 — Fase 3 (Sub-VIs): try/catch por nodo
+
+Cuando se implementen sub-VIs, el compilador envuelve cada llamada a sub-VI en `try`:
+
+```red
+result: try [subvi-funcion arg1 arg2]
+if error? result [
+    ; marcar error, no ejecutar nodos dependientes
+    error-state: result
+]
+```
+
+Esto da manejo de errores básico sin necesidad de cables de error en el diagrama. El error se propaga por el orden topológico — si un nodo falla, los que dependen de él no se ejecutan.
+
+### Nivel 2 — Fase 4 (Hardware): Error cluster completo
+
+Cuando se implementen comunicaciones con hardware, se activa el error cluster completo:
+- Puertos `error-in` y `error-out` visibles en los nodos que lo soporten
+- Wire de error con color propio (amarillo, como en LabVIEW)
+- El compilador genera código que chequea el error antes de ejecutar cada nodo
+- Los nodos de hardware (SCPI, serial, TCP) siempre tienen puertos de error
+
+**Estructura del error cluster:**
+```red
+; Error cluster — compatible con error! nativo de Red
+error-cluster: context [
+    status:  false       ; true = hay error
+    code:    0           ; código numérico
+    source:  ""          ; nombre del nodo que falló
+    message: ""          ; descripción legible
+]
+```
+
+**Código generado con error cluster (Fase 4):**
+```red
+; El compilador genera checks de error entre nodos
+_err: copy error-empty
+_err: scpi-write instrument "*IDN?" _err
+if _err/status [
+    ; saltar nodos dependientes
+    ind_1-face/text: rejoin ["ERROR: " _err/message]
+    exit  ; o equivalente según el contexto
+]
+_err: scpi-read instrument _err
+```
+
+**Razones de la implementación progresiva:**
+- Implementar el error cluster completo ahora (Fase 2) complicaría enormemente el compilador, el canvas y el wiring sin beneficio real — no hay hardware todavía
+- El Nivel 0 es suficiente para tipos de datos y estructuras de control
+- El Nivel 1 da error handling funcional para sub-VIs sin cables visibles
+- El Nivel 2 es imprescindible para hardware, y para entonces el modelo ya está preparado
+
+**Garantía arquitectónica:** En ningún momento el modelo de datos impide añadir puertos de error. Los constructores `make-node` y `make-wire` aceptan cualquier tipo de puerto. El compilador ya genera código en orden topológico, lo que facilita insertar checks de error entre nodos. No hay deuda técnica por esperar.
+
+**Alternativas descartadas:**
+
+| Alternativa | Por qué se descartó |
+|-------------|---------------------|
+| Error cluster desde Fase 2 | Complejidad prematura. Sin hardware, no hay errores reales que propagar |
+| Solo `try/catch` global | No permite al usuario ver qué nodo falló ni tomar decisiones en el diagrama |
+| Ignorar errores (solo `print`) | Inaceptable para producción industrial |

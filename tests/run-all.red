@@ -30,6 +30,7 @@ assert-error: func [desc [string!] body [block!] /local err] [
 
 ; ── Suites ───────────────────────────────────────────────────────────
 do %test-blocks.red
+do %test-model.red
 do %test-topo-sort.red
 do %test-compiler.red
 

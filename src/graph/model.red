@@ -168,6 +168,9 @@ make-node: func [
     ; Name: usar explícito, o generar automáticamente
     n/name: any [select spec 'name  gen-name to-word n/type]
 
+    ; Config: cargar desde spec si está presente (permite round-trip de valores)
+    if select spec 'config [n/config: copy select spec 'config]
+
     ; Label: acepta bloque [text: "..." ...] o string (retrocompatibilidad)
     lbl-spec: select spec 'label
     n/label: case [
@@ -230,8 +233,68 @@ make-wire: func [
     w
 ]
 
+make-shift-register: func [
+    "Crea un shift register (par de terminales ▲/▼) para un while-loop"
+    spec [block!]
+    /local sr dt
+][
+    dt: any [select spec 'data-type  'number]
+    sr: make object! [
+        id:         0
+        name:       ""
+        data-type:  'number
+        init-value: 0.0
+        y-offset:   40
+    ]
+    sr/id:         any [select spec 'id          0]
+    sr/data-type:  dt
+    sr/init-value: either none? select spec 'init-value [
+        case [dt = 'string [""]  dt = 'boolean [false]  true [0.0]]
+    ][
+        select spec 'init-value
+    ]
+    sr/y-offset:   any [select spec 'y-offset    40]
+    sr/name:       any [select spec 'name        gen-name 'sr]
+    sr
+]
+
+make-structure: func [
+    "Crea una estructura contenedora (while-loop) del Block Diagram"
+    spec [block!]
+    /local s lbl-spec
+][
+    s: make object! [
+        id:         0
+        type:       'while-loop
+        name:       ""
+        label:      none
+        x:          0
+        y:          0
+        w:          300
+        h:          200
+        nodes:      copy []
+        wires:      copy []
+        cond-wire:  none
+        shift-regs: copy []
+    ]
+    s/id:   any [select spec 'id    0]
+    s/type: any [select spec 'type  'while-loop]
+    s/x:    any [select spec 'x     0]
+    s/y:    any [select spec 'y     0]
+    s/w:    any [select spec 'w     300]
+    s/h:    any [select spec 'h     200]
+    s/name: any [select spec 'name  gen-name to-word s/type]
+    lbl-spec: select spec 'label
+    s/label: case [
+        block? lbl-spec  [make-label lbl-spec]
+        string? lbl-spec [make-label compose [text: (lbl-spec) visible: (true)]]
+        true             [make-label compose [text: "While Loop" visible: (true) offset: 0x-15]]
+    ]
+    s
+]
+
 make-diagram: func [
-    "Crea un diagrama (contenedor de nodos y wires)"
+    "Crea un diagrama (contenedor de nodos, wires y estructuras)"
     title [string!]
 ][
     make object! [
@@ -239,6 +302,7 @@ make-diagram: func [
         connector:   none
         nodes:       copy []
         wires:       copy []
+        structures:  copy []
         controls:    copy []
         indicators:  copy []
         front-panel: copy []

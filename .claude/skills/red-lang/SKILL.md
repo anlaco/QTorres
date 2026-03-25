@@ -469,10 +469,14 @@ All actors receive `face` (the face that triggered) and `event` (event data).
 
 ```red
 actors: make object! [
-    on-click:     func [face event] [...]   ; mouse click
-    on-dbl-click: func [face event] [...]   ; double click
-    on-down:      func [face event] [...]   ; mouse button down
-    on-up:        func [face event] [...]   ; mouse button release
+    on-click:     func [face event] [...]   ; left mouse click
+    on-dbl-click: func [face event] [...]   ; left double click
+    on-down:      func [face event] [...]   ; left mouse button down
+    on-up:        func [face event] [...]   ; left mouse button release
+    on-mid-down:  func [face event] [...]   ; middle mouse button down
+    on-mid-up:    func [face event] [...]   ; middle mouse button release
+    on-alt-down:  func [face event] [...]   ; RIGHT mouse button down
+    on-alt-up:    func [face event] [...]   ; RIGHT mouse button release
     on-over:      func [face event] [...]   ; mouse movement over face
     on-wheel:     func [face event] [...]   ; mouse wheel scroll
     on-key:       func [face event] [...]   ; key press
@@ -1090,9 +1094,56 @@ map? mp             ; true
 Red [Needs: 'View]
 ```
 
+### 11. Right-click uses on-alt-down, NOT on-down
+```red
+; WRONG — on-down only fires for LEFT button
+on-down: func [face event] [
+    if find event/flags 'alt [...]  ; never reaches here
+]
+
+; CORRECT — use dedicated actor for right mouse button
+on-alt-down: func [face event] [
+    ; Right-click handling here
+    ; event/offset works the same as on-down
+]
+```
+Red/View uses separate actors per mouse button: `on-down`/`on-up` (left), `on-mid-down`/`on-mid-up` (middle), `on-alt-down`/`on-alt-up` (right). Works on all platforms including GTK/Linux.
+
+### 12. append flattens path! — use append/only
+```red
+; WRONG — path! is a series, append flattens it into two words
+append block 'do-events/no-wait
+; Result: [... do-events no-wait]  (broken!)
+
+; CORRECT — append/only keeps the path as a single element
+append/only block to-path [do-events no-wait]
+; Result: [... do-events/no-wait]  (works)
+```
+This applies to all `path!` and `lit-path!` values. Always use `append/only` when adding paths to blocks.
+
+### 13. Infix ops steal function arguments — ALWAYS parenthesize
+```red
+; WRONG — = is infix and binds tighter than to-word's argument
+if to-word sr/name = port-name [...]
+; Parses as: to-word (sr/name = port-name) → to-word false → word! 'false → TRUTHY!
+
+; CORRECT — parenthesize the function call
+if (to-word sr/name) = port-name [...]
+; Parses as: (word!) = (word!) → true/false logic!
+```
+This applies to ALL prefix function calls followed by infix operators (`=`, `<>`, `<`, `>`, `+`, `-`, `*`, `/`):
+```red
+; WRONG
+if to-integer x + y > 10 [...]   ; to-integer (x + y > 10)
+; CORRECT
+if (to-integer x + y) > 10 [...]
+if (to-integer x) + y > 10 [...]
+```
+**Rule:** When a `to-*` or any prefix function result is used with an infix op, ALWAYS wrap it in parentheses.
+
 ---
 
-## 13. Quick Reference Card
+## 14. Quick Reference Card
 
 ```red
 ; Types            pair!: 10x20    tuple!: 255.0.0    word!: my-word

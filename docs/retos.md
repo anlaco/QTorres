@@ -75,11 +75,11 @@ Con pocos bloques no hay problema. Con 50+ bloques y wires, el redibujo del canv
 
 No está en Fase 1 pero es imprescindible para cualquier editor. La arquitectura del modelo de datos debe contemplarlo (command pattern o similar) desde el diseño.
 
-## Preguntas abiertas
+## Preguntas abiertas (actualizadas 2026-03-24)
 
-1. ¿Red interpretado o compilado como target de ejecución para Run?
+1. ~~¿Red interpretado o compilado como target de ejecución para Run?~~ → **RESUELTO:** Run usa `do` en memoria (DT-010). Save genera código compilable con `red -c` (DT-028).
 2. ¿Soporta Red/View canvas con scroll nativo o hay que construirlo?
-3. ¿El usuario objetivo es ingeniero saliendo de LabVIEW o programador Red?
+3. ~~¿El usuario objetivo es ingeniero saliendo de LabVIEW o programador Red?~~ → **RESUELTO:** Tres audiencias: ingenieros LabVIEW, programadores generales, agentes IA (DT-019).
 
 ### Bugs del backend GTK en Linux
 

@@ -1,0 +1,50 @@
+Red [Title: "while-loop-basico" Needs: 'View]
+
+qvi-diagram: [
+    meta: [description: "" version: 1 author: "" tags: []]
+    icon: []
+    block-diagram: [
+        nodes: [
+        ]
+        wires: [
+        ]
+        structures: [
+        while-loop [
+            id: 10  name: "while_1"  label: [text: "While Loop" visible: true]
+            x: 80  y: 80  w: 340  h: 200
+            condition: [from: 13 port: result]
+            nodes: [
+                    node [
+    id: 11 type: 'const
+    name: "limite_1"
+    label: [text: "" visible: false]
+    x: 40 y: 40
+]
+                    node [
+    id: 12 type: 'gt-op
+    name: "gt_1"
+    label: [text: "" visible: false]
+    x: 150 y: 40
+]
+                    node [
+    id: 13 type: 'bool-const
+    name: "cond_1"
+    label: [text: "" visible: false]
+    x: 200 y: 70
+]
+            ]
+            wires: [
+            ]
+        ]
+        ]
+    ]
+]
+
+; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
+either empty? system/options/args [
+    view layout [
+        button "Run" [_while_1_i: 0 until [limite_1_result: 10.0 gt_1_result: a > b cond_1_result: true _while_1_i: _while_1_i + 1 cond_1_result]]
+    ]
+][
+    _while_1_i: 0 until [limite_1_result: 10.0 gt_1_result: a > b cond_1_result: true _while_1_i: _while_1_i + 1 cond_1_result]
+]

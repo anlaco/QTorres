@@ -576,9 +576,14 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                     ]
                     all [hit  hit/type = 'str-control]   [open-str-fp-edit-dialog hit face face/extra]
                     all [hit  hit/type = 'control]        [open-edit-dialog hit face face/extra]
-                    none? hit                              [open-fp-palette face mouse-x mouse-y]
                     ; indicador: no hacer nada
                 ]
+            ]
+
+            on-alt-down: func [face event /local mouse-x mouse-y] [
+                mouse-x: event/offset/x
+                mouse-y: event/offset/y
+                open-fp-palette face mouse-x mouse-y
             ]
 
             on-key: func [face event /local model hit w h _cref bd-node] [

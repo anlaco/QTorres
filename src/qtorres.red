@@ -101,9 +101,22 @@ btn-run: make face! [
                 if all [bdef  bdef/category = 'output] [
                     foreach wire model/wires [
                         if wire/to-node = n/id [
+                            ; Fuente: nodo normal
                             foreach src model/nodes [
                                 if src/id = wire/from-node [
                                     result-var: port-var src to-word wire/from-port
+                                    result-val: attempt [get result-var]
+                                    foreach item model/front-panel [
+                                        if item/name = n/name [
+                                            unless none? result-val [item/value: result-val]
+                                        ]
+                                    ]
+                                ]
+                            ]
+                            ; Fuente: estructura (SR-right → indicador externo)
+                            foreach st model/structures [
+                                if st/id = wire/from-node [
+                                    result-var: to-word rejoin ["_" form wire/from-port]
                                     result-val: attempt [get result-var]
                                     foreach item model/front-panel [
                                         if item/name = n/name [
@@ -156,13 +169,15 @@ btn-load: make face! [
             if path [
                 loaded: attempt [load-vi path]
                 if loaded [
-                    app-model/nodes:         loaded/nodes
-                    app-model/wires:         loaded/wires
-                    app-model/name:          loaded/name
-                    app-model/front-panel:   loaded/front-panel
-                    app-model/selected-node: none
-                    app-model/selected-wire: none
-                    app-model/selected-fp:   none
+                    app-model/nodes:          loaded/nodes
+                    app-model/wires:          loaded/wires
+                    app-model/structures:     either in loaded 'structures [loaded/structures] [copy []]
+                    app-model/name:           loaded/name
+                    app-model/front-panel:    loaded/front-panel
+                    app-model/selected-node:  none
+                    app-model/selected-wire:  none
+                    app-model/selected-struct: none
+                    app-model/selected-fp:    none
                     canvas-face/draw: render-bd app-model
                     show canvas-face
                     panel-face/draw: render-fp-panel app-model panel-face/size/x panel-face/size/y

@@ -50,7 +50,10 @@ topological-sort: func [
     ]
 
     foreach w wires [
-        in-degree/(w/to-node): in-degree/(w/to-node) + 1
+        ; Ignorar wires con extremos virtuales (IDs negativos: iter, SR-left, SR-right)
+        if all [w/from-node >= 0  w/to-node >= 0] [
+            in-degree/(w/to-node): in-degree/(w/to-node) + 1
+        ]
     ]
 
     queue: copy []
@@ -63,7 +66,7 @@ topological-sort: func [
         nid: take queue
         append result id-to-node/:nid
         foreach w wires [
-            if w/from-node = nid [
+            if all [w/from-node = nid  w/to-node >= 0] [
                 in-degree/(w/to-node): in-degree/(w/to-node) - 1
                 if in-degree/(w/to-node) = 0 [append queue w/to-node]
             ]
@@ -72,6 +75,66 @@ topological-sort: func [
 
     if (length? result) <> (length? nodes) [
         cause-error 'user 'message ["topological-sort: ciclo detectado en el diagrama"]
+    ]
+
+    result
+]
+
+; ══════════════════════════════════════════════════
+; BUILD-SORTED-ITEMS
+; ══════════════════════════════════════════════════
+;
+; Extiende topological-sort para incluir estructuras (while-loop)
+; junto con los nodos normales en el orden de compilación.
+;
+; Las estructuras participan como nodos virtuales:
+;   - Dependencia entrada: wire externo a SR-left  (to-node = st/id)
+;   - Dependencia salida:  wire externo desde SR-right (from-node = st/id)
+;
+; Devuelve un bloque con objetos (nodo o estructura) en orden topológico.
+; Para distinguirlos: los objetos de estructura tienen campo 'shift-regs.
+
+build-sorted-items: func [
+    diagram [object!]
+    /local all-items in-degree id-to-item queue result nid w item
+][
+    all-items: copy diagram/nodes
+    if all [in diagram 'structures  block? diagram/structures] [
+        foreach st diagram/structures [append all-items st]
+    ]
+
+    in-degree:  make map! []
+    id-to-item: make map! []
+    foreach item all-items [
+        in-degree/(item/id): 0
+        id-to-item/(item/id): item
+    ]
+
+    foreach w diagram/wires [
+        if w/from-node >= 0 [
+            if not none? select in-degree w/to-node [
+                in-degree/(w/to-node): in-degree/(w/to-node) + 1
+            ]
+        ]
+    ]
+
+    queue: copy []
+    foreach item all-items [
+        if in-degree/(item/id) = 0 [append queue item/id]
+    ]
+
+    result: copy []
+    while [not empty? queue] [
+        nid: take queue
+        append result id-to-item/:nid
+        foreach w diagram/wires [
+            if w/from-node = nid [
+                if not none? select in-degree w/to-node [
+                    in-degree/(w/to-node): in-degree/(w/to-node) - 1
+                    if in-degree/(w/to-node) = 0 [append queue w/to-node]
+                ]
+            ]
+        ]
     ]
 
     result
@@ -136,7 +199,7 @@ build-bindings: func [
     node    [object!]
     diagram [object!]
     bdef    [object!]
-    /local bindings p w src cfg-val
+    /local bindings p w src cfg-val found _var
 ][
     bindings: copy []
 
@@ -148,10 +211,39 @@ build-bindings: func [
     foreach p bdef/inputs [
         foreach w diagram/wires [
             if all [w/to-node = node/id  (to-word w/to-port) = p/name] [
-                foreach src diagram/nodes [
-                    if src/id = w/from-node [
+                case [
+                    ; Nodos virtuales negativos: iter (-3) y SR-left (-1)
+                    w/from-node < 0 [
+                        ; Iter (-3): from-port ya es la variable (_while_N_i)
+                        ; SR-left (-1): from-port es sr/name → variable es _sr_name
+                        _var: either w/from-node = -1 [
+                            to-word rejoin ["_" form w/from-port]
+                        ][
+                            w/from-port
+                        ]
                         append bindings p/name
-                        append bindings port-var src w/from-port
+                        append bindings _var
+                    ]
+                    ; Nodo fuente normal
+                    true [
+                        found: false
+                        foreach src diagram/nodes [
+                            if src/id = w/from-node [
+                                append bindings p/name
+                                append bindings port-var src w/from-port
+                                found: true
+                            ]
+                        ]
+                        ; Nodo fuente es una estructura (SR-right → externo, task 10.5)
+                        if all [not found  in diagram 'structures  block? diagram/structures] [
+                            foreach st diagram/structures [
+                                if st/id = w/from-node [
+                                    ; Variable SR: _sr_name
+                                    append bindings p/name
+                                    append bindings to-word rejoin ["_" form w/from-port]
+                                ]
+                            ]
+                        ]
                     ]
                 ]
             ]
@@ -187,22 +279,140 @@ node-string-input?: func [node /local bdef] [
 ]
 
 ; ══════════════════════════════════════════════════
+; COMPILE-STRUCTURE
+; ══════════════════════════════════════════════════
+;
+; Genera el bloque de código para una estructura while-loop:
+;   _sr_name: <init-value o variable-externa>  ; por cada SR
+;   _while_N_i: 0
+;   until [
+;       <nodos internos compilados>
+;       _sr_name: <nodo-que-escribe-en-SR>      ; actualización SR
+;       _while_N_i: _while_N_i + 1
+;       <condición>   ; true si no conectada
+;   ]
+;
+; outer-diagram: diagrama que contiene la estructura (para wires externos de SR).
+
+compile-structure: func [
+    st           [object!]
+    outer-diagram [object!]
+    /local iter-sym sub-diag sorted code until-body node bdef cond-expr cond-node
+           sr sr-sym init-val w src src-node
+][
+    iter-sym: to-word rejoin ["_" st/name "_i"]
+
+    ; Sub-diagrama ficticio: expone nodes/wires para topological-sort y build-bindings
+    sub-diag: make object! [
+        nodes: st/nodes
+        wires: st/wires
+    ]
+
+    code: copy []
+
+    ; ── Inicialización de shift registers ──────────────────────
+    foreach sr st/shift-regs [
+        sr-sym:   to-word rejoin ["_" sr/name]
+        init-val: sr/init-value  ; valor por defecto (literal)
+        ; ¿Hay un wire externo que inicializa este SR?
+        foreach w outer-diagram/wires [
+            if all [w/to-node = st/id  (to-word w/to-port) = to-word sr/name] [
+                foreach src outer-diagram/nodes [
+                    if src/id = w/from-node [
+                        init-val: port-var src to-word w/from-port
+                    ]
+                ]
+            ]
+        ]
+        append code to-set-word sr-sym
+        append code init-val
+    ]
+
+    ; Inicialización del contador de iteración
+    append code to-set-word iter-sym
+    append code 0
+
+    ; Compilar cuerpo interno
+    until-body: copy []
+    sorted: either empty? st/nodes [copy []] [topological-sort sub-diag]
+    foreach node sorted [
+        bdef: find-block node/type
+        if all [bdef  bdef/emit] [
+            append until-body bind-emit bdef/emit (build-bindings node sub-diag bdef)
+        ]
+    ]
+
+    ; ── Actualización de shift registers (antes del incremento) ─
+    foreach sr st/shift-regs [
+        sr-sym: to-word rejoin ["_" sr/name]
+        foreach w st/wires [
+            if all [w/to-node = -2  (to-word w/to-port) = to-word sr/name] [
+                foreach src-node st/nodes [
+                    if src-node/id = w/from-node [
+                        append until-body to-set-word sr-sym
+                        append until-body port-var src-node to-word w/from-port
+                    ]
+                ]
+            ]
+        ]
+    ]
+
+    ; Incrementar iteración: _iter: _iter + 1
+    append until-body to-set-word iter-sym
+    append until-body iter-sym
+    append until-body to-word "+"
+    append until-body 1
+
+    ; Ceder control a la GUI una vez por iteración (DT-027 Fase 2)
+    ; do-events/no-wait: procesa eventos pendientes y vuelve inmediatamente
+    append/only until-body to-path [do-events no-wait]
+
+    ; Condición final (última expresión del until)
+    cond-expr: either st/cond-wire [
+        cond-node: none
+        foreach nd st/nodes [if nd/id = st/cond-wire/from [cond-node: nd]]
+        either cond-node [
+            port-var cond-node st/cond-wire/port
+        ][
+            true
+        ]
+    ][
+        true  ; sin condición conectada: ejecuta una vez
+    ]
+    append until-body cond-expr
+
+    ; until [body]
+    append code 'until
+    append/only code until-body
+
+    code
+]
+
+; ══════════════════════════════════════════════════
 ; COMPILE-BODY
 ; ══════════════════════════════════════════════════
 ;
 ; Genera el bloque de cómputo headless listo para ejecutar con do.
-; Incluye todos los nodos: inputs (const), math (add/sub...) y outputs (display).
+; Incluye todos los nodos normales y las estructuras.
 
 compile-body: func [
     diagram [object!]
-    /local sorted code node bdef
+    /local sorted code item bdef
 ][
-    sorted: topological-sort diagram
+    sorted: build-sorted-items diagram
     code: copy []
-    foreach node sorted [
-        bdef: find-block node/type
-        if all [bdef  bdef/emit] [
-            append code bind-emit bdef/emit (build-bindings node diagram bdef)
+    foreach item sorted [
+        either in item 'shift-regs [
+            ; Estructura (while-loop u otra)
+            if item/type = 'while-loop [
+                append code compile-structure item diagram
+            ]
+        ][
+            ; Nodo normal
+            bdef: find-block item/type
+            if all [bdef  bdef/emit] [
+                append code bind-emit bdef/emit (build-bindings item diagram bdef)
+            ]
         ]
     ]
     code
@@ -222,48 +432,66 @@ compile-body: func [
 
 compile-diagram: func [
     diagram [object!]
-    /local sorted headless run-body ui-layout node bdef face-n cfg-val w src src-var bindings
+    /local sorted headless run-body ui-layout item node bdef face-n cfg-val w src src-var bindings
 ][
-    sorted: topological-sort diagram
+    sorted:   build-sorted-items diagram
     headless: compile-body diagram
 
     ; ── Cuerpo del botón Run (modo UI) ────────────────────────
     run-body: copy []
-    foreach node sorted [
-        bdef: find-block node/type
-        if none? bdef [continue]
-        case [
-            bdef/category = 'input [
-                face-sym: to-word rejoin ["f_" node/id]
-                case [
-                    node-boolean-input? node [
-                        append run-body compose [(to-set-word port-var node 'result) (to-path reduce [face-sym 'data])]
-                    ]
-                    node-string-input? node [
-                        append run-body compose [(to-set-word port-var node 'result) (to-path reduce [face-sym 'text])]
-                    ]
-                    true [
-                        append run-body compose [(to-set-word port-var node 'result) to-float (to-path reduce [face-sym 'text])]
+    foreach item sorted [
+        either in item 'shift-regs [
+            ; Estructura while-loop
+            if item/type = 'while-loop [
+                append run-body compile-structure item diagram
+            ]
+        ][
+            node: item
+            bdef: find-block node/type
+            if none? bdef [continue]
+            case [
+                bdef/category = 'input [
+                    face-sym: to-word rejoin ["f_" node/id]
+                    case [
+                        node-boolean-input? node [
+                            append run-body compose [(to-set-word port-var node 'result) (to-path reduce [face-sym 'data])]
+                        ]
+                        node-string-input? node [
+                            append run-body compose [(to-set-word port-var node 'result) (to-path reduce [face-sym 'text])]
+                        ]
+                        true [
+                            append run-body compose [(to-set-word port-var node 'result) to-float (to-path reduce [face-sym 'text])]
+                        ]
                     ]
                 ]
-            ]
-            bdef/category = 'output [
-                face-sym: to-word rejoin ["t_" node/id]
-                foreach w diagram/wires [
-                    if w/to-node = node/id [
-                        foreach src diagram/nodes [
-                            if src/id = w/from-node [
-                                src-var: port-var src to-word w/from-port
-                                append run-body compose [(to set-path! reduce [face-sym 'text]) form (src-var)]
+                bdef/category = 'output [
+                    face-sym: to-word rejoin ["t_" node/id]
+                    foreach w diagram/wires [
+                        if w/to-node = node/id [
+                            ; Fuente: nodo normal
+                            foreach src diagram/nodes [
+                                if src/id = w/from-node [
+                                    src-var: port-var src to-word w/from-port
+                                    append run-body compose [(to set-path! reduce [face-sym 'text]) form (src-var)]
+                                ]
+                            ]
+                            ; Fuente: estructura (SR-right → indicador externo)
+                            if all [in diagram 'structures  block? diagram/structures] [
+                                foreach st diagram/structures [
+                                    if st/id = w/from-node [
+                                        src-var: to-word rejoin ["_" form w/from-port]
+                                        append run-body compose [(to set-path! reduce [face-sym 'text]) form (src-var)]
+                                    ]
+                                ]
                             ]
                         ]
                     ]
                 ]
-            ]
-            true [
-                if bdef/emit [
-                    bindings: build-bindings node diagram bdef
-                    append run-body bind-emit bdef/emit bindings
+                true [
+                    if bdef/emit [
+                        bindings: build-bindings node diagram bdef
+                        append run-body bind-emit bdef/emit bindings
+                    ]
                 ]
             ]
         ]
@@ -271,7 +499,9 @@ compile-diagram: func [
 
     ; ── Layout del Front Panel ────────────────────────────────
     ui-layout: copy []
-    foreach node sorted [
+    foreach item sorted [
+        if in item 'shift-regs [continue]  ; saltar estructuras
+        node: item
         bdef: find-block node/type
         if none? bdef [continue]
         if bdef/category = 'input [
@@ -310,10 +540,13 @@ compile-diagram: func [
             ]
         ]
     ]
+
     append ui-layout 'button
     append ui-layout "Run"
     append/only ui-layout run-body
-    foreach node sorted [
+    foreach item sorted [
+        if in item 'shift-regs [continue]  ; saltar estructuras
+        node: item
         bdef: find-block node/type
         if none? bdef [continue]
         if bdef/category = 'output [

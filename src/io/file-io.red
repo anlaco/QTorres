@@ -16,7 +16,7 @@ Red [
 ; Si rel-x/rel-y están dados, las coords se hacen relativas a ese offset.
 serialize-nodes: func [
     nodes [block!] /relative rel-x rel-y
-    /local nodes-block n lbl-block nx ny
+    /local nodes-block n lbl-block nx ny node-spec-blk
 ][
     nodes-block: copy []
     foreach n nodes [
@@ -27,13 +27,19 @@ serialize-nodes: func [
         ]
         nx: either relative [n/x - rel-x] [n/x]
         ny: either relative [n/y - rel-y] [n/y]
-        append nodes-block 'node
-        append/only nodes-block compose/only [
+        ; Incluir config si no está vacío (permite round-trip de valores de constantes)
+        node-spec-blk: compose/only [
             id: (n/id)  type: (n/type)
             name: (either select n 'name [n/name] [""])
             label: (lbl-block)
             x: (nx)  y: (ny)
         ]
+        if all [in n 'config  not empty? n/config] [
+            append node-spec-blk 'config
+            append/only node-spec-blk copy n/config
+        ]
+        append nodes-block 'node
+        append/only nodes-block node-spec-blk
     ]
     nodes-block
 ]
@@ -54,6 +60,7 @@ serialize-wires: func [wires [block!] /local wires-block w] [
 serialize-diagram: func [
     diagram [object!]
     /local nodes-block wires-block structs-block st lbl-block st-nodes-block st-wires-block cond-spec
+           sr-block sr
 ][
     nodes-block:  serialize-nodes  diagram/nodes
     wires-block:  serialize-wires  diagram/wires
@@ -66,6 +73,15 @@ serialize-diagram: func [
                 compose [text: (st/label/text)  visible: (st/label/visible)]
             ][
                 compose [text: "While Loop"  visible: (true)]
+            ]
+            ; Shift registers
+            sr-block: copy []
+            foreach sr st/shift-regs [
+                append sr-block 'sr
+                append/only sr-block compose [
+                    id: (sr/id)  name: (sr/name)  data-type: (sr/data-type)
+                    init-value: (sr/init-value)  y-offset: (sr/y-offset)
+                ]
             ]
             ; Nodos internos: coords RELATIVAS a la estructura
             st-nodes-block: serialize-nodes/relative st/nodes st/x st/y
@@ -80,6 +96,7 @@ serialize-diagram: func [
             append/only structs-block compose/only [
                 id: (st/id)  name: (st/name)  label: (lbl-block)
                 x: (st/x)  y: (st/y)  w: (st/w)  h: (st/h)
+                shift-registers: (sr-block)
                 condition: (either cond-spec [cond-spec] [[]])
                 nodes: (st-nodes-block)
                 wires: (st-wires-block)
@@ -111,8 +128,8 @@ format-qvi: func [
     compiled     [map!]     ; resultado de compile-diagram
     /local meta-raw bd-raw nodes-raw wires-raw structs-raw fp-raw
            nodes-str wires-str structs-str layout-str fp-str
-           node-block wire-block struct-block fp-kw fp-spec i item kind-pos
-           st-nodes-raw st-wires-raw st-nodes-str st-wires-str
+           node-block wire-block struct-block sr-block fp-kw fp-spec i item kind-pos
+           st-nodes-raw st-wires-raw st-srs-raw st-nodes-str st-wires-str st-srs-str
 ][
     ; Navegar qd con to-set-word (claves son set-words)
     meta-raw:    any [select qd to-set-word 'meta   [description: "" version: 1 author: "" tags: []]]
@@ -155,6 +172,7 @@ format-qvi: func [
                 'while-loop set struct-block block! (
                     st-nodes-raw: any [select struct-block 'nodes  []]
                     st-wires-raw: any [select struct-block 'wires  []]
+                    st-srs-raw:   any [select struct-block 'shift-registers  []]
                     st-nodes-str: copy ""
                     parse st-nodes-raw [
                         any [
@@ -171,6 +189,14 @@ format-qvi: func [
                             ) | skip
                         ]
                     ]
+                    st-srs-str: copy ""
+                    parse st-srs-raw [
+                        any [
+                            'sr set sr-block block! (
+                                append st-srs-str rejoin ["                    sr " mold sr-block "^/"]
+                            ) | skip
+                        ]
+                    ]
                     append structs-str rejoin [
                         "        while-loop [^/"
                         "            id: " mold any [select struct-block 'id  0]
@@ -180,6 +206,9 @@ format-qvi: func [
                         "  y: " mold any [select struct-block 'y  0]
                         "  w: " mold any [select struct-block 'w  300]
                         "  h: " mold any [select struct-block 'h  200] "^/"
+                        either empty? st-srs-str [""] [rejoin [
+                            "            shift-registers: [^/" st-srs-str "            ]^/"
+                        ]]
                         "            condition: " mold any [select struct-block 'condition  []] "^/"
                         "            nodes: [^/" st-nodes-str "            ]^/"
                         "            wires: [^/" st-wires-str "            ]^/"
@@ -373,6 +402,7 @@ load-wire-list: func [wires-data [block!] /local wire-spec] [
 load-vi: func [
     path [file!]
     /local src pos qd bd-data nodes-data wires-data structs-data d names st-spec st st-nodes st-wires cond-data
+           sr-data sr-spec
 ][
     src: load path
 
@@ -414,6 +444,23 @@ load-vi: func [
                         w: (any [select st-spec 'w  300])
                         h: (any [select st-spec 'h  200])
                         label: (any [select st-spec 'label  [text: "While Loop"]])
+                    ]
+                    ; Shift registers
+                    sr-data: any [select st-spec 'shift-registers  []]
+                    parse sr-data [
+                        any [
+                            'sr set sr-spec block! (
+                                append st/shift-regs make-shift-register compose [
+                                    id:         (any [select sr-spec 'id          0])
+                                    name:       (any [select sr-spec 'name        ""])
+                                    data-type:  (any [select sr-spec 'data-type   'number])
+                                    init-value: (any [select sr-spec 'init-value  0.0])
+                                    y-offset:   (any [select sr-spec 'y-offset    40])
+                                ]
+                                if select sr-spec 'name [append names select sr-spec 'name]
+                            )
+                            | skip
+                        ]
                     ]
                     ; Nodos internos: coords relativas → absolutas
                     st-nodes: any [select st-spec 'nodes  []]

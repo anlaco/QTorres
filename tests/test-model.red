@@ -59,3 +59,75 @@ suite "blocks — while-loop registrado"
 
 assert "while-loop en el registro"              (not none? find-block 'while-loop)
 assert "categoría es structure"                 ('structure = block-category 'while-loop)
+
+; ── make-shift-register — campos y defaults ─────────────────────────
+
+suite "make-shift-register — defaults"
+
+reset-name-counters
+sr1: make-shift-register []
+
+assert "sr id por defecto 0"                    (sr1/id = 0)
+assert "sr name generado: sr_1"                 (sr1/name = "sr_1")
+assert "sr data-type por defecto number"        (sr1/data-type = 'number)
+assert "sr init-value por defecto 0.0"          (sr1/init-value = 0.0)
+assert "sr y-offset por defecto 40"             (sr1/y-offset = 40)
+
+suite "make-shift-register — spec explícito"
+
+reset-name-counters
+sr2: make-shift-register [id: 20  name: "sr_custom"  data-type: 'number
+                           init-value: 5.0  y-offset: 80]
+
+assert "sr id correcto"                         (sr2/id = 20)
+assert "sr name explícito preservado"           (sr2/name = "sr_custom")
+assert "sr data-type correcto"                  (sr2/data-type = 'number)
+assert "sr init-value correcto"                 (sr2/init-value = 5.0)
+assert "sr y-offset correcto"                   (sr2/y-offset = 80)
+
+suite "make-shift-register — tipo string"
+
+reset-name-counters
+sr3: make-shift-register [data-type: 'string]
+
+assert "sr string init-value es cadena vacía"   (sr3/init-value = "")
+assert "sr string data-type correcto"           (sr3/data-type = 'string)
+
+suite "make-shift-register — tipo boolean"
+
+reset-name-counters
+sr4: make-shift-register [data-type: 'boolean]
+
+assert "sr boolean init-value false"            (sr4/init-value = false)
+assert "sr boolean data-type correcto"          (sr4/data-type = 'boolean)
+
+suite "make-shift-register — independencia entre instancias"
+
+reset-name-counters
+sr5: make-shift-register []
+sr6: make-shift-register []
+
+assert "sr names únicos sr5"                    (sr5/name = "sr_1")
+assert "sr names únicos sr6"                    (sr6/name = "sr_2")
+
+suite "make-structure — campo shift-regs"
+
+reset-name-counters
+s5: make-structure []
+
+assert "structure tiene campo shift-regs"       (block? s5/shift-regs)
+assert "shift-regs vacío inicialmente"          (0 = length? s5/shift-regs)
+
+reset-name-counters
+sr7: make-shift-register []
+append s5/shift-regs sr7
+assert "se puede añadir SR a la estructura"     (1 = length? s5/shift-regs)
+assert "SR añadido es el correcto"              (s5/shift-regs/1/name = "sr_1")
+
+suite "make-structure — shift-regs independiente entre instancias"
+
+reset-name-counters
+s6: make-structure []
+s7: make-structure []
+append s6/shift-regs make-shift-register []
+assert "shift-regs son independientes"          (0 = length? s7/shift-regs)

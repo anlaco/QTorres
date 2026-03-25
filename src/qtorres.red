@@ -101,9 +101,22 @@ btn-run: make face! [
                 if all [bdef  bdef/category = 'output] [
                     foreach wire model/wires [
                         if wire/to-node = n/id [
+                            ; Fuente: nodo normal
                             foreach src model/nodes [
                                 if src/id = wire/from-node [
                                     result-var: port-var src to-word wire/from-port
+                                    result-val: attempt [get result-var]
+                                    foreach item model/front-panel [
+                                        if item/name = n/name [
+                                            unless none? result-val [item/value: result-val]
+                                        ]
+                                    ]
+                                ]
+                            ]
+                            ; Fuente: estructura (SR-right → indicador externo)
+                            foreach st model/structures [
+                                if st/id = wire/from-node [
+                                    result-var: to-word rejoin ["_" form wire/from-port]
                                     result-val: attempt [get result-var]
                                     foreach item model/front-panel [
                                         if item/name = n/name [

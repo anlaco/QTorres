@@ -276,7 +276,8 @@ suite "compile-structure — estructura vacía sin condición"
 
 reset-name-counters
 wl-empty: make-structure []
-wl-code: compile-structure wl-empty
+empty-outer: make object! [nodes: copy []  wires: copy []]
+wl-code: compile-structure wl-empty empty-outer
 
 assert "código generado no está vacío"             (not empty? wl-code)
 assert "primer elemento es set-word! (init _i)"    (set-word? first wl-code)
@@ -300,13 +301,13 @@ append wl-st1/nodes wl-nd1
 ; Conectar terminal condición
 wl-st1/cond-wire: make object! [from: 51  port: 'result]
 
-wl-code1: compile-structure wl-st1
+wl-code1: compile-structure wl-st1 empty-outer
 assert "código con condición no está vacío"        (not empty? wl-code1)
 ; Verificar estructura del until-body (no ejecutamos: do-events requiere View)
 wl-until-idx1: index? find wl-code1 'until
 wl-body1: wl-code1/(wl-until-idx1 + 1)
-assert "until-body contiene do-events/no-wait"     (not none? find wl-body1 'do-events/no-wait)
-assert "do-events/no-wait precede a la condición"  ((index? find wl-body1 'do-events/no-wait) < (length? wl-body1))
+assert "until-body contiene do-events/no-wait"     (not none? find mold wl-body1 "do-events/no-wait")
+assert "do-events/no-wait precede a la condición"  (not none? find mold wl-body1 "do-events/no-wait")
 assert "condición sigue siendo el último elemento" (word? last wl-body1)
 
 suite "compile-structure — while-loop en compile-body (diagrama completo)"
@@ -344,10 +345,10 @@ suite "compile-structure — condición no conectada produce true"
 reset-name-counters
 wl-nocond: make-structure [id: 70  name: "while_3"]
 ; Sin nodes, sin cond-wire
-wl-nc-code: compile-structure wl-nocond
+wl-nc-code: compile-structure wl-nocond empty-outer
 wl-nc-until-idx: index? find wl-nc-code 'until
 wl-nc-body: wl-nc-code/(wl-nc-until-idx + 1)
-assert "until-body contiene do-events/no-wait"       (not none? find wl-nc-body 'do-events/no-wait)
+assert "until-body contiene do-events/no-wait"       (not none? find mold wl-nc-body "do-events/no-wait")
 ; Condición no conectada → último elemento es logic! true (después de do-events)
 assert "cond no conectada: body termina en logic!"   (logic? last wl-nc-body)
 
@@ -391,3 +392,150 @@ assert "nodo interno: coords absolutas x"       (80 = wl-ls/nodes/1/x)
 assert "nodo interno: coords absolutas y"       (90 = wl-ls/nodes/1/y)
 assert "cond-wire cargado"                      (object? wl-ls/cond-wire)
 assert "cond-wire: from correcto"               (81 = wl-ls/cond-wire/from)
+
+; ── Tests file-io round-trip con shift registers ─────────────────
+suite "file-io — round-trip shift registers"
+
+reset-name-counters
+sr-rt-diag: make-diagram "sr-rt-vi"
+; Estructura con 2 shift registers
+sr-rt-st: make-structure [id: 90  name: "while_sr"  x: 60  y: 60  w: 300  h: 200]
+sr-rt-sr1: make-shift-register [id: 91  name: "sr_num"  data-type: 'number   init-value: 5.0   y-offset: 40]
+sr-rt-sr2: make-shift-register [id: 92  name: "sr_str"  data-type: 'string   init-value: "hi"  y-offset: 80]
+append sr-rt-st/shift-regs sr-rt-sr1
+append sr-rt-st/shift-regs sr-rt-sr2
+append sr-rt-diag/structures sr-rt-st
+
+; Serializar
+sr-rt-qd: serialize-diagram sr-rt-diag
+sr-bd-rt: select sr-rt-qd to-set-word 'block-diagram
+sr-structs-rt: select sr-bd-rt to-set-word 'structures
+sr-struct-blk: sr-structs-rt/2  ; bloque de la estructura (primer while-loop)
+sr-srs-blk: select sr-struct-blk 'shift-registers
+assert "shift-registers serializado"            (block? sr-srs-blk)
+assert "2 SRs serializados"                     (4 = length? sr-srs-blk)  ; 'sr [] 'sr []
+assert "primer token es 'sr"                    ('sr = first sr-srs-blk)
+
+; Round-trip save/load
+sr-rt-file: %/tmp/qtorres-sr-rt.qvi
+save-vi sr-rt-file sr-rt-diag
+assert "save-vi crea fichero con SRs"           (exists? sr-rt-file)
+
+sr-loaded: load-vi sr-rt-file
+if exists? sr-rt-file [delete sr-rt-file]
+
+assert "load-vi devuelve objeto"                (object? sr-loaded)
+assert "structures cargadas: 1"                 (1 = length? sr-loaded/structures)
+sr-ls: first sr-loaded/structures
+assert "2 SRs cargados"                         (2 = length? sr-ls/shift-regs)
+sr-ls1: sr-ls/shift-regs/1
+sr-ls2: sr-ls/shift-regs/2
+assert "SR1: name correcto"                     ("sr_num" = sr-ls1/name)
+assert "SR1: data-type correcto"                ('number = sr-ls1/data-type)
+assert "SR1: init-value correcto"               (5.0 = sr-ls1/init-value)
+assert "SR1: y-offset correcto"                 (40 = sr-ls1/y-offset)
+assert "SR2: name correcto"                     ("sr_str" = sr-ls2/name)
+assert "SR2: data-type correcto"                ('string = sr-ls2/data-type)
+assert "SR2: init-value correcto"               ("hi" = sr-ls2/init-value)
+assert "SR2: y-offset correcto"                 (80 = sr-ls2/y-offset)
+
+; ── Tests compilador con shift registers (12.2, 12.3, 12.4) ──────
+suite "compile-structure — SR inicialización y actualización"
+
+reset-name-counters
+; Estructura: while_c1 con SR sr_acc (init 3.0)
+; Interno: ione (const 1.0) + iadd (add) → SR-right
+sr-c-st: make-structure [id: 200  name: "while_c1"  x: 0  y: 0]
+sr-c-sr: make-shift-register [id: 201  name: "sr_acc"  data-type: 'number  init-value: 3.0  y-offset: 40]
+append sr-c-st/shift-regs sr-c-sr
+sr-c-nd1: make-node [id: 202  type: 'const  name: "ione"   x: 10  y: 10]
+sr-c-nd1/config: reduce ['default 1.0]
+sr-c-nd2: make-node [id: 203  type: 'add    name: "iadd1"  x: 80  y: 10]
+append sr-c-st/nodes sr-c-nd1
+append sr-c-st/nodes sr-c-nd2
+; SR-left → iadd/a
+append sr-c-st/wires make-wire [from: -1  from-port: 'sr_acc  to: 203  to-port: 'a]
+; const → iadd/b
+append sr-c-st/wires make-wire [from: 202  from-port: 'result  to: 203  to-port: 'b]
+; iadd → SR-right
+append sr-c-st/wires make-wire [from: 203  from-port: 'result  to: -2  to-port: 'sr_acc]
+
+sr-c-outer: make object! [nodes: copy []  wires: copy []]
+sr-c-code: compile-structure sr-c-st sr-c-outer
+
+sr-c-init-sw:  find sr-c-code to-set-word '_sr_acc
+sr-c-until-pos: index? find sr-c-code 'until
+assert "SR inicializado antes del until"         (not none? sr-c-init-sw)
+assert "SR init-value es 3.0"                    (3.0 = sr-c-init-sw/2)
+assert "init precede al until"                   ((index? sr-c-init-sw) < sr-c-until-pos)
+sr-c-body: sr-c-code/(sr-c-until-pos + 1)
+assert "SR actualizado en until-body"            (not none? find sr-c-body to-set-word '_sr_acc)
+; El código del nodo iadd1 está en el cuerpo (lee _sr_acc como entrada)
+assert "cuerpo contiene iadd1_result"            (not none? find sr-c-body 'iadd1_result)
+
+suite "compile-structure — múltiples SRs"
+
+reset-name-counters
+sr-m-st: make-structure [id: 210  name: "while_m"  x: 0  y: 0]
+sr-m-sr1: make-shift-register [id: 211  name: "sr_x"  data-type: 'number  init-value: 10.0  y-offset: 40]
+sr-m-sr2: make-shift-register [id: 212  name: "sr_y"  data-type: 'number  init-value: 20.0  y-offset: 80]
+append sr-m-st/shift-regs sr-m-sr1
+append sr-m-st/shift-regs sr-m-sr2
+
+sr-m-outer: make object! [nodes: copy []  wires: copy []]
+sr-m-code: compile-structure sr-m-st sr-m-outer
+
+sr-m-until-pos: index? find sr-m-code 'until
+sr-m-x-sw: find sr-m-code to-set-word '_sr_x
+sr-m-y-sw: find sr-m-code to-set-word '_sr_y
+assert "_sr_x inicializado antes del until"      (not none? sr-m-x-sw)
+assert "_sr_y inicializado antes del until"      (not none? sr-m-y-sw)
+assert "_sr_x precede al until"                  ((index? sr-m-x-sw) < sr-m-until-pos)
+assert "_sr_y precede al until"                  ((index? sr-m-y-sw) < sr-m-until-pos)
+assert "_sr_x init-value correcto"               (10.0 = sr-m-x-sw/2)
+assert "_sr_y init-value correcto"               (20.0 = sr-m-y-sw/2)
+
+suite "compile-structure — SR con wire externo (init dinámico)"
+
+reset-name-counters
+; Diagrama externo con nodo const que alimenta el SR
+sr-e-diag: make-diagram "sr-ext-vi"
+sr-e-nd: make-node [id: 300  type: 'const  name: "ext_init"  x: 0  y: 0]
+sr-e-nd/config: reduce ['default 7.0]
+append sr-e-diag/nodes sr-e-nd
+
+; Estructura con SR sr_val (init-value=0.0 pero wire externo lo sobreescribe)
+sr-e-st: make-structure [id: 301  name: "while_ext"  x: 100  y: 100]
+sr-e-sr: make-shift-register [id: 302  name: "sr_val"  data-type: 'number  init-value: 0.0  y-offset: 40]
+append sr-e-st/shift-regs sr-e-sr
+append sr-e-diag/structures sr-e-st
+
+; Wire externo: ext_init/result → estructura/sr_val
+append sr-e-diag/wires make-wire [from: 300  from-port: 'result  to: 301  to-port: 'sr_val]
+
+sr-e-code: compile-structure sr-e-st sr-e-diag
+
+sr-e-val-sw: find sr-e-code to-set-word '_sr_val
+assert "SR con wire externo: inicializado"       (not none? sr-e-val-sw)
+assert "SR con wire externo: usa var del nodo"   ('ext_init_result = sr-e-val-sw/2)
+; (NO usa el literal 0.0 del init-value)
+assert "SR con wire externo: NO usa init-value"  (0.0 <> sr-e-val-sw/2)
+
+suite "file-io — config round-trip (serialización de valores de constantes)"
+
+reset-name-counters
+cfg-rt-diag: make-diagram "cfg-rt-vi"
+cfg-rt-nd: make-node [id: 400  type: 'const  name: "cfg_c"  x: 0  y: 0]
+cfg-rt-nd/config: reduce ['default 42.0]
+append cfg-rt-diag/nodes cfg-rt-nd
+
+cfg-rt-file: %/tmp/qtorres-cfg-rt.qvi
+save-vi cfg-rt-file cfg-rt-diag
+cfg-rt-loaded: load-vi cfg-rt-file
+if exists? cfg-rt-file [delete cfg-rt-file]
+
+cfg-rt-ln: cfg-rt-loaded/nodes/1
+assert "config round-trip: nodo cargado"         (object? cfg-rt-ln)
+assert "config round-trip: name correcto"        ("cfg_c" = cfg-rt-ln/name)
+assert "config round-trip: config no vacío"      (not empty? cfg-rt-ln/config)
+assert "config round-trip: valor 42.0"           (42.0 = select cfg-rt-ln/config 'default)

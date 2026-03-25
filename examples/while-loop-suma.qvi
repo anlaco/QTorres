@@ -1,0 +1,86 @@
+Red [Title: "while-loop-suma" Needs: 'View]
+
+; Ejemplo: suma acumulativa 0+1+2+...+9 = 45 usando Shift Register
+;
+; Estructura del diagrama:
+;   while_1 (While Loop)
+;     SR: sr_acc  (acumulador, init 0.0)
+;     Interno:
+;       ilim  (const 9.0)     — límite de iteraciones
+;       iadd  (add)           — acc + iter  → nuevo acc
+;       icond (eq-op)         — iter = 9   → detener al llegar a 10 iteraciones
+;     Condición: icond (iter = ilim → true en i=9, detiene tras 10 iteraciones)
+;   ind_1 (indicator) — muestra el resultado final (45.0)
+
+qvi-diagram: [
+    meta: [description: "Suma 0+1+...+9 = 45 con Shift Register" version: 1 author: "" tags: [while-loop sr]]
+    icon: []
+    block-diagram: [
+        nodes: [
+            node [id: 5  type: 'indicator  name: "ind_1"
+                  label: [text: "Resultado" visible: true]  x: 520  y: 150]
+        ]
+        wires: [
+            wire [from: 1  from-port: sr_acc  to: 5  to-port: value]
+        ]
+        structures: [
+            while-loop [
+                id: 1  name: "while_1"  label: [text: "While Loop" visible: true]
+                x: 80  y: 60  w: 360  h: 180
+                shift-registers: [
+                    sr [id: 10  name: "sr_acc"  data-type: 'number  init-value: 0.0  y-offset: 60]
+                ]
+                condition: [from: 4  port: result]
+                nodes: [
+                    node [id: 2  type: 'const   name: "ilim"   label: [text: "9" visible: false]
+                          x: 120  y: 160  config: [default 9.0]]
+                    node [id: 3  type: 'add     name: "iadd"   label: [text: "Add" visible: false]
+                          x: 230  y: 100]
+                    node [id: 4  type: 'eq-op   name: "icond"  label: [text: "Cond" visible: false]
+                          x: 300  y: 160]
+                ]
+                wires: [
+                    wire [from: -1  from-port: sr_acc      to: 3  to-port: a]
+                    wire [from: -3  from-port: _while_1_i  to: 3  to-port: b]
+                    wire [from: 3   from-port: result      to: -2  to-port: sr_acc]
+                    wire [from: 2   from-port: result      to: 4  to-port: a]
+                    wire [from: -3  from-port: _while_1_i  to: 4  to-port: b]
+                ]
+            ]
+        ]
+    ]
+]
+
+; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
+either empty? system/options/args [
+    view layout [
+        text "Resultado" t_5: text "---"
+        button "Run" [
+            _sr_acc: 0.0
+            _while_1_i: 0
+            until [
+                ilim_result: 9.0
+                iadd_result: _sr_acc + _while_1_i
+                icond_result: ilim_result = _while_1_i
+                _sr_acc: iadd_result
+                _while_1_i: _while_1_i + 1
+                do-events/no-wait
+                icond_result
+            ]
+            t_5/text: form _sr_acc
+        ]
+    ]
+][
+    _sr_acc: 0.0
+    _while_1_i: 0
+    until [
+        ilim_result: 9.0
+        iadd_result: _sr_acc + _while_1_i
+        icond_result: ilim_result = _while_1_i
+        _sr_acc: iadd_result
+        _while_1_i: _while_1_i + 1
+        do-events/no-wait
+        icond_result
+    ]
+    print rejoin ["Resultado: " _sr_acc]
+]

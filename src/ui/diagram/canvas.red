@@ -29,6 +29,7 @@ col-struct-bg:         205.210.220  ; fondo ligeramente más oscuro que canvas
 col-struct-term-i:     50.100.180   ; terminal iteración (azul como control)
 col-struct-term-cond:  20.160.20    ; terminal condición (verde como wire bool)
 struct-terminal-size:  14           ; tamaño del cuadrado terminal i y handle resize
+sr-terminal-half:      6            ; semitamaño del triángulo SR (triángulo 12px total)
 
 ; ══════════════════════════════════════════════════════════
 ; GEOMETRÍA DE NODOS — funciones puras sin side-effects
@@ -76,6 +77,36 @@ wire-data-color: func [data-type] [
         data-type = 'string  [col-wire-str]
         true                 [col-wire]
     ]
+]
+
+; Devuelve la posición del terminal SR (▲ borde izquierdo o ▼ borde derecho).
+sr-xy: func [st sr side] [
+    either side = 'left [
+        as-pair st/x (to-integer st/y + sr/y-offset)
+    ][
+        as-pair (to-integer st/x + st/w) (to-integer st/y + sr/y-offset)
+    ]
+]
+
+; Devuelve el color del terminal SR según su data-type.
+sr-type-color: func [data-type] [
+    case [
+        data-type = 'boolean [col-wire-bool]
+        data-type = 'string  [col-wire-str]
+        true                 [col-wire]
+    ]
+]
+
+; Busca un SR por nombre en un bloque de shift-regs.
+; Usa while/pick para evitar problemas de posición de serie con foreach.
+find-sr: func [shift-regs [block!] port-name [word!] /local k sr] [
+    k: 1
+    while [k <= length? shift-regs] [
+        sr: pick shift-regs k
+        if (to-word sr/name) = port-name [return sr]
+        k: k + 1
+    ]
+    none
 ]
 
 ; Genera comandos Draw para una línea daseada horizontal o vertical.
@@ -143,7 +174,9 @@ make-diagram-model: func [] [
         drag-is-label:  false
         wire-src:        none
         wire-port:       none
-        wire-src-struct: none   ; estructura que contiene el terminal [i] activo
+        wire-src-struct: none   ; estructura que contiene el terminal [i] o SR activo
+        wire-src-sr:     none   ; SR object si wire-src es un terminal SR (▲ o ▼)
+        selected-sr:     none   ; [struct sr] cuando un terminal SR está seleccionado
         mouse-pos:       none
         broken-wire:     none
     ]
@@ -307,7 +340,8 @@ render-node-list: func [
 render-structure: func [
     "Genera Draw cmds para una estructura contenedora (while-loop)"
     st model
-    /local cmds bx by bx2 by2 tx
+    /local cmds bx by bx2 by2 tx sr sr-col y-off _w _sr-has-ext-wire
+            _sr-found _src-xy _in-xy _out-xy _dst-xy _mid-x _sr-col2
 ][
     cmds: copy []
     bx: st/x  by: st/y  bx2: st/x + st/w  by2: st/y + st/h
@@ -343,13 +377,45 @@ render-structure: func [
         circle (as-pair (bx2 - 16) (by2 - 16)) 8
     ]
 
-    ; 5) Handle de resize — cuadrado 8x8 esquina inferior-derecha
+    ; 5) Terminales shift register — ▲ borde izquierdo, ▼ borde derecho
+    if block? st/shift-regs [
+        foreach sr head st/shift-regs [
+            sr-col: sr-type-color sr/data-type
+            y-off:  sr/y-offset
+            append cmds compose [
+                pen (col-struct-border)  line-width 1  fill-pen (sr-col)
+                ; ▲ izquierdo (lectura — valor entra al loop)
+                triangle (as-pair (bx - sr-terminal-half) (by + y-off + sr-terminal-half))
+                         (as-pair (bx + sr-terminal-half) (by + y-off + sr-terminal-half))
+                         (as-pair bx (by + y-off - sr-terminal-half))
+                ; ▼ derecho (escritura — valor sale del loop)
+                triangle (as-pair (bx2 - sr-terminal-half) (by + y-off - sr-terminal-half))
+                         (as-pair (bx2 + sr-terminal-half) (by + y-off - sr-terminal-half))
+                         (as-pair bx2 (by + y-off + sr-terminal-half))
+            ]
+            ; Texto init-value junto al ▲ — solo si no hay wire externo conectado a este SR
+            _sr-has-ext-wire: false
+            foreach _w model/wires [
+                if all [_w/to-node = st/id  (to-word _w/to-port) = to-word sr/name] [
+                    _sr-has-ext-wire: true
+                ]
+            ]
+            unless _sr-has-ext-wire [
+                append cmds compose [
+                    pen off  fill-pen (col-struct-border)
+                    text (as-pair (bx + 10) (by + y-off - 7)) (form sr/init-value)
+                ]
+            ]
+        ]
+    ]
+
+    ; 6) Handle de resize — cuadrado 8x8 esquina inferior-derecha
     append cmds compose [
         pen col-struct-border  line-width 1  fill-pen (col-struct-border + 40.40.40)
         box (as-pair (bx2 - 10) (by2 - 10)) (as-pair bx2 by2) 0
     ]
 
-    ; 6) Borde de selección cian — solo cuando la estructura en sí está seleccionada
+    ; 7) Borde de selección cian — solo cuando la estructura en sí está seleccionada
     ;    (no cuando se ha seleccionado un nodo interno)
     if all [same? st model/selected-struct  none? model/selected-node] [
         append cmds compose [
@@ -359,12 +425,27 @@ render-structure: func [
         ]
     ]
 
-    ; 7) Wires desde terminal [i] hacia nodos internos (from-node < 0 = iter virtual)
+    ; 7b) Highlight del SR seleccionado — círculos cian en ambos triángulos
+    if all [model/selected-sr  same? st model/selected-sr/1] [
+        do [
+            _sel-sr: model/selected-sr/2
+            _sel-y:  to-integer by + _sel-sr/y-offset
+            append cmds compose [
+                pen col-sel  line-width 2  fill-pen off
+                circle (as-pair bx _sel-y) (sr-terminal-half + 4)
+                circle (as-pair bx2 _sel-y) (sr-terminal-half + 4)
+                line-width 1
+            ]
+        ]
+    ]
+
+    ; 8) Wires desde terminales virtuales: iter (-3), SR-left (-1), SR-right (-2)
     do [
         half-tx: to-integer (tx / 2)   ; 14/2 = 7 — precomputado para evitar precedencia
         iter-src: as-pair (to-integer bx + 8 + half-tx) (to-integer by2 - half-tx - 8)
         foreach w st/wires [
-            if w/from-node < 0 [
+            ; Iter (-3) → nodo interno
+            if w/from-node = -3 [
                 foreach nd st/nodes [
                     if nd/id = w/to-node [
                         in-xy: port-xy nd w/to-port 'in
@@ -378,16 +459,56 @@ render-structure: func [
                     ]
                 ]
             ]
+            ; SR-left (-1) → nodo interno
+            if w/from-node = -1 [
+                _sr-found: find-sr st/shift-regs w/from-port
+                if _sr-found [
+                    foreach nd st/nodes [
+                        if nd/id = w/to-node [
+                            _src-xy: sr-xy st _sr-found 'left
+                            _in-xy:  port-xy nd w/to-port 'in
+                            _mid-x:  to-integer (_src-xy/x + _in-xy/x) / 2
+                            _sr-col2: sr-type-color _sr-found/data-type
+                            append cmds compose [
+                                pen (_sr-col2)  line-width 2
+                                line (_src-xy) (as-pair _mid-x _src-xy/y)
+                                     (as-pair _mid-x _in-xy/y) (_in-xy)
+                                line-width 1
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+            ; Nodo interno → SR-right (-2)
+            if w/to-node = -2 [
+                _sr-found: find-sr st/shift-regs w/to-port
+                if _sr-found [
+                    foreach nd st/nodes [
+                        if nd/id = w/from-node [
+                            _out-xy: port-xy nd w/from-port 'out
+                            _dst-xy: sr-xy st _sr-found 'right
+                            _mid-x:  to-integer (_out-xy/x + _dst-xy/x) / 2
+                            _sr-col2: sr-type-color _sr-found/data-type
+                            append cmds compose [
+                                pen (_sr-col2)  line-width 2
+                                line (_out-xy) (as-pair _mid-x _out-xy/y)
+                                     (as-pair _mid-x _dst-xy/y) (_dst-xy)
+                                line-width 1
+                            ]
+                        ]
+                    ]
+                ]
+            ]
         ]
     ]
 
-    ; 8) Wires internos normales (entre nodos reales)
+    ; 9) Wires internos normales (entre nodos reales)
     append cmds render-wire-list st/wires st/nodes model/selected-wire
 
-    ; 9) Nodos internos
+    ; 10) Nodos internos
     append cmds render-node-list st/nodes model/selected-node
 
-    ; 10) Wire de condición — línea desde el nodo fuente hasta el terminal ●
+    ; 11) Wire de condición — línea desde el nodo fuente hasta el terminal ●
     if st/cond-wire [
         do [
             cond-src: none
@@ -423,19 +544,81 @@ render-bd: func [model /local cmds src-port-xy mid st] [
     ; 2) Wires permanentes normales
     append cmds render-wire-list model/wires model/nodes model/selected-wire
 
+    ; 2b) Wires externos de shift registers (ext→▲ y ▼→ext)
+    if block? model/structures [
+        foreach _sst model/structures [
+            foreach _sw model/wires [
+                ; External → SR-left (to-node = structure ID)
+                if _sw/to-node = _sst/id [
+                    do [
+                        _sfound: either block? _sst/shift-regs [find-sr _sst/shift-regs _sw/to-port] [none]
+                        if _sfound [
+                            _snd: none
+                            foreach _nd model/nodes [if _nd/id = _sw/from-node [_snd: _nd]]
+                            if _snd [
+                                _sout: port-xy _snd _sw/from-port 'out
+                                _sdst: sr-xy _sst _sfound 'left
+                                _smx:  to-integer (_sout/x + _sdst/x) / 2
+                                _scol: sr-type-color _sfound/data-type
+                                append cmds compose [
+                                    pen (_scol)  line-width 2
+                                    line (_sout) (as-pair _smx _sout/y)
+                                         (as-pair _smx _sdst/y) (_sdst)
+                                    line-width 1
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+                ; SR-right → external (from-node = structure ID)
+                if _sw/from-node = _sst/id [
+                    do [
+                        _sfound: either block? _sst/shift-regs [find-sr _sst/shift-regs _sw/from-port] [none]
+                        if _sfound [
+                            _snd: none
+                            foreach _nd model/nodes [if _nd/id = _sw/to-node [_snd: _nd]]
+                            if _snd [
+                                _ssrc: sr-xy _sst _sfound 'right
+                                _sin:  port-xy _snd _sw/to-port 'in
+                                _smx:  to-integer (_ssrc/x + _sin/x) / 2
+                                _scol: sr-type-color _sfound/data-type
+                                append cmds compose [
+                                    pen (_scol)  line-width 2
+                                    line (_ssrc) (as-pair _smx _ssrc/y)
+                                         (as-pair _smx _sin/y) (_sin)
+                                    line-width 1
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ]
+
     ; 3) Wire temporal (mientras el usuario elige destino)
     if all [model/wire-src model/mouse-pos] [
-        src-port-xy: either model/wire-src-struct [
-            ; Origen virtual: terminal [i] — calcular centro del cuadrado
-            do [
-                _st:  model/wire-src-struct
-                _tx:  struct-terminal-size
-                _htx: to-integer (_tx / 2)   ; 7 — precomputado para evitar precedencia
-                as-pair (to-integer _st/x + 8 + _htx)
-                        (to-integer _st/y + _st/h - _htx - 8)
+        src-port-xy: do [
+            _sxy: none
+            ; SR-left virtual (-1) — ▲ borde izquierdo
+            if all [model/wire-src-struct  model/wire-src-sr  model/wire-src/id = -1] [
+                _sxy: sr-xy model/wire-src-struct model/wire-src-sr 'left
             ]
-        ][
-            port-xy model/wire-src model/wire-port 'out
+            ; SR-right virtual (-2) — ▼ borde derecho
+            if all [none? _sxy  model/wire-src-struct  model/wire-src-sr  model/wire-src/id = -2] [
+                _sxy: sr-xy model/wire-src-struct model/wire-src-sr 'right
+            ]
+            ; Iter virtual (-3) — cuadrado [i]
+            if all [none? _sxy  model/wire-src-struct] [
+                _st2:  model/wire-src-struct
+                _tx2:  struct-terminal-size
+                _htx2: to-integer (_tx2 / 2)
+                _sxy: as-pair (to-integer _st2/x + 8 + _htx2)
+                              (to-integer _st2/y + _st2/h - _htx2 - 8)
+            ]
+            ; Puerto de nodo normal
+            if none? _sxy [_sxy: port-xy model/wire-src model/wire-port 'out]
+            _sxy
         ]
         append cmds compose [
             pen col-wire  line-width 2
@@ -551,6 +734,29 @@ hit-structure-border: func [model mouse-x mouse-y /local st bx by bx2 by2 bw] [
                 mouse-y >= (by2 - bw)
             ]
         ] [return st]
+    ]
+    none
+]
+
+; Devuelve [struct sr 'left|'right] si el punto cae sobre un terminal SR, o none.
+; ▲ = borde izquierdo (lectura), ▼ = borde derecho (escritura)
+hit-structure-sr: func [model mouse-x mouse-y /local st sr cy bx bx2 tol] [
+    tol: sr-terminal-half + 4
+    foreach st model/structures [
+        bx: st/x  bx2: st/x + st/w
+        if block? st/shift-regs [
+            foreach sr head st/shift-regs [
+                cy: to-integer st/y + sr/y-offset
+                if all [
+                    (absolute (mouse-x - bx)) <= tol
+                    (absolute (mouse-y - cy)) <= tol
+                ] [return reduce [st sr 'left]]
+                if all [
+                    (absolute (mouse-x - bx2)) <= tol
+                    (absolute (mouse-y - cy)) <= tol
+                ] [return reduce [st sr 'right]]
+            ]
+        ]
     ]
     none
 ]
@@ -832,14 +1038,117 @@ open-palette: func [face x y /struct target-struct] [
         button 80 "→STR"     [palette-add-node 'to-string]      return
         text "Estructuras:"  return
         button 80 "While"    [palette-add-structure]             return
+        button 80 "Add SR"   [
+            if palette-struct [
+                unview
+                open-add-sr-dialog palette-canvas palette-struct
+            ]
+        ]
+        return
         button "Cancelar"    [unview]
+    ]
+]
+
+; ── Shift Register helpers ──────────────────────────────────────────
+
+; Añade un SR de tipo dado a la estructura, calculando el y-offset automáticamente.
+add-sr-to-structure: func [st dtype /local y sr] [
+    y: 40 + (50 * length? st/shift-regs)
+    sr: make-shift-register compose [data-type: (dtype)  y-offset: (y)]
+    append st/shift-regs sr
+]
+
+; Vars de módulo para diálogos SR (patrón view/no-wait)
+add-sr-canvas: none
+add-sr-struct:  none
+sr-edit-canvas: none
+sr-edit-sr-obj: none
+
+; Abre diálogo para elegir el tipo del nuevo shift register.
+open-add-sr-dialog: func [canvas st] [
+    add-sr-canvas: canvas
+    add-sr-struct:  st
+    view/no-wait [
+        title "Añadir shift register"
+        text "Tipo de dato:"  return
+        button 80 "Number"  [add-sr-to-structure add-sr-struct 'number
+                              add-sr-canvas/draw: render-bd add-sr-canvas/extra
+                              show add-sr-canvas  unview]
+        button 80 "Boolean" [add-sr-to-structure add-sr-struct 'boolean
+                              add-sr-canvas/draw: render-bd add-sr-canvas/extra
+                              show add-sr-canvas  unview]
+        button 80 "String"  [add-sr-to-structure add-sr-struct 'string
+                              add-sr-canvas/draw: render-bd add-sr-canvas/extra
+                              show add-sr-canvas  unview]    return
+        button "Cancelar" [unview]
+    ]
+]
+
+; Actualiza el init-value de un SR desde texto.
+apply-sr-init-value: func [sr new-text /local val] [
+    val: switch sr/data-type [
+        string  [new-text]
+        boolean [any [attempt [to-logic new-text]  false]]
+    ]
+    if none? val [val: any [attempt [to-float new-text]  0.0]]
+    sr/init-value: val
+]
+
+; Abre diálogo para editar el valor inicial de un SR.
+open-sr-edit-dialog: func [canvas sr /local cur] [
+    sr-edit-canvas: canvas
+    sr-edit-sr-obj: sr
+    cur: form sr/init-value
+    view/no-wait compose [
+        title "Valor inicial SR"
+        text (rejoin [sr/name "  [" form sr/data-type "]"]) return
+        text "Valor inicial:" return
+        sr-edit-fld: field 150 (cur)
+        on-enter [
+            apply-sr-init-value sr-edit-sr-obj sr-edit-fld/text
+            sr-edit-canvas/draw: render-bd sr-edit-canvas/extra
+            unview
+        ]
+        return
+        button "OK" [
+            apply-sr-init-value sr-edit-sr-obj sr-edit-fld/text
+            sr-edit-canvas/draw: render-bd sr-edit-canvas/extra
+            unview
+        ]
+        button "Cancelar" [unview]
     ]
 ]
 
 ; Borra el elemento seleccionado (nodo, wire o estructura completa).
 ; Llamar desde el on-key del window padre con: canvas-delete-selected canvas
-canvas-delete-selected: func [canvas /local model node-id node-name node-type st found _pref] [
+canvas-delete-selected: func [canvas /local model node-id node-name node-type st found _pref _sst _ssr] [
     model: canvas/extra
+
+    ; SR seleccionado: borrar de la estructura + limpiar wires asociados
+    if model/selected-sr [
+        _sst: model/selected-sr/1
+        _ssr: model/selected-sr/2
+        ; Borrar wires internos que usen este SR (from: -1 o to: -2 con from-port/to-port = sr/name)
+        remove-each w _sst/wires [
+            any [
+                all [w/from-node = -1  w/from-port = to-word _ssr/name]
+                all [w/to-node   = -2  w/to-port   = to-word _ssr/name]
+            ]
+        ]
+        ; Borrar wires externos (to-node = st/id  to-port = sr/name, o from-node = st/id from-port = sr/name)
+        remove-each w model/wires [
+            any [
+                all [w/to-node   = _sst/id  w/to-port   = to-word _ssr/name]
+                all [w/from-node = _sst/id  w/from-port = to-word _ssr/name]
+            ]
+        ]
+        remove-each sr _sst/shift-regs [same? sr _ssr]
+        model/selected-sr:     none
+        model/selected-struct: none
+        canvas/draw: render-bd model
+        exit
+    ]
+
     ; Wire seleccionado: buscar en model/wires y en wires internos
     if model/selected-wire [
         found: find model/wires model/selected-wire
@@ -930,48 +1239,72 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                             face/draw: render-bd model
                         ]
                     ][
-                        either all [
-                            hit-dir = 'in
-                            model/wire-src/id <> hit-nd/id
-                            (port-out-type model/wire-src model/wire-port) = (port-in-type hit-nd hit-port-name)
-                        ][
-                            model/broken-wire: none
-                            ; 3.6 Rutar wire: interno (misma estructura) vs normal
-                            ; wire-src-struct se usa para nodos virtuales ([i] terminal)
-                            do [
-                                src-st: any [
-                                    model/wire-src-struct
-                                    node-structure model model/wire-src
-                                ]
-                                dst-st: node-structure model hit-nd
-                                wire-list: either all [src-st  dst-st  same? src-st dst-st] [
-                                    src-st/wires
-                                ] [
-                                    model/wires
-                                ]
-                                ; Para terminal [i] (from-node < 0): from-port = nombre var iter
-                                actual-from-port: either model/wire-src/id < 0 [
-                                    to-word rejoin ["_" model/wire-src-struct/name "_i"]
-                                ][
-                                    model/wire-port
-                                ]
-                                append wire-list make-wire compose [
-                                    from: (model/wire-src/id)
-                                    from-port: (actual-from-port)
-                                    to: (hit-nd/id)
-                                    to-port: (hit-port-name)
-                                ]
-                            ]
-                        ][
-                            ; Tipos incompatibles: mostrar wire roto en rojo
+                        ; Completar wire — manejo SR-aware
+                        do [
+                            _hit-ok: false
                             if all [hit-dir = 'in  model/wire-src/id <> hit-nd/id] [
-                                model/broken-wire: reduce [
-                                    port-xy model/wire-src model/wire-port 'out
-                                    port-xy hit-nd hit-port-name 'in
+                                _out-t: port-out-type model/wire-src model/wire-port
+                                if model/wire-src-sr [_out-t: model/wire-src-sr/data-type]
+                                if model/wire-src/id = -3 [_out-t: 'number]
+                                _hit-ok: _out-t = port-in-type hit-nd hit-port-name
+                            ]
+                            either _hit-ok [
+                                model/broken-wire: none
+                                src-st: any [model/wire-src-struct  node-structure model model/wire-src]
+                                dst-st: node-structure model hit-nd
+                                ; SR-left (-1): solo conecta a nodo INTERNO de la misma estructura
+                                _sr-ok: true
+                                if model/wire-src/id = -1 [
+                                    if not all [dst-st  same? dst-st src-st] [_sr-ok: false]
+                                ]
+                                ; SR-right (-2): solo conecta a nodo EXTERNO
+                                if model/wire-src/id = -2 [
+                                    if dst-st [_sr-ok: false]
+                                ]
+                                if _sr-ok [
+                                    wire-list: either all [src-st  dst-st  same? src-st dst-st] [
+                                        src-st/wires
+                                    ] [
+                                        model/wires
+                                    ]
+                                    actual-from-node: model/wire-src/id
+                                    actual-from-port: model/wire-port
+                                    ; Iter (-3): from-port = nombre var iter
+                                    if model/wire-src/id = -3 [
+                                        actual-from-port: to-word rejoin ["_" model/wire-src-struct/name "_i"]
+                                    ]
+                                    ; SR (-1 o -2): from-port = sr/name; SR-right usa struct ID como from-node
+                                    if model/wire-src-sr [
+                                        actual-from-port: to-word model/wire-src-sr/name
+                                        if model/wire-src/id = -2 [
+                                            actual-from-node: model/wire-src-struct/id
+                                        ]
+                                    ]
+                                    append wire-list make-wire compose [
+                                        from: (actual-from-node)
+                                        from-port: (actual-from-port)
+                                        to: (hit-nd/id)
+                                        to-port: (hit-port-name)
+                                    ]
+                                ]
+                            ][
+                                ; Tipos incompatibles: wire roto rojo
+                                if all [hit-dir = 'in  model/wire-src/id <> hit-nd/id] [
+                                    _bw-src: either model/wire-src-sr [
+                                        either model/wire-src/id = -1 [
+                                            sr-xy model/wire-src-struct model/wire-src-sr 'left
+                                        ][
+                                            sr-xy model/wire-src-struct model/wire-src-sr 'right
+                                        ]
+                                    ][
+                                        port-xy model/wire-src model/wire-port 'out
+                                    ]
+                                    model/broken-wire: reduce [_bw-src  port-xy hit-nd hit-port-name 'in]
                                 ]
                             ]
                         ]
-                        model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none
+                        model/wire-src: none  model/wire-port: none  model/mouse-pos: none
+                        model/wire-src-struct: none  model/wire-src-sr: none
                         face/draw: render-bd model
                     ]
                     return none
@@ -980,9 +1313,10 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 ; 2) Nodo interno de estructura? (antes que borde/nodo normal)
                 hit-result: hit-structure-node model mouse-x mouse-y
                 if hit-result [
-                    model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none
+                    model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none  model/wire-src-sr: none
                     model/broken-wire: none
                     model/selected-wire: none
+                    model/selected-sr: none
                     model/selected-struct: hit-result/1
                     model/selected-node: hit-result/2
                     model/drag-node: hit-result/2
@@ -990,6 +1324,83 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     if hit-result/2/type = 'bool-const [toggle-bool-const hit-result/2]
                     face/draw: render-bd model
                     return none
+                ]
+
+                ; 2.5) Terminal SR (▲ izquierdo o ▼ derecho)?
+                hit-result: hit-structure-sr model mouse-x mouse-y
+                if hit-result [
+                    do [
+                        _st:   hit-result/1
+                        _sr:   hit-result/2
+                        _side: hit-result/3
+                        either model/wire-src [
+                            ; Hay wire activo — intentar completar conexión en SR terminal
+                            _completed: false
+                            if _side = 'left [
+                                ; External → SR-left: wire-src debe ser nodo EXTERNO
+                                if all [model/wire-src/id > 0  none? node-structure model model/wire-src] [
+                                    _out-t: port-out-type model/wire-src model/wire-port
+                                    either _out-t = _sr/data-type [
+                                        model/broken-wire: none
+                                        append model/wires make-wire compose [
+                                            from: (model/wire-src/id)  from-port: (model/wire-port)
+                                            to: (_st/id)  to-port: (to-word _sr/name)
+                                        ]
+                                    ][
+                                        model/broken-wire: reduce [
+                                            port-xy model/wire-src model/wire-port 'out
+                                            sr-xy _st _sr 'left
+                                        ]
+                                    ]
+                                    _completed: true
+                                ]
+                            ]
+                            if _side = 'right [
+                                ; Internal → SR-right: wire-src debe ser nodo INTERNO de esta estructura
+                                _src-st: node-structure model model/wire-src
+                                if all [_src-st  same? _src-st _st] [
+                                    _out-t: port-out-type model/wire-src model/wire-port
+                                    either _out-t = _sr/data-type [
+                                        model/broken-wire: none
+                                        append _st/wires make-wire compose [
+                                            from: (model/wire-src/id)  from-port: (model/wire-port)
+                                            to: -2  to-port: (to-word _sr/name)
+                                        ]
+                                    ][
+                                        model/broken-wire: reduce [
+                                            port-xy model/wire-src model/wire-port 'out
+                                            sr-xy _st _sr 'right
+                                        ]
+                                    ]
+                                    _completed: true
+                                ]
+                            ]
+                            model/wire-src: none  model/wire-port: none
+                            model/mouse-pos: none  model/wire-src-struct: none  model/wire-src-sr: none
+                            face/draw: render-bd model
+                            return none
+                        ][
+                            ; Sin wire activo: seleccionar SR e iniciar wire
+                            model/selected-sr:     reduce [_st _sr]
+                            model/selected-struct: none
+                            model/selected-node:   none
+                            model/selected-wire:   none
+                            model/broken-wire:     none
+                            _sr-nd: make object! [
+                                id: either _side = 'left [-1] [-2]
+                                type: either _side = 'left ['sr-left] ['sr-right]
+                                name: to-word _sr/name
+                                ports: []  config: []  label: none  x: 0  y: 0
+                            ]
+                            model/wire-src:        _sr-nd
+                            model/wire-port:       to-word _sr/name
+                            model/wire-src-struct: _st
+                            model/wire-src-sr:     _sr
+                            model/mouse-pos:       event/offset
+                            face/draw: render-bd model
+                            return none
+                        ]
+                    ]
                 ]
 
                 ; 3) Terminal de estructura (condición/iteración)?
@@ -1029,11 +1440,11 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                                         (hit-result/1/y + hit-result/1/h - 16)
                             ]
                         ]
-                        model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none
+                        model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none  model/wire-src-sr: none
                         face/draw: render-bd model
                         return none
                     ]
-                    model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none
+                    model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none  model/wire-src-sr: none
                     model/broken-wire: none
                     model/selected-struct: hit-result/1
                     model/selected-node: none
@@ -1069,11 +1480,12 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 ;    (fix bug #7: nodo arrastrado dentro del while queda accesible)
                 hit-ref: hit-node model mouse-x mouse-y
                 if hit-ref [
-                    model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none
+                    model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none  model/wire-src-sr: none
                     model/wire-src-struct: none
                     model/broken-wire: none
                     model/selected-wire: none
                     model/selected-struct: none
+                    model/selected-sr: none
                     model/selected-node: hit-ref
                     model/drag-node: hit-ref
                     model/drag-off: as-pair (mouse-x - hit-ref/x) (mouse-y - hit-ref/y)
@@ -1089,7 +1501,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     model/selected-struct: hit-result
                     model/selected-node: none
                     model/selected-wire: none
-                    model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none
+                    model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none  model/wire-src-sr: none
                     model/wire-src-struct: none
                     face/draw: render-bd model
                     return none
@@ -1101,13 +1513,13 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     model/selected-wire: hit-ref
                     model/selected-node: none
                     model/selected-struct: none
-                    model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none
+                    model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none  model/wire-src-sr: none
                     face/draw: render-bd model
                     return none
                 ]
 
                 ; 9) Clic en vacío: cancelar todo
-                model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none
+                model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none  model/wire-src-sr: none
                 model/broken-wire: none
                 model/drag-node: none  model/selected-wire: none
                 model/selected-node: none  model/selected-struct: none
@@ -1186,19 +1598,25 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                             ] [
                                 model/wires
                             ]
-                            actual-from-port: either model/wire-src/id < 0 [
-                                to-word rejoin ["_" model/wire-src-struct/name "_i"]
-                            ][
-                                model/wire-port
+                            actual-from-node: model/wire-src/id
+                            actual-from-port: model/wire-port
+                            if model/wire-src/id = -3 [
+                                actual-from-port: to-word rejoin ["_" model/wire-src-struct/name "_i"]
+                            ]
+                            if model/wire-src-sr [
+                                actual-from-port: to-word model/wire-src-sr/name
+                                if model/wire-src/id = -2 [
+                                    actual-from-node: model/wire-src-struct/id
+                                ]
                             ]
                             append wire-list make-wire compose [
-                                from: (model/wire-src/id)
+                                from: (actual-from-node)
                                 from-port: (actual-from-port)
                                 to: (hit-result/1/id)
                                 to-port: (hit-result/2)
                             ]
                         ]
-                        model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none
+                        model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none  model/wire-src-sr: none
                         face/draw: render-bd model
                     ]
                 ]
@@ -1219,10 +1637,17 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 ]
             ]
 
-            on-dbl-click: func [face event /local mouse-x mouse-y model node label-text st-hit struct-hit] [
+            on-dbl-click: func [face event /local mouse-x mouse-y model node label-text st-hit struct-hit sr-hit] [
                 model: face/extra
                 mouse-x: event/offset/x
                 mouse-y: event/offset/y
+
+                ; 0) Terminal SR: editar valor inicial
+                sr-hit: hit-structure-sr model mouse-x mouse-y
+                if sr-hit [
+                    open-sr-edit-dialog face sr-hit/2
+                    exit
+                ]
 
                 ; Primero: nodo interno de estructura
                 st-hit: hit-structure-node model mouse-x mouse-y
@@ -1256,16 +1681,9 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     exit
                 ]
 
-                ; Segundo: interior de estructura (fondo) → paleta interna
-                struct-hit: point-in-structure? model mouse-x mouse-y
-                if struct-hit [
-                    open-palette/struct face mouse-x mouse-y struct-hit
-                    exit
-                ]
-
+                ; Nodo existente: doble clic → editar valor o renombrar label
                 node: hit-node model mouse-x mouse-y
-                either node [
-                    ; Nodo existente: const/str-const/str-control → editar valor; resto → renombrar label
+                if node [
                     if node/type = 'const [
                         open-const-edit-dialog node face
                         exit
@@ -1297,8 +1715,16 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                         ]
                         button "Cancelar" [unview]
                     ]
+                ]
+            ]
+            on-alt-down: func [face event /local mouse-x mouse-y model struct-hit] [
+                model: face/extra
+                mouse-x: event/offset/x
+                mouse-y: event/offset/y
+                struct-hit: point-in-structure? model mouse-x mouse-y
+                either struct-hit [
+                    open-palette/struct face mouse-x mouse-y struct-hit
                 ][
-                    ; Espacio vacío → paleta para añadir nuevo bloque
                     open-palette face mouse-x mouse-y
                 ]
             ]

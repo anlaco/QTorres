@@ -22,6 +22,7 @@ col-port-in:    50.110.200
 col-port-out:   195.80.25
 col-sel:        0.175.210
 col-text:       240.245.250
+col-black:      0.0.0
 
 ; Colores de estructuras contenedoras (while-loop)
 col-struct-border:     55.80.120    ; borde azulado oscuro
@@ -30,6 +31,14 @@ col-struct-term-i:     50.100.180   ; terminal iteración (azul como control)
 col-struct-term-cond:  20.160.20    ; terminal condición (verde como wire bool)
 struct-terminal-size:  14           ; tamaño del cuadrado terminal i y handle resize
 sr-terminal-half:      6            ; semitamaño del triángulo SR (triángulo 12px total)
+
+; Case Structure — dimensiones
+case-nav-height:       24           ; altura de la barra de navegación
+case-btn-size:         18           ; tamaño de botones ◀ ▶ [+][-]
+col-case-nav-bg:       160.185.215  ; fondo de barra de navegación
+
+; Compensación vertical de texto (8px en Linux por diferencia de baseline)
+text-dy: either system/platform = 'Linux [8] [0]
 
 ; ══════════════════════════════════════════════════════════
 ; GEOMETRÍA DE NODOS — funciones puras sin side-effects
@@ -358,12 +367,150 @@ render-node-list: func [
     cmds
 ]
 
+; ══════════════════════════════════════════════════════════
+; RENDER-CASE-STRUCTURE — Case Structure con múltiples frames
+; ══════════════════════════════════════════════════════════
+
+render-case-structure: func [
+    "Genera Draw cmds para una Case Structure con barra de navegación"
+    st model
+    /local cmds bx by bx2 by2 nav-h act-frame frame-label sel-x
+][
+    cmds: copy []
+    bx: st/x  by: st/y  bx2: st/x + st/w  by2: st/y + st/h
+    nav-h: case-nav-height
+
+    ; 1) Fondo + borde del contenedor
+    append cmds compose [
+        pen (col-struct-border)  line-width 2  fill-pen (col-struct-bg)
+        box (as-pair bx by) (as-pair bx2 by2) 8
+        line-width 1
+    ]
+
+    ; 2) Barra de navegación (fondo más oscuro)
+    append cmds compose [
+        pen (col-struct-border)  fill-pen (col-case-nav-bg)
+        box (as-pair (bx + 2) (by + 2)) (as-pair (bx2 - 2) (by + nav-h)) 4
+    ]
+
+    ; 3) Label "Case Structure"
+    if all [st/label  object? st/label] [
+        append cmds compose [
+            pen off  fill-pen col-black
+            text (as-pair (bx + 8) (by + 5 + text-dy)) (st/label/text)
+        ]
+    ]
+
+    ; 4) Botones de navegación ◀ ▶ [+][-]
+    ; ◀ (izquierda) en x: bx+8
+    append cmds compose [
+        pen (col-struct-border)  line-width 1  fill-pen (col-struct-bg + 30.30.30)
+        box (as-pair (bx + 8) (by + 4)) (as-pair (bx + 26) (by + 22)) 2
+        fill-pen (col-black)
+        text (as-pair (bx + 13) (by + 4 + text-dy)) "<"
+    ]
+    ; ▶ (derecha) en x: bx+28
+    append cmds compose [
+        pen (col-struct-border)  line-width 1  fill-pen (col-struct-bg + 30.30.30)
+        box (as-pair (bx + 28) (by + 4)) (as-pair (bx + 46) (by + 22)) 2
+        fill-pen (col-black)
+        text (as-pair (bx + 33) (by + 4 + text-dy)) ">"
+    ]
+
+    ; 5) Indicador de frame activo
+    act-frame: either all [block? st/frames  st/active-frame < length? st/frames] [
+        st/frames/(st/active-frame + 1)
+    ][
+        none
+    ]
+    frame-label: either act-frame [act-frame/label] ["?"]
+    append cmds compose [
+        fill-pen (col-black)
+        text (as-pair (bx + 52) (by + 5 + text-dy)) (frame-label)
+    ]
+
+    ; 6) Botones [+][-] en esquina derecha de la barra
+    ; [+] en x: bx2-48
+    append cmds compose [
+        pen (col-struct-border)  line-width 1  fill-pen (col-struct-bg + 20.20.20)
+        box (as-pair (bx2 - 48) (by + 4)) (as-pair (bx2 - 30) (by + 22)) 2
+        fill-pen (col-black)
+        text (as-pair (bx2 - 43) (by + 4 + text-dy)) "+"
+    ]
+    ; [-] en x: bx2-26
+    append cmds compose [
+        pen (col-struct-border)  line-width 1  fill-pen (col-struct-bg + 20.20.20)
+        box (as-pair (bx2 - 26) (by + 4)) (as-pair (bx2 - 8) (by + 22)) 2
+        fill-pen (col-black)
+        text (as-pair (bx2 - 20) (by + 4 + text-dy)) "-"
+    ]
+
+    ; 7) Terminal selector [?] — esquina superior izquierda debajo de la barra
+    ;    (número entero = naranja, booleano = verde)
+    sel-x: bx + 8
+    append cmds compose [
+        pen (col-struct-border)  line-width 1  fill-pen (col-wire)
+        box (as-pair sel-x (by + nav-h + 4))
+             (as-pair (sel-x + 14) (by + nav-h + 18)) 2
+        fill-pen (col-black)
+        text (as-pair (sel-x + 3) (by + nav-h + 3 + text-dy)) "?"
+    ]
+
+    ; 8) Handle de resize — esquina inferior-derecha
+    append cmds compose [
+        pen col-struct-border  line-width 1  fill-pen (col-struct-border + 40.40.40)
+        box (as-pair (bx2 - 10) (by2 - 10)) (as-pair bx2 by2) 0
+    ]
+
+    ; 9) Borde de selección cian
+    if all [same? st model/selected-struct  none? model/selected-node] [
+        append cmds compose [
+            pen col-sel  line-width 2  fill-pen off
+            box (as-pair (bx - 3) (by - 3)) (as-pair (bx2 + 3) (by2 + 3)) 10
+            line-width 1
+        ]
+    ]
+
+    ; 10) Wire del selector (si hay selector-wire)
+    if st/selector-wire [
+        do [
+            sel-src: none
+            foreach nd model/nodes [if nd/id = st/selector-wire/from [sel-src: nd]]
+            if sel-src [
+                src-xy: port-xy sel-src st/selector-wire/port 'out
+                dst-xy: as-pair (sel-x + 7) (by + nav-h + 11)
+                mid-cx: to-integer (src-xy/x + dst-xy/x) / 2
+                ; Color según tipo: detectado del wire conectado
+                append cmds compose [
+                    pen (col-wire)  line-width 2
+                    line (src-xy) (as-pair mid-cx src-xy/y) (as-pair mid-cx dst-xy/y) (dst-xy)
+                    line-width 1
+                ]
+            ]
+        ]
+    ]
+
+    ; 11) Renderizar nodos y wires del frame activo
+    if act-frame [
+        append cmds render-node-list act-frame/nodes model/selected-node
+        append cmds render-wire-list act-frame/wires act-frame/nodes model/selected-wire
+    ]
+
+    cmds
+]
+
 render-structure: func [
-    "Genera Draw cmds para una estructura contenedora (while-loop)"
+    "Genera Draw cmds para una estructura contenedora (while-loop, for-loop, case-structure)"
     st model
     /local cmds bx by bx2 by2 tx sr sr-col y-off _w _sr-has-ext-wire
             _sr-found _src-xy _in-xy _out-xy _dst-xy _mid-x _sr-col2
 ][
+    ; Bifurcación: Case Structure tiene renderizado propio
+    if st/type = 'case-structure [
+        return render-case-structure st model
+    ]
+
+    ; ── WHILE/FOR LOOP ─────────────────────────────────────
     cmds: copy []
     bx: st/x  by: st/y  bx2: st/x + st/w  by2: st/y + st/h
     tx: struct-terminal-size
@@ -704,10 +851,23 @@ render-bd: func [model /local cmds src-port-xy mid st] [
 ; ══════════════════════════════════════════════════════════
 
 ; Devuelve la estructura que contiene el nodo, o none si es externo.
-node-structure: func [model node /local st nd] [
+; Para case-structure, busca en el frame activo.
+node-structure: func [model node /local st nd frame] [
     foreach st model/structures [
-        foreach nd st/nodes [
-            if nd/id = node/id [return st]
+        ; While/For loop: buscar en st/nodes
+        if find [while-loop for-loop] st/type [
+            foreach nd st/nodes [
+                if nd/id = node/id [return st]
+            ]
+        ]
+        ; Case structure: buscar en frame activo
+        if st/type = 'case-structure [
+            if all [block? st/frames  st/active-frame < length? st/frames] [
+                frame: st/frames/(st/active-frame + 1)
+                foreach nd frame/nodes [
+                    if nd/id = node/id [return st]
+                ]
+            ]
         ]
     ]
     none
@@ -725,31 +885,59 @@ point-in-structure?: func [model mouse-x mouse-y /local st] [
 ]
 
 ; Devuelve [struct node] si el punto cae sobre un nodo interno, o none.
-hit-structure-node: func [model mouse-x mouse-y /local st node] [
+; Para case-structure, busca en el frame activo.
+hit-structure-node: func [model mouse-x mouse-y /local st node frame] [
     foreach st model/structures [
-        foreach node st/nodes [
-            if all [
-                mouse-x >= node/x  mouse-x <= (node/x + block-width)
-                mouse-y >= node/y  mouse-y <= (node/y + block-height)
-            ] [return reduce [st node]]
+        ; Case Structure: buscar en frame activo
+        if st/type = 'case-structure [
+            if all [block? st/frames  st/active-frame < length? st/frames] [
+                frame: st/frames/(st/active-frame + 1)
+                foreach node frame/nodes [
+                    if all [
+                        mouse-x >= node/x  mouse-x <= (node/x + block-width)
+                        mouse-y >= node/y  mouse-y <= (node/y + block-height)
+                    ] [return reduce [st node]]
+                ]
+            ]
+        ]
+        ; While/For Loop: buscar en st/nodes
+        if find [while-loop for-loop] st/type [
+            foreach node st/nodes [
+                if all [
+                    mouse-x >= node/x  mouse-x <= (node/x + block-width)
+                    mouse-y >= node/y  mouse-y <= (node/y + block-height)
+                ] [return reduce [st node]]
+            ]
         ]
     ]
     none
 ]
 
-; Devuelve [struct 'cond|'iter] si el punto cae sobre un terminal, o none.
-; 'iter = terminal iteración [i] abajo-izquierda
-; 'cond = terminal condición [●] abajo-derecha
-hit-structure-terminal: func [model mouse-x mouse-y /local st bx by by2 bx2 tx tol] [
+; Devuelve [struct 'cond|'iter|'count|'selector] si el punto cae sobre un terminal, o none.
+; 'iter = terminal iteración [i] abajo-izquierda (while/for)
+; 'cond = terminal condición [●] abajo-derecha (while)
+; 'count = terminal count [N] arriba-izquierda (for)
+; 'selector = terminal selector [?] arriba-izquierda (case)
+hit-structure-terminal: func [model mouse-x mouse-y /local st bx by by2 bx2 tx tol nav-h] [
     tol: 8
+    nav-h: case-nav-height
     foreach st model/structures [
         bx: st/x  by: st/y  by2: st/y + st/h  bx2: st/x + st/w
         tx: struct-terminal-size
-        ; Terminal iteración [i]: cuadrado (bx+8, by2-tx-8) → (bx+8+tx, by2-8) — ambos tipos
-        if all [
-            mouse-x >= (bx + 8 - tol)  mouse-x <= (bx + 8 + tx + tol)
-            mouse-y >= (by2 - tx - 8 - tol)  mouse-y <= (by2 - 8 + tol)
-        ] [return reduce [st 'iter]]
+        ; Case Structure: terminal selector arriba-izquierda debajo de la barra de navegación
+        if st/type = 'case-structure [
+            if all [
+                mouse-x >= (bx + 8 - tol)  mouse-x <= (bx + 22 + tol)
+                mouse-y >= (by + nav-h + 4 - tol)  mouse-y <= (by + nav-h + 18 + tol)
+            ] [return reduce [st 'selector]]
+        ]
+        ; While/For Loop: terminal iteración [i] abajo-izquierda
+        if find [while-loop for-loop] st/type [
+            if all [
+                mouse-x >= (bx + 8 - tol)  mouse-x <= (bx + 8 + tx + tol)
+                mouse-y >= (by2 - tx - 8 - tol)  mouse-y <= (by2 - 8 + tol)
+            ] [return reduce [st 'iter]]
+        ]
         ; Terminal condición [●]: círculo en (bx2-16, by2-16) radio 8 — solo while-loop
         if st/type = 'while-loop [
             if all [
@@ -824,12 +1012,91 @@ hit-structure-sr: func [model mouse-x mouse-y /local st sr cy bx bx2 tol] [
     none
 ]
 
-hit-port: func [model mouse-x mouse-y /local ports out-y center-x center-y in-y node port all-nodes st] [
-    ; Reúne todos los nodos: normales + internos de estructuras
+; ══════════════════════════════════════════════════════════
+; HIT-TEST — Case Structure
+; ══════════════════════════════════════════════════════════
+
+; Devuelve [struct 'prev|'next|'add|'remove] si el punto cae sobre botones de navegación.
+hit-case-nav-buttons: func [model mouse-x mouse-y /local st bx by bx2 btn-h tol] [
+    btn-h: case-btn-size
+    tol: 4
+    foreach st model/structures [
+        if st/type = 'case-structure [
+            bx: st/x  by: st/y  bx2: st/x + st/w
+            ; Solo verificar si está en la barra de navegación
+            if all [mouse-y >= (by + tol)  mouse-y <= (by + case-nav-height - tol)] [
+                ; ◀ (prev) en x: bx+8 a bx+26
+                if all [mouse-x >= (bx + 8 - tol)  mouse-x <= (bx + 26 + tol)] [
+                    return reduce [st 'prev]
+                ]
+                ; ▶ (next) en x: bx+28 a bx+46
+                if all [mouse-x >= (bx + 28 - tol)  mouse-x <= (bx + 46 + tol)] [
+                    return reduce [st 'next]
+                ]
+                ; [+] (add) en x: bx2-48 a bx2-30
+                if all [mouse-x >= (bx2 - 48 - tol)  mouse-x <= (bx2 - 30 + tol)] [
+                    return reduce [st 'add]
+                ]
+                ; [-] (remove) en x: bx2-26 a bx2-8
+                if all [mouse-x >= (bx2 - 26 - tol)  mouse-x <= (bx2 - 8 + tol)] [
+                    return reduce [st 'remove]
+                ]
+            ]
+        ]
+    ]
+    none
+]
+
+; Devuelve [struct 'selector] si el punto cae sobre el terminal selector [?].
+hit-case-terminal: func [model mouse-x mouse-y /local st bx by tol nav-h] [
+    tol: 8
+    nav-h: case-nav-height
+    foreach st model/structures [
+        if st/type = 'case-structure [
+            bx: st/x  by: st/y
+            ; Terminal selector: cuadrado en (bx+8, by+nav-h+4) → (bx+22, by+nav_h+18)
+            if all [
+                mouse-x >= (bx + 8 - tol)  mouse-x <= (bx + 22 + tol)
+                mouse-y >= (by + nav-h + 4 - tol)  mouse-y <= (by + nav-h + 18 + tol)
+            ] [return reduce [st 'selector]]
+        ]
+    ]
+    none
+]
+
+; Devuelve [struct node] si el punto cae sobre un nodo interno del frame activo.
+; Para case-structure, solo busca en el frame activo.
+hit-case-frame-node: func [model mouse-x mouse-y /local st frame node] [
+    foreach st model/structures [
+        if st/type = 'case-structure [
+            if all [block? st/frames  st/active-frame < length? st/frames] [
+                frame: st/frames/(st/active-frame + 1)
+                foreach node frame/nodes [
+                    if all [
+                        mouse-x >= node/x  mouse-x <= (node/x + block-width)
+                        mouse-y >= node/y  mouse-y <= (node/y + block-height)
+                    ] [return reduce [st node]]
+                ]
+            ]
+        ]
+    ]
+    none
+]
+
+hit-port: func [model mouse-x mouse-y /local ports out-y center-x center-y in-y node port all-nodes st frame] [
+    ; Reúne todos los nodos: normales + internos de estructuras (while/for + case frames activos)
     all-nodes: copy model/nodes
     if block? model/structures [
         foreach st model/structures [
-            foreach node st/nodes [append all-nodes node]
+            if find [while-loop for-loop] st/type [
+                foreach node st/nodes [append all-nodes node]
+            ]
+            if st/type = 'case-structure [
+                if all [block? st/frames  st/active-frame < length? st/frames] [
+                    frame: st/frames/(st/active-frame + 1)
+                    foreach node frame/nodes [append all-nodes node]
+                ]
+            ]
         ]
     ]
     foreach node all-nodes [
@@ -898,15 +1165,24 @@ hit-wire-in-list: func [wires nodes mouse-x mouse-y /local tolerance src-node ds
     none
 ]
 
-hit-wire: func [model mouse-x mouse-y /local w st] [
+hit-wire: func [model mouse-x mouse-y /local w st frame] [
     ; Wires normales
     w: hit-wire-in-list model/wires model/nodes mouse-x mouse-y
     if w [return w]
     ; Wires internos de estructuras
     if block? model/structures [
         foreach st model/structures [
-            w: hit-wire-in-list st/wires st/nodes mouse-x mouse-y
-            if w [return w]
+            ; While/For loop: st/wires
+            if find [while-loop for-loop] st/type [
+                w: hit-wire-in-list st/wires st/nodes mouse-x mouse-y
+                if w [return w]
+            ]
+            ; Case structure: frame activo
+            if all [st/type = 'case-structure  block? st/frames  st/active-frame < length? st/frames] [
+                frame: st/frames/(st/active-frame + 1)
+                w: hit-wire-in-list frame/wires frame/nodes mouse-x mouse-y
+                if w [return w]
+            ]
         ]
     ]
     none
@@ -1100,7 +1376,16 @@ palette-add-node: func [node-type /local n nid model] [
     nid: gen-node-id model
     n: make-node compose [id: (nid) type: (node-type) x: (palette-pos-x) y: (palette-pos-y)]
     either palette-struct [
-        append palette-struct/nodes n
+        ; Case structure: añadir al frame activo
+        if all [palette-struct/type = 'case-structure  block? palette-struct/frames] [
+            if palette-struct/active-frame < length? palette-struct/frames [
+                append palette-struct/frames/(palette-struct/active-frame + 1)/nodes n
+            ]
+        ]
+        ; While/For loop: añadir a st/nodes
+        if find [while-loop for-loop] palette-struct/type [
+            append palette-struct/nodes n
+        ]
     ][
         append model/nodes n
     ]
@@ -1114,6 +1399,7 @@ palette-add-structure: func [type [word!] /local nid st model] [
     model: palette-canvas/extra
     nid: gen-node-id model
     st: make-structure compose [id: (nid) type: (type) x: (palette-pos-x) y: (palette-pos-y)]
+    if type = 'case-structure [append st/frames make-frame [id: 0 label: "0"]]
     append model/structures st
     palette-canvas/draw: render-bd model
     show palette-canvas
@@ -1129,7 +1415,7 @@ open-palette: func [face x y /struct target-struct] [
         title "Añadir bloque"
         text "Aritmética:"  return
         button 80 "Add +"    [palette-add-node 'add]
-        button 80 "Sub -"    [palette-add-node 'sub]    return
+        button 80 "Sub -"    [palette-add-node 'sub]
         button 80 "Mul *"    [palette-add-node 'mul]
         button 80 "Div /"    [palette-add-node 'div]    return
         text "Constante / salida:"  return
@@ -1137,27 +1423,29 @@ open-palette: func [face x y /struct target-struct] [
         button 80 "Display"  [palette-add-node 'display]  return
         text "Lógica:"  return
         button 80 "AND"      [palette-add-node 'and-op]
-        button 80 "OR"       [palette-add-node 'or-op]   return
+        button 80 "OR"       [palette-add-node 'or-op]
         button 80 "NOT"      [palette-add-node 'not-op]
         button 80 "B-Const"  [palette-add-node 'bool-const]  return
         text "Comparadores:"  return
         button 80 ">"        [palette-add-node 'gt-op]
-        button 80 "<"        [palette-add-node 'lt-op]   return
-        button 80 "="        [palette-add-node 'eq-op]   return
+        button 80 "<"        [palette-add-node 'lt-op]
+        button 80 "="        [palette-add-node 'eq-op]
+        button 80 "!="       [palette-add-node 'neq-op]  return
         text "String:"  return
         button 80 "S-Const"  [palette-add-node 'str-const]
-        button 80 "Concat"   [palette-add-node 'concat]         return
+        button 80 "Concat"   [palette-add-node 'concat]
         button 80 "Len"      [palette-add-node 'str-length]
-        button 80 "→STR"     [palette-add-node 'to-string]      return
+        button 80 "→STR"     [palette-add-node 'to-string]  return
         text "Array:"  return
-        button 80 "Arr-Const" [palette-add-node 'arr-const]
-        button 80 "Build[]"   [palette-add-node 'build-array]    return
-        button 80 "Index[]"   [palette-add-node 'index-array]
-        button 80 "Size[]"    [palette-add-node 'array-size]     return
-        button 80 "Subset[]"  [palette-add-node 'array-subset]   return
+        button 80 "Arr[]"    [palette-add-node 'arr-const]
+        button 80 "Build[]"  [palette-add-node 'build-array]
+        button 80 "Index[]"  [palette-add-node 'index-array]  return
+        button 80 "Size[]"   [palette-add-node 'array-size]
+        button 80 "Subset[]" [palette-add-node 'array-subset]  return
         text "Estructuras:"  return
         button 80 "While"    [palette-add-structure 'while-loop]
-        button 80 "For"      [palette-add-structure 'for-loop]   return
+        button 80 "For"      [palette-add-structure 'for-loop]
+        button 80 "Case"     [palette-add-structure 'case-structure]  return
         button 80 "Add SR"   [
             if palette-struct [
                 unview
@@ -1241,7 +1529,7 @@ open-sr-edit-dialog: func [canvas sr /local cur] [
 
 ; Borra el elemento seleccionado (nodo, wire o estructura completa).
 ; Llamar desde el on-key del window padre con: canvas-delete-selected canvas
-canvas-delete-selected: func [canvas /local model node-id node-name node-type st found _pref _sst _ssr] [
+canvas-delete-selected: func [canvas /local model node-id node-name node-type st found _pref _sst _ssr _frame] [
     model: canvas/extra
 
     ; SR seleccionado: borrar de la estructura + limpiar wires asociados
@@ -1275,7 +1563,23 @@ canvas-delete-selected: func [canvas /local model node-id node-name node-type st
         if found [remove found]
         if block? model/structures [
             foreach st model/structures [
+                ; While/For loop: st/wires
                 found: find st/wires model/selected-wire
+                if found [remove found]
+                ; Case structure: st/frames/*/wires
+                if all [st/type = 'case-structure  block? st/frames] [
+                    foreach _frame st/frames [
+                        found: find _frame/wires model/selected-wire
+                        if found [remove found]
+                    ]
+                ]
+            ]
+        ]
+        if model/selected-struct [
+            st: model/selected-struct
+            if all [st/type = 'case-structure  block? st/frames  st/active-frame < length? st/frames] [
+                _frame: st/frames/(st/active-frame + 1)
+                found: find _frame/wires model/selected-wire
                 if found [remove found]
             ]
         ]
@@ -1289,8 +1593,17 @@ canvas-delete-selected: func [canvas /local model node-id node-name node-type st
         if model/selected-struct [
             node-id: model/selected-node/id
             st: model/selected-struct
-            remove-each wire st/wires [any [wire/from-node = node-id  wire/to-node = node-id]]
-            remove-each nd st/nodes   [nd/id = node-id]
+            ; Case structure: buscar en frame activo
+            if all [st/type = 'case-structure  block? st/frames  st/active-frame < length? st/frames] [
+                _frame: st/frames/(st/active-frame + 1)
+                remove-each wire _frame/wires [any [wire/from-node = node-id  wire/to-node = node-id]]
+                remove-each nd _frame/nodes [nd/id = node-id]
+            ]
+            ; While/For loop: buscar en st/nodes
+            if find [while-loop for-loop] st/type [
+                remove-each wire st/wires [any [wire/from-node = node-id  wire/to-node = node-id]]
+                remove-each nd st/nodes [nd/id = node-id]
+            ]
             model/selected-node: none
             model/selected-struct: none   ; limpiar para que el 2º evento key no borre la estructura
             model/drag-node: none
@@ -1327,6 +1640,10 @@ canvas-delete-selected: func [canvas /local model node-id node-name node-type st
             remove-each w model/wires [
                 all [w/to-node = st/id  w/to-port = 'count]
             ]
+        ]
+        ; Limpiar selector-wire si es case-structure
+        if st/type = 'case-structure [
+            st/selector-wire: none
         ]
         remove-each s model/structures [same? s st]
         model/selected-struct: none
@@ -1529,7 +1846,86 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     ]
                 ]
 
-                ; 3) Terminal de estructura (condición/iteración)?
+                ; 3) Botones de navegación de Case Structure (◀ ▶ [+][-])?
+                hit-result: hit-case-nav-buttons model mouse-x mouse-y
+                if hit-result [
+                    _cst: hit-result/1
+                    _act: hit-result/2
+                    switch _act [
+                        prev [
+                            if all [_cst/frames  _cst/active-frame > 0] [
+                                _cst/active-frame: _cst/active-frame - 1
+                            ]
+                        ]
+                        next [
+                            if all [_cst/frames  _cst/active-frame < ((length? _cst/frames) - 1)] [
+                                _cst/active-frame: _cst/active-frame + 1
+                            ]
+                        ]
+                        add [
+                            append _cst/frames make-frame compose [
+                                id: (length? _cst/frames)
+                                label: (form length? _cst/frames)
+                            ]
+                            _cst/active-frame: (length? _cst/frames) - 1
+                        ]
+                        remove [
+                            if all [_cst/frames  (length? _cst/frames) > 1] [
+                                remove at _cst/frames (_cst/active-frame + 1)
+                                if _cst/active-frame >= length? _cst/frames [
+                                    _cst/active-frame: (length? _cst/frames) - 1
+                                ]
+                            ]
+                        ]
+                    ]
+                    model/selected-struct: _cst
+                    model/selected-node: none
+                    model/selected-wire: none
+                    model/wire-src: none  model/wire-port: none  model/mouse-pos: none
+                    face/draw: render-bd model
+                    return none
+                ]
+
+                ; 3.5) Terminal selector de Case Structure?
+                hit-result: hit-case-terminal model mouse-x mouse-y
+                if hit-result [
+                    _cst: hit-result/1
+                    either model/wire-src [
+                        ; Completar wire al selector
+                        do [
+                            _sel-ok: false
+                            _out-t: either model/wire-src-sr [model/wire-src-sr/data-type] [
+                                either model/wire-src/id = -3 ['number] [
+                                    port-out-type model/wire-src model/wire-port
+                                ]
+                            ]
+                            ; Selector acepta number o boolean
+                            if find [number boolean] _out-t [_sel-ok: true]
+                            either _sel-ok [
+                                _cst/selector-wire: make object! [
+                                    from: model/wire-src/id
+                                    port: model/wire-port
+                                ]
+                                model/broken-wire: none
+                            ][
+                                _nav-h: case-nav-height
+                                _sel-xy: as-pair (_cst/x + 15) (_cst/y + _nav-h + 11)
+                                model/broken-wire: reduce [port-xy model/wire-src model/wire-port 'out  _sel-xy]
+                            ]
+                        ]
+                        model/wire-src: none  model/wire-port: none  model/mouse-pos: none
+                        model/wire-src-struct: none  model/wire-src-sr: none
+                    ][
+                        ; Sin wire activo: seleccionar estructura
+                        model/selected-struct: _cst
+                        model/selected-node: none
+                        model/selected-wire: none
+                    ]
+                    face/draw: render-bd model
+                    return none
+                ]
+
+                ; 4) Terminal de estructura (condición/iteración)?
                 hit-result: hit-structure-terminal model mouse-x mouse-y
                 if hit-result [
                     ; Terminal [i]: si no hay wire activo, iniciar wire desde iteración
@@ -1680,7 +2076,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 face/draw: render-bd model
             ]
 
-            on-over: func [face event /local mouse-x mouse-y model dx dy] [
+            on-over: func [face event /local mouse-x mouse-y model dx dy _st _frame _nodes] [
                 model: face/extra
                 mouse-x: event/offset/x
                 mouse-y: event/offset/y
@@ -1689,13 +2085,16 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 if all [model/drag-node model/drag-off event/down?] [
                     model/drag-node/x: mouse-x - model/drag-off/x
                     model/drag-node/y: mouse-y - model/drag-off/y
-                    ; 3.2 Clamp nodo interno dentro de la estructura (margen 20px)
+                    ; Clamp nodo interno dentro de la estructura (margen 20px)
                     if model/selected-struct [
-                        model/drag-node/x: max (model/selected-struct/x + 20)
-                                           min (model/selected-struct/x + model/selected-struct/w - block-width - 20)
+                        _st: model/selected-struct
+                        ; Case Structure: clamp Considerar nav-height para Y
+                        _nav-h: either _st/type = 'case-structure [case-nav-height + 4] [22]
+                        model/drag-node/x: max (_st/x + 20)
+                                           min (_st/x + _st/w - block-width - 20)
                                                model/drag-node/x
-                        model/drag-node/y: max (model/selected-struct/y + 22)
-                                           min (model/selected-struct/y + model/selected-struct/h - block-height - 20)
+                        model/drag-node/y: max (_st/y + _nav-h)
+                                           min (_st/y + _st/h - block-height - 20)
                                                model/drag-node/y
                     ]
                     face/draw: render-bd model
@@ -1716,9 +2115,25 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     dy: mouse-y - model/drag-struct-off/y - model/drag-struct/y
                     model/drag-struct/x: model/drag-struct/x + dx
                     model/drag-struct/y: model/drag-struct/y + dy
-                    foreach nd model/drag-struct/nodes [
-                        nd/x: nd/x + dx
-                        nd/y: nd/y + dy
+                    ; Mover nodos de todos los frames (case) o nodos internos (while/for)
+                    either model/drag-struct/type = 'case-structure [
+                        if block? model/drag-struct/frames [
+                            foreach _frame model/drag-struct/frames [
+                                foreach nd _frame/nodes [
+                                    nd/x: nd/x + dx
+                                    nd/y: nd/y + dy
+                                ]
+                                foreach w _frame/wires [
+                                    ; Wires internos no necesitan moverse (coords son absolutas en memoria)
+                                ]
+                            ]
+                        ]
+                    ][
+                        ; While/For Loop
+                        foreach nd model/drag-struct/nodes [
+                            nd/x: nd/x + dx
+                            nd/y: nd/y + dy
+                        ]
                     ]
                     face/draw: render-bd model
                     return none

@@ -643,3 +643,131 @@ foreach w fl-rt-loaded/wires [
 ]
 assert "round-trip: wire N en diagram/wires"     (not none? fl-rt-n-wire)
 assert "round-trip: wire N from correcto"        (800 = fl-rt-n-wire/from-node)
+
+; ══════════════════════════════════════════════════════════════════════
+; Case Structure — Tests
+; ══════════════════════════════════════════════════════════════════════
+
+suite "compile-case-structure — estructura vacía"
+
+reset-name-counters
+cs-empty-diag: make-diagram "cs-empty"
+cs-empty-st: make-structure [id: 900  type: 'case-structure  name: "cs_empty"  x: 100  y: 100]
+append cs-empty-st/frames make-frame [id: 0  label: "0"]
+append cs-empty-diag/structures cs-empty-st
+
+cs-empty-code: compile-case-structure cs-empty-st cs-empty-diag
+assert "case structure vacía genera código"         (not empty? cs-empty-code)
+assert "código contiene selector var"                 (not none? find cs-empty-code '_cs_empty_selector)
+
+suite "compile-case-structure — con selector numérico"
+
+reset-name-counters
+cs-num-diag: make-diagram "cs-number"
+cs-num-n1: make-node [id: 910  type: 'const  name: "cs_n_selector"  x: 50  y: 50]
+cs-num-n1/config: reduce ['default 2.0]
+cs-num-n2: make-node [id: 911  type: 'add  name: "cs_n_add"    x: 200  y: 120]
+cs-num-n3: make-node [id: 912  type: 'const  name: "cs_n_a"      x: 100  y: 150]
+cs-num-n3/config: reduce ['default 10.0]
+cs-num-n4: make-node [id: 913  type: 'const  name: "cs_n_b"      x: 100  y: 200]
+cs-num-n4/config: reduce ['default 5.0]
+append cs-num-diag/nodes cs-num-n1
+append cs-num-diag/nodes cs-num-n2
+append cs-num-diag/nodes cs-num-n3
+append cs-num-diag/nodes cs-num-n4
+
+cs-num-st: make-structure [id: 920  type: 'case-structure  name: "cs_num"  x: 150  y: 100]
+append cs-num-st/frames make-frame [id: 0  label: "0"]
+append cs-num-st/frames make-frame [id: 1  label: "1"]
+append cs-num-st/frames make-frame [id: 2  label: "Default"]
+
+; Frame 1 (índice 2 en Red): add_1 = 10 + 5
+frame1: cs-num-st/frames/2
+append frame1/nodes make-node [id: 921  type: 'add  name: "cs_add_1"  x: 20  y: 20]
+append frame1/nodes cs-num-n3
+append frame1/nodes cs-num-n4
+append frame1/wires make-wire [from: 912  from-port: 'result  to: 921  to-port: 'a]
+append frame1/wires make-wire [from: 913  from-port: 'result  to: 921  to-port: 'b]
+
+append cs-num-diag/structures cs-num-st
+
+; Conectar selector
+cs-num-st/selector-wire: make object! [from: 910  port: 'result]
+
+cs-num-code: compile-case-structure cs-num-st cs-num-diag
+assert "case structure con selector genera código"    (not empty? cs-num-code)
+assert "código contiene selector var"                   (not none? find cs-num-code '_cs_num_selector)
+; Verificar que case está en el código generado
+cs-has-case: false
+foreach item cs-num-code [if item = 'case [cs-has-case: true]]
+assert "código contiene 'case"                          cs-has-case
+
+suite "compile-case-structure — con selector booleano"
+
+reset-name-counters
+cs-bool-diag: make-diagram "cs-bool"
+cs-bool-n1: make-node [id: 930  type: 'bool-const  name: "cs_b_selector"  x: 50  y: 50]
+cs-bool-n1/config: reduce ['default true]
+append cs-bool-diag/nodes cs-bool-n1
+
+cs-bool-st: make-structure [id: 940  type: 'case-structure  name: "cs_bool"  x: 150  y: 100]
+append cs-bool-st/frames make-frame [id: 0  label: "true"]
+append cs-bool-st/frames make-frame [id: 1  label: "false"]
+
+cs-bool-st/selector-wire: make object! [from: 930  port: 'result]
+append cs-bool-diag/structures cs-bool-st
+
+cs-bool-code: compile-case-structure cs-bool-st cs-bool-diag
+assert "case structure boolean genera código"          (not empty? cs-bool-code)
+assert "código contiene selector var"                   (not none? find cs-bool-code '_cs_bool_selector)
+; Verificar que either está en el código generado
+cs-has-either: false
+foreach item cs-bool-code [if item = 'either [cs-has-either: true]]
+assert "código contiene 'either"                        cs-has-either
+
+print "--- tests de Case Structure completados ---"
+
+; ══════════════════════════════════════════════════════════════════════
+; Case Structure — Round-trip test
+; ══════════════════════════════════════════════════════════════════════
+
+suite "file-io — round-trip case-structure"
+
+reset-name-counters
+cs-rt-diag: make-diagram "cs-rt-vi"
+cs-rt-n1: make-node [id: 950  type: 'const  name: "cs_rt_sel"  x: 50  y: 50]
+cs-rt-n1/config: reduce ['default 1.0]
+append cs-rt-diag/nodes cs-rt-n1
+
+cs-rt-st: make-structure [id: 960  type: 'case-structure  name: "cs_rt"  x: 100  y: 100]
+append cs-rt-st/frames make-frame [id: 0  label: "0"]
+append cs-rt-st/frames make-frame [id: 1  label: "1"]
+cs-rt-st/selector-wire: make object! [from: 950  port: 'result]
+append cs-rt-diag/structures cs-rt-st
+
+; Frame interno con nodo
+frame0: cs-rt-st/frames/1
+append frame0/nodes make-node [id: 961  type: 'add  name: "cs_rt_add"  x: 20  y: 20]
+
+cs-rt-file: %/tmp/qtorres-cs-rt.qvi
+save-vi cs-rt-file cs-rt-diag
+assert "save-vi crea fichero case-structure"    (exists? cs-rt-file)
+
+cs-rt-loaded: load-vi cs-rt-file
+if exists? cs-rt-file [delete cs-rt-file]
+
+assert "load-vi devuelve objeto"                (object? cs-rt-loaded)
+assert "structures cargadas: 1"                 (1 = length? cs-rt-loaded/structures)
+cs-rt-ls: first cs-rt-loaded/structures
+assert "estructura es case-structure"           ('case-structure = cs-rt-ls/type)
+assert "frames cargados: 2"                     (2 = length? cs-rt-ls/frames)
+assert "frame 0 label correcto"                 ("0" = cs-rt-ls/frames/1/label)
+assert "frame 1 label correcto"                 ("1" = cs-rt-ls/frames/2/label)
+assert "selector-wire cargado"                  (object? cs-rt-ls/selector-wire)
+assert "selector-wire from correcto"            (950 = cs-rt-ls/selector-wire/from)
+assert "frame 0 tiene 1 nodo"                   (1 = length? cs-rt-ls/frames/1/nodes)
+; Coords relativas → absolutas
+assert "nodo interno x absoluta"                 (20 = cs-rt-ls/frames/1/nodes/1/x)
+assert "nodo interno y absoluta"                 (20 = cs-rt-ls/frames/1/nodes/1/y)
+
+print "--- tests de Case Structure round-trip completados ---"

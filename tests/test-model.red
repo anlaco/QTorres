@@ -155,3 +155,83 @@ sf2: make-structure [type: 'for-loop]
 
 assert "while label texto"                      (sw/label/text = "While Loop")
 assert "for label texto"                        (sf2/label/text = "For Loop")
+
+; ── make-frame — tests básicos ────────────────────────────────────────
+
+suite "make-frame — defaults"
+
+f: make-frame []
+
+assert "frame id por defecto 0"                  (f/id = 0)
+assert "frame label por defecto '0'"            (f/label = "0")
+assert "frame nodes vacío"                      (empty? f/nodes)
+assert "frame wires vacío"                       (empty? f/wires)
+
+suite "make-frame — spec explícito"
+
+f2: make-frame [id: 5  label: "Default"]
+
+assert "frame id correcto"                      (f2/id = 5)
+assert "frame label correcto"                   (f2/label = "Default")
+
+suite "make-frame — independencia entre instancias"
+
+f3: make-frame [id: 0  label: "0"]
+f4: make-frame [id: 1  label: "1"]
+append f3/nodes "nodo-test"
+
+assert "frames independientes — nodes"          (empty? f4/nodes)
+assert "frame id correcto f3"                   (f3/id = 0)
+assert "frame id correcto f4"                   (f4/id = 1)
+
+; ── make-structure — case-structure ────────────────────────────────────
+
+suite "make-structure — case-structure defaults"
+
+reset-name-counters
+sc: make-structure [type: 'case-structure]
+
+assert "case-structure tipo correcto"           (sc/type = 'case-structure)
+assert "case-structure name generado"           (sc/name = "case-structure_1")
+assert "case-structure label texto"             (sc/label/text = "Case Structure")
+assert "case-structure frames vacío"             (block? sc/frames)
+assert "case-structure active-frame 0"          (sc/active-frame = 0)
+assert "case-structure selector-wire none"      (none? sc/selector-wire)
+assert "case-structure cond-wire none"           (none? sc/cond-wire)
+assert "case-structure shift-regs vacío"         (empty? sc/shift-regs)
+
+suite "make-structure — case-structure con frames"
+
+reset-name-counters
+sc2: make-structure [
+    type: 'case-structure
+    id: 20
+    frames: [
+        frame [id: 0  label: "0"]
+        frame [id: 1  label: "1"]
+        frame [id: 2  label: "Default"]
+    ]
+]
+
+assert "case-structure id correcto"             (sc2/id = 20)
+assert "case-structure tiene 3 frames"          (3 = length? sc2/frames)
+assert "frame 0 id correcto"                    (sc2/frames/1/id = 0)
+assert "frame 0 label correcto"                 (sc2/frames/1/label = "0")
+assert "frame 1 label correcto"                 (sc2/frames/2/label = "1")
+assert "frame 2 label Default"                  (sc2/frames/3/label = "Default")
+
+suite "make-structure — case-structure frames independientes"
+
+reset-name-counters
+sc3: make-structure [type: 'case-structure]
+sc4: make-structure [type: 'case-structure]
+
+append sc3/frames make-frame [id: 0  label: "X"]
+assert "frames independientes entre instancias" (empty? sc4/frames)
+
+suite "blocks — case-structure registrado"
+
+assert "case-structure en el registro"          (not none? find-block 'case-structure)
+assert "categoría es structure"                 ('structure = block-category 'case-structure)
+
+print "--- tests finalizados ---"

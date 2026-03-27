@@ -1,0 +1,72 @@
+Red [Title: "case-numeric" Needs: 'View]
+
+qvi-diagram: [
+    meta: [description: "Case Structure con selector numérico - demuestra switch case" version: 1 author: "" tags: []]
+    icon: []
+    block-diagram: [
+        nodes: [
+            node [id: 1  type: 'const  name: "cs_sel"  label: [text: "" visible: false]  x: 40  y: 40  config [default 1.0]]
+        ]
+        wires: []
+        structures: [
+            case-structure [
+                id: 10  name: "cs_num"  label: [text: "Case Structure" visible: true]
+                x: 100  y: 60  w: 300  h: 200
+                frames: [
+                    frame [
+                        id: 0  label: "0"
+                        nodes: [
+                            node [id: 11  type: 'const  name: "cs_val0"  label: [text: "" visible: false]  x: 20  y: 40  config [default 100.0]]
+                        ]
+                        wires: []
+                    ]
+                    frame [
+                        id: 1  label: "1"
+                        nodes: [
+                            node [id: 12  type: 'const  name: "cs_val1"  label: [text: "" visible: false]  x: 20  y: 40  config [default 200.0]]
+                        ]
+                        wires: []
+                    ]
+                    frame [
+                        id: 2  label: "Default"
+                        nodes: [
+                            node [id: 13  type: 'const  name: "cs_def"  label: [text: "" visible: false]  x: 20  y: 40  config [default 0.0]]
+                        ]
+                        wires: []
+                    ]
+                ]
+                active-frame: 1
+                selector: [from: 1  port: result]
+                nodes: []
+                wires: []
+            ]
+        ]
+    ]
+]
+
+; --- Helpers de runtime ---
+arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]
+
+; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
+either empty? system/options/args [
+    view layout [
+        text "Selector" f_1: field "1.0"
+        button "Run" [
+            cs_sel_result: to-float f_1/text
+            _cs_num_selector: cs_sel_result
+            print ["Case" _cs_num_selector "→" case [
+                _cs_num_selector = 0 [100.0]
+                _cs_num_selector = 1 [200.0]
+                true [0.0]
+            ]]
+        ]
+    ]
+][
+    cs_sel_result: 1.0
+    _cs_num_selector: cs_sel_result
+    print ["Case" _cs_num_selector "→" case [
+        _cs_num_selector = 0 [100.0]
+        _cs_num_selector = 1 [200.0]
+        true [0.0]
+    ]]
+]

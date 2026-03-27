@@ -258,24 +258,43 @@ make-shift-register: func [
     sr
 ]
 
-make-structure: func [
-    "Crea una estructura contenedora (while-loop) del Block Diagram"
+make-frame: func [
+    "Crea un frame para una Case Structure (contiene nodos y wires propios)"
     spec [block!]
-    /local s lbl-spec
+    /local f
+][
+    f: make object! [
+        id:        0
+        label:     "0"
+        nodes:     copy []
+        wires:     copy []
+    ]
+    f/id:    any [select spec 'id    0]
+    f/label: any [select spec 'label "0"]
+    f
+]
+
+make-structure: func [
+    "Crea una estructura contenedora (while-loop, for-loop, case-structure) del Block Diagram"
+    spec [block!]
+    /local s lbl-spec frames-spec fr
 ][
     s: make object! [
-        id:         0
-        type:       'while-loop
-        name:       ""
-        label:      none
-        x:          0
-        y:          0
-        w:          300
-        h:          200
-        nodes:      copy []
-        wires:      copy []
-        cond-wire:  none
-        shift-regs: copy []
+        id:           0
+        type:         'while-loop
+        name:         ""
+        label:        none
+        x:            0
+        y:            0
+        w:            300
+        h:            200
+        nodes:        copy []
+        wires:        copy []
+        cond-wire:    none
+        shift-regs:   copy []
+        frames:       copy []
+        active-frame: 0
+        selector-wire: none
     ]
     s/id:   any [select spec 'id    0]
     s/type: any [select spec 'type  'while-loop]
@@ -289,7 +308,18 @@ make-structure: func [
         block? lbl-spec  [make-label lbl-spec]
         string? lbl-spec [make-label compose [text: (lbl-spec) visible: (true)]]
         s/type = 'for-loop [make-label compose [text: "For Loop"  visible: (true) offset: 0x-15]]
+        s/type = 'case-structure [make-label compose [text: "Case Structure" visible: (true) offset: 0x-15]]
         true               [make-label compose [text: "While Loop" visible: (true) offset: 0x-15]]
+    ]
+    s/active-frame: any [select spec 'active-frame 0]
+    frames-spec: select spec 'frames
+    if frames-spec [
+        parse frames-spec [
+            any [
+                'frame set fr block! (append s/frames make-frame fr)
+                | skip
+            ]
+        ]
     ]
     s
 ]

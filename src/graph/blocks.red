@@ -258,6 +258,13 @@ block 'for-loop 'structure [
     ;   i    — iteración 0-based, salida 'number hacia nodos internos
 ]
 
+block 'case-structure 'structure [
+    ; Terminales:
+    ;   selector — entrada 'number o 'boolean desde nodo EXTERNO (obligatorio)
+    ; Frames: cada frame tiene sus propios nodes y wires
+    ;   frames[0], frames[1], ..., frames[n] — uno activo según valor de selector
+]
+
 ; Terminal de iteración como bloque virtual (para type-check al cablear)
 block 'iter 'structure-virtual [
     out i 'number

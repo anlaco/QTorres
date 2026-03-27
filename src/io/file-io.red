@@ -65,21 +65,27 @@ serialize-diagram: func [
     nodes-block:  serialize-nodes  diagram/nodes
     wires-block:  serialize-wires  diagram/wires
 
-    ; ── Structures (while-loop, for-loop) ──────────────────────────────
+    ; ── Structures (while-loop, for-loop, case-structure) ───────────────
     structs-block: copy []
     if all [object? diagram  in diagram 'structures  block? diagram/structures] [
         foreach st diagram/structures [
             lbl-text: either all [st/label  object? st/label] [st/label/text] [
-                either st/type = 'for-loop ["For Loop"] ["While Loop"]
+                case [
+                    st/type = 'for-loop ["For Loop"]
+                    st/type = 'case-structure ["Case Structure"]
+                    true ["While Loop"]
+                ]
             ]
             lbl-block: compose [text: (lbl-text)  visible: (true)]
             ; Shift registers
             sr-block: copy []
-            foreach sr st/shift-regs [
-                append sr-block 'sr
-                append/only sr-block compose [
-                    id: (sr/id)  name: (sr/name)  data-type: (sr/data-type)
-                    init-value: (sr/init-value)  y-offset: (sr/y-offset)
+            if in st 'shift-regs [
+                foreach sr st/shift-regs [
+                    append sr-block 'sr
+                    append/only sr-block compose [
+                        id: (sr/id)  name: (sr/name)  data-type: (sr/data-type)
+                        init-value: (sr/init-value)  y-offset: (sr/y-offset)
+                    ]
                 ]
             ]
             ; Nodos internos: coords RELATIVAS a la estructura
@@ -87,28 +93,58 @@ serialize-diagram: func [
             st-wires-block: serialize-wires st/wires
             ; Keyword de estructura según tipo
             append structs-block st/type
-            ; Bloque de datos: condition solo para while-loop
-            either st/type = 'for-loop [
-                append/only structs-block compose/only [
-                    id: (st/id)  name: (st/name)  label: (lbl-block)
-                    x: (st/x)  y: (st/y)  w: (st/w)  h: (st/h)
-                    shift-registers: (sr-block)
-                    nodes: (st-nodes-block)
-                    wires: (st-wires-block)
+            ; Bloque de datos según tipo
+            case [
+                st/type = 'for-loop [
+                    append/only structs-block compose/only [
+                        id: (st/id)  name: (st/name)  label: (lbl-block)
+                        x: (st/x)  y: (st/y)  w: (st/w)  h: (st/h)
+                        shift-registers: (sr-block)
+                        nodes: (st-nodes-block)
+                        wires: (st-wires-block)
+                    ]
                 ]
-            ][
-                cond-spec: either st/cond-wire [
-                    compose [from: (st/cond-wire/from)  port: (st/cond-wire/port)]
-                ][
-                    none
+                st/type = 'while-loop [
+                    cond-spec: either st/cond-wire [
+                        compose [from: (st/cond-wire/from)  port: (st/cond-wire/port)]
+                    ][
+                        none
+                    ]
+                    append/only structs-block compose/only [
+                        id: (st/id)  name: (st/name)  label: (lbl-block)
+                        x: (st/x)  y: (st/y)  w: (st/w)  h: (st/h)
+                        shift-registers: (sr-block)
+                        condition: (either cond-spec [cond-spec] [[]])
+                        nodes: (st-nodes-block)
+                        wires: (st-wires-block)
+                    ]
                 ]
-                append/only structs-block compose/only [
-                    id: (st/id)  name: (st/name)  label: (lbl-block)
-                    x: (st/x)  y: (st/y)  w: (st/w)  h: (st/h)
-                    shift-registers: (sr-block)
-                    condition: (either cond-spec [cond-spec] [[]])
-                    nodes: (st-nodes-block)
-                    wires: (st-wires-block)
+                st/type = 'case-structure [
+                    ; Frames
+                    frames-block: copy []
+                    foreach fr st/frames [
+                        fr-nodes-block: serialize-nodes/relative fr/nodes st/x st/y
+                        fr-wires-block: serialize-wires fr/wires
+                        append frames-block 'frame
+                        append/only frames-block compose/only [
+                            id: (fr/id)  label: (fr/label)
+                            nodes: (fr-nodes-block)
+                            wires: (fr-wires-block)
+                        ]
+                    ]
+                    ; Selector wire
+                    sel-spec: either st/selector-wire [
+                        compose [from: (st/selector-wire/from)  port: (st/selector-wire/port)]
+                    ][
+                        none
+                    ]
+                    append/only structs-block compose/only [
+                        id: (st/id)  name: (st/name)  label: (lbl-block)
+                        x: (st/x)  y: (st/y)  w: (st/w)  h: (st/h)
+                        frames: (frames-block)
+                        active-frame: (st/active-frame)
+                        selector: (either sel-spec [sel-spec] [[]])
+                    ]
                 ]
             ]
         ]
@@ -140,6 +176,7 @@ format-qvi: func [
            nodes-str wires-str structs-str layout-str fp-str
            node-block wire-block struct-block sr-block fp-kw fp-spec i item kind-pos
            st-nodes-raw st-wires-raw st-srs-raw st-nodes-str st-wires-str st-srs-str
+           fr-block fr-nodes-raw fr-wires-raw fr-nodes-str fr-wires-str frames-raw frames-str
 ][
     ; Navegar qd con to-set-word (claves son set-words)
     meta-raw:    any [select qd to-set-word 'meta   [description: "" version: 1 author: "" tags: []]]
@@ -179,7 +216,7 @@ format-qvi: func [
     if all [structs-raw  not empty? structs-raw] [
         parse structs-raw [
             any [
-                set struct-kw ['while-loop | 'for-loop] set struct-block block! (
+                set struct-kw ['while-loop | 'for-loop | 'case-structure] set struct-block block! (
                     st-nodes-raw: any [select struct-block 'nodes  []]
                     st-wires-raw: any [select struct-block 'wires  []]
                     st-srs-raw:   any [select struct-block 'shift-registers  []]
@@ -207,6 +244,43 @@ format-qvi: func [
                             ) | skip
                         ]
                     ]
+                    ; ── Case Structure: frames ─────────────────────────────
+                    frames-str: copy ""
+                    if struct-kw = 'case-structure [
+                        frames-raw: any [select struct-block 'frames  []]
+                        parse frames-raw [
+                            any [
+                                'frame set fr-block block! (
+                                    fr-nodes-raw: any [select fr-block 'nodes  []]
+                                    fr-wires-raw: any [select fr-block 'wires  []]
+                                    fr-nodes-str: copy ""
+                                    parse fr-nodes-raw [
+                                        any [
+                                            'node set node-block block! (
+                                                append fr-nodes-str rejoin ["                            node " mold node-block "^/"]
+                                            ) | skip
+                                        ]
+                                    ]
+                                    fr-wires-str: copy ""
+                                    parse fr-wires-raw [
+                                        any [
+                                            'wire set wire-block block! (
+                                                append fr-wires-str rejoin ["                            wire " mold wire-block "^/"]
+                                            ) | skip
+                                        ]
+                                    ]
+                                    append frames-str rejoin [
+                                        "                    frame [^/"
+                                        "                        id: " mold any [select fr-block 'id  0]
+                                        "  label: " mold any [select fr-block 'label "0"] "^/"
+                                        "                        nodes: [^/" fr-nodes-str "                        ]^/"
+                                        "                        wires: [^/" fr-wires-str "                        ]^/"
+                                        "                    ]^/"
+                                    ]
+                                ) | skip
+                            ]
+                        ]
+                    ]
                     append structs-str rejoin [
                         "        " form struct-kw " [^/"
                         "            id: " mold any [select struct-block 'id  0]
@@ -222,6 +296,16 @@ format-qvi: func [
                         ; condition solo en while-loop
                         either struct-kw = 'while-loop [
                             rejoin ["            condition: " mold any [select struct-block 'condition  []] "^/"]
+                        ][""]
+                        ; frames y selector solo en case-structure
+                        either struct-kw = 'case-structure [
+                            rejoin [
+                                either empty? frames-str [""] [rejoin [
+                                    "            frames: [^/" frames-str "            ]^/"
+                                ]]
+                                "            active-frame: " mold any [select struct-block 'active-frame  0] "^/"
+                                "            selector: " mold any [select struct-block 'selector  []] "^/"
+                            ]
                         ][""]
                         "            nodes: [^/" st-nodes-str "            ]^/"
                         "            wires: [^/" st-wires-str "            ]^/"
@@ -417,7 +501,7 @@ load-wire-list: func [wires-data [block!] /local wire-spec] [
 load-vi: func [
     path [file!]
     /local src pos qd bd-data nodes-data wires-data structs-data d names st-spec st st-nodes st-wires cond-data
-           sr-data sr-spec
+           sr-data sr-spec frame-data fr-spec fr-nodes fr-wires sel-data fr st-kw st-label-text
 ][
     src: load path
 
@@ -446,11 +530,11 @@ load-vi: func [
     if nodes-data  [d/nodes: load-node-list nodes-data names]
     if wires-data  [d/wires: load-wire-list wires-data]
 
-    ; ── Cargar structures (while-loop, for-loop) ──────────────────
+    ; ── Cargar structures (while-loop, for-loop, case-structure) ───────
     if all [structs-data  block? structs-data] [
         parse structs-data [
             any [
-                set st-kw ['while-loop | 'for-loop] set st-spec block! (
+                set st-kw ['while-loop | 'for-loop | 'case-structure] set st-spec block! (
                     st: make-structure compose [
                         id:   (any [select st-spec 'id   0])
                         type: (st-kw)
@@ -459,31 +543,74 @@ load-vi: func [
                         y:    (any [select st-spec 'y    0])
                         w:    (any [select st-spec 'w    300])
                         h:    (any [select st-spec 'h    200])
-                        label: (any [select st-spec 'label  compose [text: (either st-kw = 'for-loop ["For Loop"] ["While Loop"])]])
+                        active-frame: (any [select st-spec 'active-frame  0])
                     ]
-                    ; Shift registers
-                    sr-data: any [select st-spec 'shift-registers  []]
-                    parse sr-data [
-                        any [
-                            'sr set sr-spec block! (
-                                append st/shift-regs make-shift-register compose [
-                                    id:         (any [select sr-spec 'id          0])
-                                    name:       (any [select sr-spec 'name        ""])
-                                    data-type:  (any [select sr-spec 'data-type   'number])
-                                    init-value: (any [select sr-spec 'init-value  0.0])
-                                    y-offset:   (any [select sr-spec 'y-offset    40])
-                                ]
-                                if select sr-spec 'name [append names select sr-spec 'name]
-                            )
-                            | skip
+                    ; Label
+                    st-label-text: case [
+                        st-kw = 'for-loop ["For Loop"]
+                        st-kw = 'case-structure ["Case Structure"]
+                        true ["While Loop"]
+                    ]
+                    st/label: either select st-spec 'label [
+                        make-label select st-spec 'label
+                    ][
+                        make-label compose [text: (st-label-text) visible: true]
+                    ]
+                    ; Shift registers (solo para loops)
+                    if find [while-loop for-loop] st-kw [
+                        sr-data: any [select st-spec 'shift-registers  []]
+                        parse sr-data [
+                            any [
+                                'sr set sr-spec block! (
+                                    append st/shift-regs make-shift-register compose [
+                                        id:         (any [select sr-spec 'id          0])
+                                        name:       (any [select sr-spec 'name        ""])
+                                        data-type:  (any [select sr-spec 'data-type   'number])
+                                        init-value: (any [select sr-spec 'init-value  0.0])
+                                        y-offset:   (any [select sr-spec 'y-offset    40])
+                                    ]
+                                    if select sr-spec 'name [append names select sr-spec 'name]
+                                )
+                                | skip
+                            ]
                         ]
                     ]
-                    ; Nodos internos: coords relativas → absolutas
-                    st-nodes: any [select st-spec 'nodes  []]
-                    st/nodes: load-node-list/absolute st-nodes names st/x st/y
-                    ; Wires internos
-                    st-wires: any [select st-spec 'wires  []]
-                    st/wires: load-wire-list st-wires
+                    ; Frames (solo para case-structure)
+                    if st-kw = 'case-structure [
+                        frame-data: any [select st-spec 'frames  []]
+                        parse frame-data [
+                            any [
+                                'frame set fr-spec block! (
+                                    fr: make-frame fr-spec
+                                    ; Nodos del frame: coords relativas → absolutas
+                                    fr-nodes: any [select fr-spec 'nodes  []]
+                                    fr/nodes: load-node-list/absolute fr-nodes names st/x st/y
+                                    ; Wires del frame
+                                    fr-wires: any [select fr-spec 'wires  []]
+                                    fr/wires: load-wire-list fr-wires
+                                    append st/frames fr
+                                )
+                                | skip
+                            ]
+                        ]
+                        ; Selector wire
+                        sel-data: select st-spec 'selector
+                        st/selector-wire: either all [sel-data  not empty? sel-data] [
+                            make object! [
+                                from: any [select sel-data 'from  0]
+                                port: any [select sel-data 'port  'result]
+                            ]
+                        ][
+                            none
+                        ]
+                    ]
+                    ; Nodos internos (para loops): coords relativas → absolutas
+                    if find [while-loop for-loop] st-kw [
+                        st-nodes: any [select st-spec 'nodes  []]
+                        st/nodes: load-node-list/absolute st-nodes names st/x st/y
+                        st-wires: any [select st-spec 'wires  []]
+                        st/wires: load-wire-list st-wires
+                    ]
                     ; Wire de condición solo para while-loop
                     if st-kw = 'while-loop [
                         cond-data: select st-spec 'condition

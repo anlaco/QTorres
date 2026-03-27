@@ -316,6 +316,11 @@ compile-structure: func [
     /local iter-sym sub-diag sorted code loop-body until-body node bdef cond-expr cond-node
            sr sr-sym init-val w src src-node n-sym n-val
 ][
+    ; ── CASE-STRUCTURE: compila a case/either ──────────────────────
+    if st/type = 'case-structure [
+        return compile-case-structure/no-gui st outer-diagram
+    ]
+
     iter-sym: to-word rejoin ["_" st/name "_i"]
 
     ; Sub-diagrama ficticio: expone nodes/wires para topological-sort y build-bindings
@@ -495,6 +500,142 @@ compile-structure: func [
 ]
 
 ; ══════════════════════════════════════════════════
+; COMPILE-CASE-STRUCTURE
+; ══════════════════════════════════════════════════
+;
+; Genera el bloque de código para una Case Structure:
+;   _case_selector: <variable-externa>
+;   case _case_selector [
+;       0 [<nodos del frame 0>]
+;       1 [<nodos del frame 1>]
+;       default [<nodos del default frame>]
+;   ]
+;
+; Si el selector es booleano, genera:
+;   _case_selector: <variable-externa>
+;   either _case_selector [<frame true>] [<frame false>]
+;
+; outer-diagram: diagrama que contiene la estructura.
+
+compile-case-structure: func [
+    st           [object!]
+    outer-diagram [object!]
+    /no-gui
+    /local code sel-var sel-type sel-node sel-port frame bdef sub-diag sorted frame-code case-block case-item
+            frame-label
+][
+    code: copy []
+    
+    ; ── Resolver selector wire ───────────────────────────────────
+    sel-var: none
+    sel-type: 'number  ; default
+    if st/selector-wire [
+        sel-node: none
+        foreach nd outer-diagram/nodes [
+            if nd/id = st/selector-wire/from [sel-node: nd]
+        ]
+        if sel-node [
+            sel-port: to-word st/selector-wire/port
+            sel-var: port-var sel-node sel-port
+            ; Detectar tipo del selector
+            bdef: find-block sel-node/type
+            if bdef [
+                foreach p bdef/outputs [
+                    if p/name = sel-port [sel-type: p/type]
+                ]
+            ]
+        ]
+    ]
+    if none? sel-var [
+        print rejoin ["WARNING: Case Structure '" st/name "' — selector no conectado, usando 0"]
+        sel-var: 0
+    ]
+    
+    ; Variable del selector
+    append code to-set-word to-word rejoin ["_" st/name "_selector"]
+    append code sel-var
+    
+    ; ── Selector booleano → either ─────────────────────────────────
+    if sel-type = 'boolean [
+        case-block: copy []
+        append case-block 'either
+        append case-block to-word rejoin ["_" st/name "_selector"]
+        
+        ; Frame true (primer frame)
+        frame-code: copy []
+        if all [block? st/frames  not empty? st/frames] [
+            frame: st/frames/1
+            sub-diag: make object! [nodes: frame/nodes  wires: frame/wires]
+            sorted: either empty? frame/nodes [copy []] [topological-sort sub-diag]
+            foreach node sorted [
+                bdef: find-block node/type
+                if all [bdef  bdef/emit] [
+                    append frame-code bind-emit bdef/emit (build-bindings node sub-diag bdef)
+                ]
+            ]
+        ]
+        append/only case-block frame-code
+        
+        ; Frame false (segundo frame si existe)
+        frame-code: copy []
+        if all [block? st/frames  (length? st/frames) >= 2] [
+            frame: st/frames/2
+            sub-diag: make object! [nodes: frame/nodes  wires: frame/wires]
+            sorted: either empty? frame/nodes [copy []] [topological-sort sub-diag]
+            foreach node sorted [
+                bdef: find-block node/type
+                if all [bdef  bdef/emit] [
+                    append frame-code bind-emit bdef/emit (build-bindings node sub-diag bdef)
+                ]
+            ]
+        ]
+        append/only case-block frame-code
+        
+        append code case-block
+        return code
+    ]
+    
+    ; ── Selector numérico → case [sel = 0 [...] sel = 1 [...] true [...]] ──
+    sel-word: to-word rejoin ["_" st/name "_selector"]
+    inner-block: copy []
+    has-default: false
+
+    if block? st/frames [
+        foreach frame st/frames [
+            frame-code: copy []
+            sub-diag: make object! [nodes: frame/nodes  wires: frame/wires]
+            sorted: either empty? frame/nodes [copy []] [topological-sort sub-diag]
+            foreach node sorted [
+                bdef: find-block node/type
+                if all [bdef  bdef/emit] [
+                    append frame-code bind-emit bdef/emit (build-bindings node sub-diag bdef)
+                ]
+            ]
+            frame-label: any [attempt [to-integer frame/label]  'default]
+            either frame-label = 'default [
+                append inner-block true
+                has-default: true
+            ][
+                append inner-block sel-word
+                append inner-block '=
+                append inner-block frame-label
+            ]
+            append/only inner-block frame-code
+        ]
+    ]
+
+    ; Añadir default vacío si no hay ninguno
+    if not has-default [
+        append inner-block true
+        append/only inner-block copy []
+    ]
+
+    append code 'case
+    append/only code inner-block
+    code
+]
+
+; ══════════════════════════════════════════════════
 ; COMPILE-BODY
 ; ══════════════════════════════════════════════════
 ;
@@ -508,16 +649,15 @@ compile-body: func [
     sorted: build-sorted-items diagram
     code: copy []
     foreach item sorted [
-        either in item 'shift-regs [
-            ; Estructura — headless: sin do-events/no-wait
-            if find [while-loop for-loop] item/type [
+        case [
+            find [while-loop for-loop case-structure] item/type [
                 append code compile-structure/no-gui item diagram
             ]
-        ][
-            ; Nodo normal
-            bdef: find-block item/type
-            if all [bdef  bdef/emit] [
-                append code bind-emit bdef/emit (build-bindings item diagram bdef)
+            true [
+                bdef: find-block item/type
+                if all [bdef  bdef/emit] [
+                    append code bind-emit bdef/emit (build-bindings item diagram bdef)
+                ]
             ]
         ]
     ]
@@ -546,67 +686,70 @@ compile-diagram: func [
     ; ── Cuerpo del botón Run (modo UI) ────────────────────────
     run-body: copy []
     foreach item sorted [
-        either in item 'shift-regs [
-            ; Estructura — modo GUI: con do-events/no-wait
-            if find [while-loop for-loop] item/type [
+        case [
+            find [while-loop for-loop] item/type [
                 append run-body compile-structure item diagram
             ]
-        ][
-            node: item
-            bdef: find-block node/type
-            if none? bdef [continue]
-            case [
-                bdef/category = 'input [
-                    case [
-                        node-array-input? node [
-                            ; Array control: valor fijo del config (no hay field editable — DT-028)
-                            if bdef/emit [
-                                append run-body bind-emit bdef/emit (build-bindings node diagram bdef)
-                            ]
-                        ]
-                        true [
-                            face-sym: to-word rejoin ["f_" node/id]
-                            case [
-                                node-boolean-input? node [
-                                    append run-body compose [(to-set-word port-var node 'result) (to-path reduce [face-sym 'data])]
-                                ]
-                                node-string-input? node [
-                                    append run-body compose [(to-set-word port-var node 'result) (to-path reduce [face-sym 'text])]
-                                ]
-                                true [
-                                    append run-body compose [(to-set-word port-var node 'result) to-float (to-path reduce [face-sym 'text])]
+            item/type = 'case-structure [
+                append run-body compile-case-structure/no-gui item diagram
+            ]
+            true [
+                node: item
+                bdef: find-block node/type
+                if none? bdef [continue]
+                case [
+                    bdef/category = 'input [
+                        case [
+                            node-array-input? node [
+                                ; Array control: valor fijo del config (no hay field editable — DT-028)
+                                if bdef/emit [
+                                    append run-body bind-emit bdef/emit (build-bindings node diagram bdef)
                                 ]
                             ]
-                        ]
-                    ]
-                ]
-                bdef/category = 'output [
-                    face-sym: to-word rejoin ["t_" node/id]
-                    foreach w diagram/wires [
-                        if w/to-node = node/id [
-                            ; Fuente: nodo normal
-                            foreach src diagram/nodes [
-                                if src/id = w/from-node [
-                                    src-var: port-var src to-word w/from-port
-                                    append run-body compose [(to set-path! reduce [face-sym 'text]) form (src-var)]
-                                ]
-                            ]
-                            ; Fuente: estructura (SR-right → indicador externo)
-                            if all [in diagram 'structures  block? diagram/structures] [
-                                foreach st diagram/structures [
-                                    if st/id = w/from-node [
-                                        src-var: to-word rejoin ["_" form w/from-port]
-                                        append run-body compose [(to set-path! reduce [face-sym 'text]) form (src-var)]
+                            true [
+                                face-sym: to-word rejoin ["f_" node/id]
+                                case [
+                                    node-boolean-input? node [
+                                        append run-body compose [(to-set-word port-var node 'result) (to-path reduce [face-sym 'data])]
+                                    ]
+                                    node-string-input? node [
+                                        append run-body compose [(to-set-word port-var node 'result) (to-path reduce [face-sym 'text])]
+                                    ]
+                                    true [
+                                        append run-body compose [(to-set-word port-var node 'result) to-float (to-path reduce [face-sym 'text])]
                                     ]
                                 ]
                             ]
                         ]
                     ]
-                ]
-                true [
-                    if bdef/emit [
-                        bindings: build-bindings node diagram bdef
-                        append run-body bind-emit bdef/emit bindings
+                    bdef/category = 'output [
+                        face-sym: to-word rejoin ["t_" node/id]
+                        foreach w diagram/wires [
+                            if w/to-node = node/id [
+                                ; Fuente: nodo normal
+                                foreach src diagram/nodes [
+                                    if src/id = w/from-node [
+                                        src-var: port-var src to-word w/from-port
+                                        append run-body compose [(to set-path! reduce [face-sym 'text]) form (src-var)]
+                                    ]
+                                ]
+                                ; Fuente: estructura (SR-right → indicador externo)
+                                if all [in diagram 'structures  block? diagram/structures] [
+                                    foreach st diagram/structures [
+                                        if st/id = w/from-node [
+                                            src-var: to-word rejoin ["_" form w/from-port]
+                                            append run-body compose [(to set-path! reduce [face-sym 'text]) form (src-var)]
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                    true [
+                        if bdef/emit [
+                            bindings: build-bindings node diagram bdef
+                            append run-body bind-emit bdef/emit bindings
+                        ]
                     ]
                 ]
             ]

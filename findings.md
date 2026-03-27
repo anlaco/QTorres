@@ -1,6 +1,85 @@
-# Findings — Issue #14: While Loop
+# Findings — Issue #16: Case Structure
 
-## Análisis del codebase (2026-03-23)
+## Investigación inicial (2026-03-26)
+
+### Estructuras existentes: While/For Loop
+
+**Archivo:** `src/graph/model.red:261-295`
+- `make-structure` ya soporta While/For Loop
+- Campo `type:` distingue el tipo de estructura
+- Estructura tiene: `id, type, name, label, x, y, w, h, nodes, wires, cond-wire, shift-regs`
+
+**Patrón de extensión:**
+```red
+s/type: any [select spec 'type  'while-loop]
+```
+Puede extenderse para aceptar `'case-structure`
+
+### Compilador actual
+
+**Archivo:** `src/compiler/compiler.red:312-415`
+- `compile-structure` bifurca por `st/type`:
+  - `while-loop` → `until [...]`
+  - `for-loop` → `loop N [...]`
+- Patrón sencillo de extensión: añadir rama `case st/type = 'case-structure`
+
+### Serialización (Actualizado 2026-03-26)
+
+**Archivo:** `src/io/file-io.red`
+- `serialize-diagram` itera sobre `diagram/structures`
+  - **Patrón clave:** usar `case` en lugar de `switch` porque los valores son lit-words
+  - `switch st/type` no funciona porque `st/type` es word!, no lit-word!
+  - `case [st/type = 'for-loop [...] st/type = 'while-loop [...]]` funciona correctamente
+- `format-qvi` formatea cada tipo con su keyword
+  - Case-structure añade `frames: [...]` y `active-frame: N` y `selector: [...]`
+- `load-vi` parse con `parse structs-data [...]`
+  - Case-structure: parse `frames` array con `relative → absolute` coord conversion
+
+**Key gotcha:** Red's `1-based indexing` — frame 0 en qvi-diagram es `frames/1` en memoria
+
+### Renderizado
+
+**Archivo:** `src/ui/diagram/canvas.red:361-563`
+- `render-structure` genera Draw commands para rectángulo + terminales + nodos internos
+- Terminales actuales:
+  - `[i]` — iteración (while/for)
+  - `[●]` — condición (while)
+  - `[N]` — count (for)
+- Para Case: necesita terminal selector en esquina superior-izquierda
+
+### Hit-testing
+
+**Archivo:** `src/ui/diagram/canvas.red:740-769`
+- `hit-structure-terminal` detecta `[i]`, `[●]`, `[N]`
+- Extensible para detectar terminal selector de case
+
+### Patrones de LabVIEW Case Structure
+
+**Comportamiento:**
+1. Selector puede ser numérico, booleano, string, enum
+2. Cada "case" es un frame con su propio diagrama
+3. Frames tienen labels que se muestran en el selector
+4. Usuario navega entre frames con flechas
+5. Default case se ejecuta si no hay match
+
+**Diferencias con While/For:**
+- Múltiples frames internos vs uno solo
+- Navegación activa entre frames (solo uno visible a la vez)
+- Terminal selector tiene tipo dinámico (inferido del wire conectado)
+
+### Decisiones de diseño
+
+1. **Terminal selector arriba-izquierda** (igual que `[N]` de for-loop)
+2. **Barra de navegación arriba** con ◀ [N] ▶ [+][−]
+3. **Frames como sub-diagramas** independientes (nodes/wires propios)
+4. **Sin túneles de salida en Fase 2** — simplificación, solo ejecución interna
+5. **Selector obligatorio** — Case sin selector = error de compilación
+
+---
+
+## Historial (Issue #14: While Loop — ARCHIVADO)
+
+### Análisis del codebase (2026-03-23)
 
 ### Estado base
 - 132 tests, 132 PASS
@@ -44,39 +123,9 @@
 LabVIEW While Loop = ejecuta al menos una vez, para cuando condición = true.
 Red `until [body]` = ejecuta body hasta que retorne true. Encaje perfecto.
 
-**14a — sin shift registers:**
-```red
-_while_1_i: 0
-until [
-    ; nodos internos
-    _while_1_i: _while_1_i + 1
-    ; condición
-    <var-booleana>
-]
-```
-
-**14b — con shift registers:**
-```red
-_sr_1: 0                ; init value
-_while_1_i: 0
-until [
-    ; nodos internos leen _sr_1
-    add_1_result: _sr_1 + _while_1_i
-    ; actualizar SR
-    _sr_1: add_1_result
-    ; iteración
-    _while_1_i: _while_1_i + 1
-    ; condición
-    <var-booleana>
-]
-; _sr_1 disponible fuera del loop
-```
-
 ### Topological sort con structures
 
-**14a**: structure sin dependencias externas → se compila en orden de aparición.
-
-**14b**: structure con SRs tiene dependencias externas:
+Structure con SRs tiene dependencias externas:
 - Wires a SR-left = entradas (nodos fuente deben compilarse antes)
 - Wires desde SR-right = salidas (structure antes de nodos destino)
 - Structure = nodo virtual en el sort principal
@@ -91,8 +140,3 @@ until [
 | SR-right → externo | SR → nodo externo | diagram/wires |
 | Iteración → interno | i → nodo interno | structure/wires |
 | Interno → condición | nodo → cond | structure/cond-wire |
-
-Convención para wires internos a terminales virtuales:
-- from/to: IDs negativos (-1 = SR-left, -2 = SR-right, -3 = iteración)
-- O bien: IDs especiales derivados del SR (sr/id para left, sr/id + 1000 para right)
-- Decisión final: al implementar Phase 3/7

@@ -1,6 +1,6 @@
 # QTorres — Contexto para Claude Code
 
-> Última actualización: 2026-03-24
+> Última actualización: 2026-03-27
 
 ## Reglas absolutas — NUNCA violar
 
@@ -57,29 +57,35 @@ QTorres/
 │   ├── labview-comportamiento.md # Arquitectura LabVIEW: renderizado, modos, estilos
 │   └── GTK_ISSUES.md       # Bugs del backend GTK en Linux
 ├── src/
-│   ├── qtorres.red         # Punto de entrada + toolbar + ventana principal (211 líneas)
+│   ├── qtorres.red         # Punto de entrada + toolbar + ventana principal (226 líneas)
 │   ├── graph/
-│   │   ├── model.red       # Modelo: make-label, base-element, make-node, make-wire, gen-name (251 líneas)
-│   │   └── blocks.red      # Registro de bloques + dialecto block-def — 23 primitivas (244 líneas)
+│   │   ├── model.red       # Modelo: make-label, base-element, make-node, make-wire, make-frame, gen-name (346 líneas)
+│   │   └── blocks.red      # Registro de bloques + dialecto block-def — 34 bloques (324 líneas)
 │   ├── compiler/
-│   │   └── compiler.red    # Compilador: topo-sort, bind-emit, compile-body/diagram (336 líneas)
+│   │   └── compiler.red    # Compilador: topo-sort, bind-emit, compile-body/diagram/structures (831 líneas)
 │   ├── runner/
 │   │   └── runner.red      # Runner: ejecución en memoria con do (33 líneas)
 │   ├── io/
-│   │   └── file-io.red     # File I/O: serialize, format, save/load .qvi (298 líneas)
+│   │   └── file-io.red     # File I/O: serialize, format, save/load .qvi (647 líneas)
 │   └── ui/
 │       ├── diagram/
-│       │   └── canvas.red  # Block Diagram canvas: render, hit-test, eventos (856 líneas)
+│       │   └── canvas.red  # Block Diagram canvas: render, hit-test, eventos (2383 líneas) ⚠️ SPLIT PENDIENTE
 │       └── panel/
-│           └── panel.red   # Front Panel: render, hit-test, compile-panel (818 líneas)
+│           └── panel.red   # Front Panel: render, hit-test, compile-panel (928 líneas)
 ├── tests/
 │   ├── run-all.red         # Runner de tests automatizados
-│   ├── test-blocks.red     # Tests del registro de bloques (23 bloques, puertos, emit)
+│   ├── test-blocks.red     # Tests del registro de bloques (34 bloques, puertos, emit)
 │   ├── test-topo.red       # Tests de topological sort (lineal, diamante, vacío, ciclos)
-│   └── test-compiler.red   # Tests del compilador (bind-emit, compile-body, round-trip)
+│   ├── test-model.red      # Tests del modelo (make-node, make-wire, make-frame, make-structure)
+│   └── test-compiler.red   # Tests del compilador (bind-emit, compile-body, round-trip, estructuras)
 ├── examples/
-│   ├── suma-basica.qvi     # Ejemplo de VI simple
-│   ├── suma-subvi.qvi      # Ejemplo de sub-VI
+│   ├── suma-basica.qvi         # Ejemplo de VI simple
+│   ├── while-loop-basico.qvi   # While Loop básico
+│   ├── while-loop-suma.qvi     # While Loop con shift registers
+│   ├── for-loop-basico.qvi     # For Loop (suma 0..9 = 45)
+│   ├── case-numeric.qvi        # Case Structure con selector numérico
+│   ├── case-boolean.qvi        # Case Structure con selector booleano (either)
+│   ├── suma-subvi.qvi          # Ejemplo de sub-VI
 │   └── programa-con-subvi.qvi
 ├── .github/workflows/      # CI: tests automáticos en push/PR a main
 ├── red-cli                 # Ejecutar código Red sin GUI
@@ -92,7 +98,7 @@ QTorres/
 
 **Fase 1 ✅ COMPLETADA.** Pipeline end-to-end funcional:
 - Modelo de datos con composición (DT-022/023/024)
-- 23 bloques primitivos registrados (math, I/O, boolean, compare, string)
+- 34 bloques registrados (math, I/O, boolean, compare, string, array, estructuras)
 - Compilador con topo-sort (Kahn) y generación Red/View
 - Runner en memoria, File I/O con round-trip, Front Panel con Draw
 - Tests automatizados + CI en GitHub Actions
@@ -100,9 +106,12 @@ QTorres/
 **Fase 2 — EN PROGRESO.** Tipos de datos y estructuras de control:
 - ~~#9 Tipo booleano~~ ✅
 - ~~#10 Tipo string~~ ✅
-- #14 While Loop ← EN PROGRESO (rama sin pushear, shift register pendiente)
+- ~~#14 While Loop~~ ✅ (con shift registers)
+- ~~#15 For Loop~~ ✅
+- ~~#11 Array 1D~~ ✅ (bloques arr-const, build-array, index-array, array-size, array-subset)
+- ~~#16 Case Structure~~ ✅ (PR#46 pendiente de merge — frames navegables, case/either)
 
-**Próximo paso:** Completar Issue #14 (While Loop).
+**Próximo paso:** Issue #12 (Cluster).
 
 ## Decisiones técnicas clave
 
@@ -235,11 +244,11 @@ Trabajar siempre en orden de Fase. No empezar una fase sin completar la anterior
 **Fase 2 — Tipos de datos y estructuras (orden decidido 2026-03-22):**
 1. ~~#9 Tipo booleano~~ ✅
 2. ~~#10 Tipo string~~ ✅
-3. #14 While Loop ← EN PROGRESO (shift register pendiente)
-4. #15 For Loop
-5. #11 Array 1D
-6. #16 Case Structure
-7. #12 Cluster
+3. ~~#14 While Loop~~ ✅ (con shift registers)
+4. ~~#15 For Loop~~ ✅
+5. ~~#11 Array 1D~~ ✅
+6. ~~#16 Case Structure~~ ✅ (PR#46 pendiente merge)
+7. #12 Cluster ← SIGUIENTE
 8. #13 Waveform chart y graph
 9. #28 Front Panel standalone (puede esperar)
 
@@ -332,10 +341,10 @@ Funciona porque el chain loading carga canvas antes que panel, pero:
 
 | Fichero | Líneas | Riesgo |
 |---------|--------|--------|
-| canvas.red | 856 | **ALTO** — 10+ responsabilidades mezcladas. Render, hit-test, eventos, diálogos, paleta, CRUD, modelo, demo. |
-| panel.red | 818 | **ALTO** — Render + hit-test + eventos + serialización + compilación + diálogos + demo. |
-| compiler.red | 336 | Medio — `compile-diagram` tiene conocimiento de VID widgets. |
-| file-io.red | 298 | Medio — `format-qvi` recorre `ui-layout` por índice (frágil). |
+| canvas.red | 2383 | **CRÍTICO** — split urgente. Render, hit-test, eventos, diálogos, paleta, CRUD, modelo, estructuras, arrays. |
+| panel.red | 928 | **ALTO** — Render + hit-test + eventos + serialización + compilación + diálogos + demo. |
+| compiler.red | 831 | **ALTO** — compile-diagram + todas las estructuras. |
+| file-io.red | 647 | Medio — `format-qvi` recorre `ui-layout` por índice (frágil). |
 
 **Regla para IA:** Al trabajar en canvas.red o panel.red, leer el fichero COMPLETO antes de hacer cambios. No asumir que entiendes la estructura por haber leído solo una parte.
 

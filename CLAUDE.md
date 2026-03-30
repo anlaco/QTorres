@@ -248,9 +248,15 @@ Trabajar siempre en orden de Fase. No empezar una fase sin completar la anterior
 4. ~~#15 For Loop~~ ✅
 5. ~~#11 Array 1D~~ ✅
 6. ~~#16 Case Structure~~ ✅ (PR#46 pendiente merge)
-7. #12 Cluster ← SIGUIENTE
+7. ~~#12 Cluster~~ ✅ (PR pendiente de merge)
 8. #13 Waveform chart y graph
 9. #28 Front Panel standalone (puede esperar)
+
+**Bugs detectados en pruebas (Fase 2):**
+- #48 Bundle/Unbundle vacíos tienen altura excesiva (`canvas.red`)
+- #49 Control string se auto-actualiza sin Run tras el primer Run (`panel.red`, GTK-010)
+- #50 Modo headless no imprime valores de indicadores en VIs generados desde la UI (`compiler.red`)
+- #51 Nodos creados desde FP se apilan y salen del canvas (pre-existente)
 
 Estrategia QA: tests con cada feature nueva, no sesión QA dedicada.
 Spec visual: cada tipo implementa su aspecto según `docs/visual-spec.md`.

@@ -1,0 +1,97 @@
+Red [Title: "cluster-basico" Needs: 'View]
+
+; Ejemplo: cluster con 3 campos (string, number, boolean)
+;
+; Estructura del diagrama:
+;   ctrl_nombre  "sensor_A" (str-control)  ──┐
+;   ctrl_voltaje 12.5       (control)       ──├──► bundle_1 ──► unbundle_1 ──┬──► ind_nombre
+;   ctrl_activo  true       (bool-control)  ──┘                              ├──► ind_voltaje
+;                                                                             └──► ind_activo
+;
+; El bundle agrupa los 3 valores en un cluster (make object! [...]).
+; El unbundle extrae cada campo por path (bundle_1_result/nombre, etc.).
+; Resultado esperado: nombre: sensor_A  voltaje: 12.5  activo: true
+
+qvi-diagram: [
+    meta: [description: "Bundle 3 campos string+number+boolean, unbundle y mostrar" version: 1 author: "" tags: [cluster bundle unbundle]]
+    icon: []
+    block-diagram: [
+        nodes: [
+            node [id: 1  type: 'str-control   name: "ctrl_nombre"
+                  label: [text: "Nombre" visible: true]  x: 40   y: 60
+                  config: [default "sensor_A"]]
+            node [id: 2  type: 'control       name: "ctrl_voltaje"
+                  label: [text: "Voltaje" visible: true]  x: 40  y: 120
+                  config: [default 12.5]]
+            node [id: 3  type: 'bool-control  name: "ctrl_activo"
+                  label: [text: "Activo" visible: true]  x: 40   y: 180
+                  config: [default true]]
+            node [id: 4  type: 'bundle        name: "bundle_1"
+                  label: [text: "Bundle" visible: true]  x: 220  y: 110
+                  config: [fields [nombre 'string  voltaje 'number  activo 'boolean]]]
+            node [id: 5  type: 'unbundle      name: "unbundle_1"
+                  label: [text: "Unbundle" visible: true]  x: 400  y: 110
+                  config: [fields [nombre 'string  voltaje 'number  activo 'boolean]]]
+            node [id: 6  type: 'str-indicator  name: "ind_nombre"
+                  label: [text: "Nombre" visible: true]   x: 580  y: 60]
+            node [id: 7  type: 'indicator      name: "ind_voltaje"
+                  label: [text: "Voltaje" visible: true]  x: 580  y: 120]
+            node [id: 8  type: 'bool-indicator name: "ind_activo"
+                  label: [text: "Activo" visible: true]   x: 580  y: 180]
+        ]
+        wires: [
+            wire [from: 1  from-port: result     to: 4  to-port: nombre]
+            wire [from: 2  from-port: result     to: 4  to-port: voltaje]
+            wire [from: 3  from-port: result     to: 4  to-port: activo]
+            wire [from: 4  from-port: result     to: 5  to-port: cluster-in]
+            wire [from: 5  from-port: nombre     to: 6  to-port: value]
+            wire [from: 5  from-port: voltaje    to: 7  to-port: value]
+            wire [from: 5  from-port: activo     to: 8  to-port: value]
+        ]
+        structures: []
+    ]
+]
+
+; --- Helpers de runtime ---
+arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]
+
+; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
+either empty? system/options/args [
+    view layout [
+        text "Nombre"   f_1: field "sensor_A"   return
+        text "Voltaje"  f_2: field "12.5"        return
+        text "Activo"   f_3: check "Activo" true return
+        button "Run" [
+            ctrl_nombre_result:  f_1/text
+            ctrl_voltaje_result: to-float f_2/text
+            ctrl_activo_result:  f_3/data
+            bundle_1_result: make object! [
+                nombre:  ctrl_nombre_result
+                voltaje: ctrl_voltaje_result
+                activo:  ctrl_activo_result
+            ]
+            unbundle_1_nombre:  bundle_1_result/nombre
+            unbundle_1_voltaje: bundle_1_result/voltaje
+            unbundle_1_activo:  bundle_1_result/activo
+            t_6/text: form unbundle_1_nombre
+            t_7/text: form unbundle_1_voltaje
+            t_8/text: form unbundle_1_activo
+        ]
+        text "Nombre"  t_6: text "---" return
+        text "Voltaje" t_7: text "---" return
+        text "Activo"  t_8: text "---" return
+    ]
+][
+    ctrl_nombre_result:  "sensor_A"
+    ctrl_voltaje_result: 12.5
+    ctrl_activo_result:  true
+    bundle_1_result: make object! [
+        nombre:  ctrl_nombre_result
+        voltaje: ctrl_voltaje_result
+        activo:  ctrl_activo_result
+    ]
+    unbundle_1_nombre:  bundle_1_result/nombre
+    unbundle_1_voltaje: bundle_1_result/voltaje
+    unbundle_1_activo:  bundle_1_result/activo
+    print rejoin ["nombre: " unbundle_1_nombre "  voltaje: " unbundle_1_voltaje "  activo: " unbundle_1_activo]
+]

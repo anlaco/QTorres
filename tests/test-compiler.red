@@ -771,3 +771,192 @@ assert "nodo interno x absoluta"                 (20 = cs-rt-ls/frames/1/nodes/1
 assert "nodo interno y absoluta"                 (20 = cs-rt-ls/frames/1/nodes/1/y)
 
 print "--- tests de Case Structure round-trip completados ---"
+
+; ══════════════════════════════════════════════════════════════════════
+; Cluster — emit-bundle y emit-unbundle
+; ══════════════════════════════════════════════════════════════════════
+
+suite "cluster — emit-bundle"
+
+; Diagrama: ctrl_name(str) ──name──► bundle_1 ──result──► display
+;           ctrl_volt(num) ──voltaje─┘
+reset-name-counters
+cb-diag: make-diagram "cluster-bundle-vi"
+
+cb-n1: make-node [id: 1  type: 'str-control  name: "ctrl_name"  x: 0   y: 0]
+cb-n1/config: [default "Juan"]
+cb-n2: make-node [id: 2  type: 'control      name: "ctrl_volt"  x: 0   y: 60]
+cb-n2/config: [default 12.0]
+cb-n3: make-node [id: 3  type: 'bundle       name: "bundle_1"   x: 200 y: 30]
+cb-n3/config: [fields [nombre 'string  voltaje 'number]]
+
+append cb-diag/nodes cb-n1
+append cb-diag/nodes cb-n2
+append cb-diag/nodes cb-n3
+append cb-diag/wires make-wire [from: 1  from-port: 'result  to: 3  to-port: 'nombre]
+append cb-diag/wires make-wire [from: 2  from-port: 'result  to: 3  to-port: 'voltaje]
+
+cb-code: emit-bundle cb-n3 cb-diag
+
+assert "emit-bundle devuelve bloque"             (block? cb-code)
+assert "emit-bundle no está vacío"               (not empty? cb-code)
+
+; El código generado debe ser: bundle_1_result: make object! [nombre: ctrl_name_result  voltaje: ctrl_volt_result]
+; Verificar elementos clave
+cb-has-make: false
+foreach item cb-code [if item = 'make [cb-has-make: true]]
+assert "emit-bundle contiene 'make"              cb-has-make
+
+cb-has-object: false
+foreach item cb-code [if datatype? item [if item = object! [cb-has-object: true]]]
+assert "emit-bundle contiene object!"            cb-has-object
+
+cb-set-word: first cb-code
+assert "primer elemento es set-word bundle_1_result" (cb-set-word = to-set-word 'bundle_1_result)
+
+cb-obj-body: last cb-code
+assert "último elemento es bloque (cuerpo del objeto)" (block? cb-obj-body)
+assert "cuerpo tiene 4 elementos (2 campos × 2)"       (4 = length? cb-obj-body)
+
+suite "cluster — emit-unbundle"
+
+; Diagrama: bundle_1 ──result──► unbundle_1 ──nombre──► ...
+cu-diag: make-diagram "cluster-unbundle-vi"
+
+cu-n1: make-node [id: 10  type: 'bundle    name: "bundle_1"    x: 0   y: 0]
+cu-n1/config: [fields [nombre 'string  voltaje 'number]]
+cu-n2: make-node [id: 11  type: 'unbundle  name: "unbundle_1"  x: 200 y: 0]
+cu-n2/config: [fields [nombre 'string  voltaje 'number]]
+
+append cu-diag/nodes cu-n1
+append cu-diag/nodes cu-n2
+append cu-diag/wires make-wire [from: 10  from-port: 'result  to: 11  to-port: 'cluster-in]
+
+cu-code: emit-unbundle cu-n2 cu-diag
+
+assert "emit-unbundle devuelve bloque"             (block? cu-code)
+assert "emit-unbundle no está vacío"               (not empty? cu-code)
+
+; Debe generar 2 asignaciones de path: unbundle_1_nombre: bundle_1_result/nombre
+;                                       unbundle_1_voltaje: bundle_1_result/voltaje
+assert "emit-unbundle genera 2×2 = 4 elementos"   (4 = length? cu-code)
+
+cu-sw1: cu-code/1
+cu-sw2: cu-code/3
+assert "primera salida es set-word unbundle_1_nombre"   (cu-sw1 = to-set-word 'unbundle_1_nombre)
+assert "segunda salida es set-word unbundle_1_voltaje"  (cu-sw2 = to-set-word 'unbundle_1_voltaje)
+
+cu-path1: cu-code/2
+cu-path2: cu-code/4
+assert "primera ruta es path! bundle_1_result/nombre"  (path? cu-path1)
+assert "segunda ruta es path! bundle_1_result/voltaje" (path? cu-path2)
+
+suite "cluster — pipeline bundle → unbundle (compile-body)"
+
+; Diagrama completo: ctrl ──► bundle ──► unbundle ──► display
+cp-diag: make-diagram "cluster-pipeline-vi"
+
+cp-ctrl:   make-node [id: 20  type: 'control   name: "ctrl_v"    x: 0    y: 0]
+cp-ctrl/config: [default 42.0]
+cp-bundle: make-node [id: 21  type: 'bundle    name: "bundle_p"  x: 150  y: 0]
+cp-bundle/config: [fields [valor 'number]]
+cp-unbundle: make-node [id: 22  type: 'unbundle  name: "unbundle_p"  x: 300 y: 0]
+cp-unbundle/config: [fields [valor 'number]]
+
+append cp-diag/nodes cp-ctrl
+append cp-diag/nodes cp-bundle
+append cp-diag/nodes cp-unbundle
+append cp-diag/wires make-wire [from: 20  from-port: 'result  to: 21  to-port: 'valor]
+append cp-diag/wires make-wire [from: 21  from-port: 'result  to: 22  to-port: 'cluster-in]
+
+cp-code: compile-body cp-diag
+assert "compile-body cluster pipeline devuelve bloque"  (block? cp-code)
+assert "compile-body cluster pipeline no está vacío"     (not empty? cp-code)
+
+; Ejecutar el código generado y verificar valores
+do cp-code
+assert "bundle produce objeto"                           (object? bundle_p_result)
+assert "unbundle extrae valor correcto"                  (42.0 = unbundle_p_valor)
+
+print "--- tests de Cluster completados ---"
+
+; ══════════════════════════════════════════════════════════════
+; Phase 6 — Serialización round-trip
+; ══════════════════════════════════════════════════════════════
+
+suite "cluster — serialize-nodes round-trip bundle"
+
+; Crear nodo bundle con config, serializar, cargar de vuelta
+rt-bundle: make-node [id: 30  type: 'bundle  name: "bundle_rt"  x: 10  y: 20]
+rt-bundle/config: [fields [nombre 'string voltaje 'number activo 'boolean]]
+
+rt-names: copy []
+rt-serialized: serialize-nodes reduce [rt-bundle]
+rt-loaded: load-node-list rt-serialized rt-names
+
+assert "round-trip: serialize-nodes produce bloque"     (block? rt-serialized)
+assert "round-trip: carga un nodo"                      (1 = length? rt-loaded)
+rt-n: rt-loaded/1
+assert "round-trip: type preservado"                    (rt-n/type = 'bundle)
+assert "round-trip: name preservado"                    (rt-n/name = "bundle_rt")
+rt-cfg: select rt-n/config 'fields
+assert "round-trip: config/fields no es none"           (not none? rt-cfg)
+assert "round-trip: config/fields tiene 6 elementos"    (6 = length? rt-cfg)
+assert "round-trip: primer campo es 'nombre"            (rt-cfg/1 = 'nombre)
+assert "round-trip: tipo de nombre es 'string"          (rt-cfg/2 = 'string)
+assert "round-trip: segundo campo es 'voltaje"          (rt-cfg/3 = 'voltaje)
+assert "round-trip: tipo de voltaje es 'number"         (rt-cfg/4 = 'number)
+
+suite "cluster — serialize-nodes round-trip unbundle"
+
+rt-unbundle: make-node [id: 31  type: 'unbundle  name: "unbundle_rt"  x: 50  y: 20]
+rt-unbundle/config: [fields [nombre 'string voltaje 'number]]
+
+rt-names2: copy []
+rt-ser2: serialize-nodes reduce [rt-unbundle]
+rt-lod2: load-node-list rt-ser2 rt-names2
+
+rt-u: rt-lod2/1
+rt-cfg2: select rt-u/config 'fields
+assert "round-trip unbundle: type preservado"           (rt-u/type = 'unbundle)
+assert "round-trip unbundle: config/fields no es none"  (not none? rt-cfg2)
+assert "round-trip unbundle: 4 elementos en fields"     (4 = length? rt-cfg2)
+
+suite "cluster — FP round-trip cluster-control"
+
+; Crear cluster-control FP item, serializar, cargar de vuelta
+rt-fp-spec: compose [
+    id: 40  type: 'cluster-control  name: "ccluster_rt"
+    label: [text: "Datos" visible: true]
+    default: [nombre "" voltaje 0.0 activo false]
+    config: [fields [nombre 'string voltaje 'number activo 'boolean]]
+    offset: 30x50
+]
+rt-fp-item: make-fp-item rt-fp-spec
+
+assert "FP round-trip: data-type es 'cluster"           (rt-fp-item/data-type = 'cluster)
+assert "FP round-trip: config no es none"               (not none? rt-fp-item/config)
+rt-fp-flds: select rt-fp-item/config 'fields
+assert "FP round-trip: config/fields tiene 6 elementos" (6 = length? rt-fp-flds)
+
+; Serializar con save-panel-to-diagram
+rt-fp-serialized: save-panel-to-diagram reduce [rt-fp-item]
+assert "FP serialize: bloque no vacío"                  (not empty? rt-fp-serialized)
+assert "FP serialize: contiene front-panel:"            (not none? select rt-fp-serialized to-set-word 'front-panel)
+
+; Cargar con load-panel-from-diagram
+rt-fp-diag: make object! [front-panel: select rt-fp-serialized to-set-word 'front-panel]
+; load-panel-from-diagram espera un bloque qvi-diagram
+rt-fp-qd: reduce [to-set-word 'front-panel  select rt-fp-serialized to-set-word 'front-panel]
+rt-fp-loaded: load-panel-from-diagram rt-fp-qd
+
+assert "FP load: devuelve un item"                      (1 = length? rt-fp-loaded)
+rt-fp-l: rt-fp-loaded/1
+assert "FP load: type es cluster-control"               (rt-fp-l/type = 'cluster-control)
+assert "FP load: data-type es 'cluster"                 (rt-fp-l/data-type = 'cluster)
+rt-flds-l: select rt-fp-l/config 'fields
+assert "FP load: config/fields preservado"              (not none? rt-flds-l)
+assert "FP load: 6 elementos en fields"                 (6 = length? rt-flds-l)
+assert "FP load: primer campo 'nombre"                  (rt-flds-l/1 = 'nombre)
+
+print "--- tests de Serialización (Phase 6) completados ---"

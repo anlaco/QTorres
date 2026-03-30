@@ -1,0 +1,115 @@
+Red [Title: {/home/alaforga/Anlaco/QTorres/src/test-cluster.qvi} Needs: 'View]
+
+qvi-diagram: [
+    meta: [description: "" version: 1 author: "" tags: []]
+    icon: []
+    block-diagram: [
+        nodes: [
+            node [
+    id: 1 type: control
+    name: "control_1"
+    label: [text: "Numeric" visible: true]
+    x: 18.0 y: 103.0 config [default 220.0]
+]
+            node [
+    id: 2 type: bool-control
+    name: "bool-control_2"
+    label: [text: "" visible: false]
+    x: 19.0 y: 176.0 config [default true]
+]
+            node [
+    id: 3 type: str-control
+    name: "str-control_3"
+    label: [text: "" visible: false]
+    x: 19.0 y: 30.0 config [default "hola-mundo"]
+]
+            node [
+    id: 4 type: str-indicator
+    name: "str-indicator_4"
+    label: [text: "" visible: false]
+    x: 707.0 y: 20.0
+]
+            node [
+    id: 5 type: indicator
+    name: "indicator_5"
+    label: [text: "Numeric" visible: true]
+    x: 710.0 y: 98.0
+]
+            node [
+    id: 6 type: bool-indicator
+    name: "bool-indicator_6"
+    label: [text: "" visible: false]
+    x: 720.0 y: 179.0
+]
+            node [
+    id: 7 type: bundle
+    name: "bundle_1"
+    label: [text: "" visible: false]
+    x: 252.0 y: 60.0 config [fields [nombre 'string voltaje 'number active 'boolean]]
+]
+            node [
+    id: 8 type: unbundle
+    name: "unbundle_1"
+    label: [text: "" visible: false]
+    x: 499.0 y: 60.0 config [fields [nombre 'string voltaje 'number active 'boolean]]
+]
+        ]
+        wires: [
+            wire [
+    from: 7 from-port: result
+    to: 8 to-port: cluster-in
+]
+            wire [
+    from: 3 from-port: result
+    to: 7 to-port: nombre
+]
+            wire [
+    from: 1 from-port: result
+    to: 7 to-port: voltaje
+]
+            wire [
+    from: 2 from-port: result
+    to: 7 to-port: active
+]
+            wire [
+    from: 8 from-port: nombre
+    to: 4 to-port: value
+]
+            wire [
+    from: 8 from-port: voltaje
+    to: 5 to-port: value
+]
+            wire [
+    from: 8 from-port: active
+    to: 6 to-port: value
+]
+        ]
+    ]
+    front-panel: [
+        control [id: 1 type: control name: "control_1" label: [text: "Numeric" visible: true offset: 0x0] default: 0.0 offset: 36x70]
+        bool-control [id: 2 type: bool-control name: "bool-control_2" label: [text: "Boolean" visible: true offset: 0x0] default: none offset: 41x149]
+        str-control [id: 3 type: str-control name: "str-control_3" label: [text: "String" visible: true offset: 0x0] default: "" offset: 41x254]
+        str-indicator [id: 4 type: str-indicator name: "str-indicator_4" label: [text: "String" visible: true offset: 0x0] default: "" offset: 257x278]
+        indicator [id: 5 type: indicator name: "indicator_5" label: [text: "Numeric" visible: true offset: 0x0] default: 0.0 offset: 245x70]
+        bool-indicator [id: 6 type: bool-indicator name: "bool-indicator_6" label: [text: "Boolean" visible: true offset: 0x0] default: none offset: 247x156]
+    ]
+]
+
+; --- Helpers de runtime ---
+arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]
+
+; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
+either empty? system/options/args [
+    view layout [
+        text "Numeric" f_1: field "220.0"
+        text "" f_2: check ""
+        true
+        text "" f_3: field "hola-mundo"
+        button "Run" [control_1_result: to-float f_1/text bool-control_2_result: f_2/data str-control_3_result: f_3/text bundle_1_result: make object! [nombre: str-control_3_result voltaje: control_1_result active: bool-control_2_result] unbundle_1_nombre: bundle_1_result/nombre unbundle_1_voltaje: bundle_1_result/voltaje unbundle_1_active: bundle_1_result/active t_4/text: form unbundle_1_nombre t_5/text: form unbundle_1_voltaje t_6/text: form unbundle_1_active]
+        text "" t_4: text "---"
+        text "Numeric" t_5: text "---"
+        text "" t_6: text "---"
+    ]
+][
+    control_1_result: 220.0 bool-control_2_result: true str-control_3_result: "hola-mundo" bundle_1_result: make object! [nombre: str-control_3_result voltaje: control_1_result active: bool-control_2_result] unbundle_1_nombre: bundle_1_result/nombre unbundle_1_voltaje: bundle_1_result/voltaje unbundle_1_active: bundle_1_result/active
+]

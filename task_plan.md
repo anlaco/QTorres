@@ -1,243 +1,196 @@
-# Task Plan — Issue #16: Case Structure
+# Task Plan — Issue #12: Cluster
 
 ## Meta
 | Campo | Valor |
 |-------|-------|
-| Issue | #16 — Case Structure — selector con múltiples frames |
-| Inicio | 2026-03-26 |
-| Prerequisito | #14 ✅, #15 ✅ |
-| Tests base | 271/271 PASS |
-| Tests actuales | 327/327 PASS |
-| Estrategia | Entrega única: estructura completa con frames navegables |
+| Issue | #12 — Cluster — wire marrón y editor de campos |
+| Inicio | 2026-03-29 |
+| Prerequisito | #16 ✅ (Case Structure mergeado) |
+| Tests base | 347/347 PASS (pendiente verificar) |
+| Estrategia | Entrega única: bundle/unbundle con puertos dinámicos |
 
 ## Goal
-Implementar Case Structure como **contenedor con múltiples frames** (casos) intercambiables en el canvas. El usuario navega entre frames y cada frame contiene nodos distintos. Compila a `case`/`switch` o `either` según el tipo del selector.
+Implementar Cluster como tipo de dato que agrupa valores de tipos distintos (equivalente a struct).
+El usuario crea un bundle con N campos, los conecta con wires, y el compilador genera `make object! [...]`.
 
 ---
 
-## Criterios de aceptación
-- [ ] Case Structure como contenedor en canvas
-- [ ] Terminal selector acepta wire numérico o booleano
-- [ ] Botones de navegación (◀/▶) para cambiar frame activo
-- [ ] Indicador visual del frame actual (ej: "0", "1", "2"... o "Default")
-- [ ] Cada frame contiene sus propios nodos y wires
-- [ ] Botón "+" para añadir frame, botón "−" para eliminar frame activo
-- [ ] Compilador genera `case`/`switch` (numérico) o `either` (booleano)
-- [ ] Save/load del .qvi con case-structure y frames
+## Criterios de aceptación (del Issue)
+- [ ] Wire cluster en marrón
+- [ ] Bundle/Unbundle en compilador
+- [ ] Editor visual de campos del cluster
+- [ ] Cluster en Front Panel como grupo
 
 ---
 
-## Phase 0 — Modelo de datos
+## Phase 0 — Modelo y registro de bloques
 **Estado:** complete ✅
-**Módulos:** model.red, blocks.red, test-model.red
+**Módulos:** model.red, blocks.red
+
+### Diseño
+- `bundle` y `unbundle` se registran en blocks.red como bloques de categoría `'cluster`
+- Puertos dinámicos: no se definen en block-def, se generan desde `node/config/fields`
+- Config: `[fields [campo1 'tipo1 campo2 'tipo2 ...]]`
+- Helpers en model.red: `cluster-fields node`, `cluster-in-ports node`, `cluster-out-ports node`
 
 ### Tasks
-- [x] 0.1 `make-frame` en model.red — constructor de frame (id, label, nodes, wires)
-- [x] 0.2 Extender `make-structure` para soportar type: 'case-structure
-- [x] 0.3 Registrar 'case-structure en blocks.red (categoría 'structure)
-- [x] 0.4 `gen-name 'case-structure` → "case_1", "case_2", etc.
-- [x] 0.5 Tests de modelo: make-frame, make-structure con type: 'case-structure (26 tests nuevos)
+- [x] 0.1 Registrar `'bundle` en blocks.red (categoría 'cluster, sin puertos fijos, emit vacío)
+- [x] 0.2 Registrar `'unbundle` en blocks.red (categoría 'cluster, sin puertos fijos, emit vacío)
+- [x] 0.3 Helper `cluster-fields` en model.red — extrae `[name 'type ...]` del config
+- [x] 0.4 Helper `cluster-in-ports` en model.red — bundle: devuelve field names; otros: []
+- [x] 0.5 Helper `cluster-out-ports` en model.red — unbundle: devuelve field names; otros: []
+- [x] 0.5b Helper `cluster-field-type` en model.red — tipo de un campo concreto
+- [x] 0.6 `gen-name 'bundle` → "bundle_1", `gen-name 'unbundle` → "unbundle_1"
+- [x] 0.7 Tests: 34 tests nuevos (381/381 PASS)
 
 ---
 
-## Phase 1 — Renderizado
+## Phase 1 — Wire marrón y constantes visuales
+**Estado:** complete ✅
+**Módulos:** canvas.red
+
+### Tasks
+- [x] 1.1 Constante `col-wire-cluster: 139.69.19` (marrón)
+- [x] 1.2 Actualizar `wire-data-color` para devolver `col-wire-cluster` cuando `data-type = 'cluster`
+- [x] 1.3 Actualizar `block-color` — categoría 'cluster usa col-wire-cluster (marrón oscuro)
+
+---
+
+## Phase 2 — Renderizado de bundle/unbundle
 **Estado:** complete ✅
 **Módulos:** canvas.red
 
 ### Diseño visual
-```
-┌─ Case Structure ─────────────────────┐
-│ ◀ [0] ▶   [+][−]                        │  ← barra superior: navegación
-│                                           │
-│   (nodos y wires del frame activo)       │
-│                                           │
-│  [?]                                    │  ← terminal selector arriba-izq
-└────────────────────────────────[resize]─┘
-
-Borde:     2px gris azulado oscuro (mismo que while-loop)
-Fondo:     ligeramente más oscuro que el canvas (mismo que while-loop)
-Label:     "Case Structure" arriba-izquierda
-◀/▶:      botones de navegación (flechas)
-[0]:       indicador de frame actual (texto)
-[+][−]:    botones añadir/eliminar frame
-[?]:       terminal selector (cuadrado naranja)
-```
-
-### Constantes añadidas
-- `case-nav-height: 24` — altura de la barra de navegación
-- `case-btn-size: 18` — tamaño de botones ◀ ▶ [+][-]
-- `col-case-nav-bg: 45.70.110` — fondo de barra de navegación
+Bundle y unbundle son nodos normales con altura variable según número de campos.
+Cada puerto de campo tiene el color de su tipo (naranja=number, verde=bool, rosa=string).
+El puerto cluster (result en bundle, cluster-in en unbundle) es marrón.
 
 ### Tasks
-- [x] 1.1 Constantes visuales en canvas.red
-- [x] 1.2 `render-case-structure` — barra navegación + terminal selector + frame activo
-- [x] 1.3 Render nodos y wires del frame activo (st/frames/(st/active-frame))
-- [x] 1.4 Handle resize en esquina inferior-derecha
-- [x] 1.5 Borde de selección cian
+- [x] 2.1 `in-ports`/`out-ports` cluster-aware (bundle→campos dinámicos, unbundle→campos dinámicos)
+- [x] 2.2 `port-out-type`/`port-in-type` cluster-aware (delega a cluster-field-type)
+- [x] 2.3 `node-height` helper — altura variable: max(block-height, 12+N*20+10)
+- [x] 2.4 `render-cluster-node` — cuerpo marrón, puertos coloreados por tipo de campo
+- [x] 2.5 `render-node-list` delega a render-cluster-node con `continue` para bundle/unbundle
 
 ---
 
-## Phase 2 — Hit-testing
+## Phase 3 — Hit-testing e interacción
 **Estado:** complete ✅
 **Módulos:** canvas.red
 
-### Prioridad (más específico primero)
-1. Botones de navegación ◀ ▶ [+][-]
-2. Terminal selector
-3. Nodos internos del frame activo
-4. Wires internos del frame activo
-5. Handle resize
-6. Borde del contenedor (drag)
-7. Fondo del contenedor (deseleccionar)
-
 ### Tasks
-- [x] 2.1 `hit-case-nav-buttons` — detecta clic en ◀ ▶ [+][-]
-- [x] 2.2 `hit-case-terminal` — detecta clic en terminal selector [?]
-- [x] 2.3 `hit-structure-node` actualizado — busca en frame activo para case-structure
-- [x] 2.4 `hit-structure-terminal` actualizado — detecta 'selector para case-structure
-- [x] 2.5 Reutilizar `hit-wire-in-list` para frame activo
-
----
-
-## Phase 3 — Interacción
-**Estado:** pending
-**Módulos:** canvas.red
-
-### Navegación entre frames
-- **◀**: decremente active-frame (mínimo 0)
-- **▶**: incrementa active-frame (máximo frames - 1)
-- **Clic en indicador**: menú dropdown con lista de frames (opcional para Fase 2)
-- **[+]**: añade nuevo frame al final con label = str(length frames)
-- **[−]**: elimina frame activo (mínimo 1 frame, el Default no se puede eliminar)
-
-### Drag del contenedor
-- Mover estructura arrastra todos los frames (coords absolutas)
-- Mover nodo interno: solo dentro del frame activo, con clamp al margen
-
-### Resize
-- Mismo comportamiento que while-loop
-
-### Terminal selector
-- Clic en terminal selector → inicia wire (como puerto normal)
-- Clic en puerto de nodo externo → completa wire en terminal selector
-- Tipo de dato: numérico (cualquier entero) o booleano
-
-### Tasks
-- [ ] 3.1 `on-down` en botones de navegación — cambiar active-frame
-- [ ] 3.2 `on-down` en botones [+][-] — añadir/eliminar frame
-- [ ] 3.3 Drag de estructura completa (mismo patrón que while-loop)
-- [ ] 3.4 Drag de nodo interno dentro del frame activo
-- [ ] 3.5 Resize del contenedor
-- [ ] 3.6 Wire a terminal selector (type-check: number o boolean)
-- [ ] 3.7 Delete de estructura — elimina todos los frames
-- [ ] 3.8 Delete de nodo interno — elimina del frame activo y sus wires
+- [x] 3.1 `hit-node` usa `node-height` — bundle/unbundle clickeables en toda su altura
+- [x] 3.2 `hit-port` ya funciona — usa `in-ports`/`out-ports` que son cluster-aware
+- [x] 3.3 Wiring type-check automático — `port-out-type`/`port-in-type` son cluster-aware
+- [x] 3.4 `apply-cluster-fields` + `parse-cluster-fields-text` — helpers de edición
+- [x] 3.5 `open-cluster-edit-dialog` — diálogo área de texto (nombre:tipo por línea)
+- [x] 3.6 `on-dbl-click` dispatch — bundle/unbundle abren cluster dialog (nodo normal + interno)
+- [x] 3.7 Paleta — botones "Bundle" y "Unbundle" en sección "Cluster:"
+- [x] 3.8 Delete — ya funciona (bundle/unbundle son nodos normales)
 
 ---
 
 ## Phase 4 — Compilador
-**Estado:** pending
+**Estado:** complete ✅
 **Módulos:** compiler.red
 
-### Generación de código (numérico)
+### Generación de código
+
+**Bundle** (N inputs → 1 cluster output):
 ```red
-; Selector conectado a un nodo numérico
-_selector: <variable-externa>
-case _selector [
-    0 [
-        ; nodos del frame 0 (orden topológico)
-        add_1_result: ctrl_1_result + 5
-    ]
-    1 [
-        ; nodos del frame 1
-        mul_1_result: ctrl_1_result * 2
-    ]
-    default [
-        ; nodos del frame Default
-        sub_1_result: ctrl_1_result - 10
-    ]
+bundle_1_result: make object! [
+    name: ctrl_1_value
+    voltage: ctrl_2_value
+    active: ctrl_3_value
 ]
 ```
 
-### Generación de código (booleano)
+**Unbundle** (1 cluster input → N outputs):
 ```red
-; Selector conectado a un nodo booleano
-_selector: <variable-externa>
-either _selector [
-    ; True frame
-    add_1_result: ctrl_1_result + 5
-][
-    ; False frame (solo 2 frames para boolean)
-    mul_1_result: ctrl_1_result * 2
-]
+unbundle_1_name: bundle_1_result/name
+unbundle_1_voltage: bundle_1_result/voltage
+unbundle_1_active: bundle_1_result/active
 ```
-
-### Sin selector conectado
-Para Fase 2: Caso de error — generar warning o ejecutar default. El selector es obligatorio.
-
-### Topological sort
-- Cada frame tiene su propio sub-diagrama
-- Compilar frames en orden: primero todos los frames internos, luego el case
-- Los frames NO tienen dependencias entre sí (son mutuamente excluyentes)
 
 ### Tasks
-- [ ] 4.1 `compile-case-structure` — bifurcación en `compile-structure`
-- [ ] 4.2 Detección de tipo de selector (number vs boolean)
-- [ ] 4.3 Generación de `case` para selector numérico
-- [ ] 4.4 Generación de `either` para selector booleano
-- [ ] 4.5 Tratamiento de frame "Default" como `default` en case
-- [ ] 4.6 Error si selector no conectado
-- [ ] 4.7 Integrar en `compile-body` y `compile-diagram`
+- [x] 4.1 `emit-bundle` — genera `bundle_1_result: make object! [fn: var ...]` con fields dinámicos
+- [x] 4.2 `emit-unbundle` — genera `unbundle_1_fn: cluster_var/fn` por cada campo (path!)
+- [x] 4.3 Integrar en `compile-body` — case bundle/unbundle antes del flujo estándar
+- [x] 4.4 Integrar en `compile-diagram` run-body — misma bifurcación
+- [x] 4.5 Topological sort: bundle/unbundle son nodos normales ✓ (sin cambios)
+- [x] 4.6 Tests: emit-bundle, emit-unbundle, pipeline completo bundle→unbundle ejecutado con do
+- [x] Tests: 399/399 PASS (+18 tests)
 
 ---
 
-## Phase 5 — Serialización
-**Estado:** pending
+## Phase 5 — Front Panel
+**Estado:** complete ✅
+**Módulos:** panel.red
+
+### Diseño
+Cluster en FP se muestra como grupo de controles/indicadores agrupados visualmente.
+- Control cluster = grupo editable (cada campo es un sub-control según su tipo)
+- Indicator cluster = grupo read-only (cada campo es un sub-indicator)
+
+### Tasks
+- [x] 5.1 Tipo 'cluster en `make-fp-item` — campo `config` + data-type 'cluster
+- [x] 5.2 Renderizar cluster control en panel como grupo con borde marrón
+- [x] 5.3 Renderizar campos internos según tipo (texto "campo: valor" por línea)
+- [x] 5.4 `compile-panel` para cluster — un widget por campo (field/check/text)
+- [x] 5.5 Diálogo edición valor default del cluster (área de texto campo:valor)
+
+---
+
+## Phase 6 — Serialización
+**Estado:** complete ✅
 **Módulos:** file-io.red
 
 ### Formato qvi-diagram
 ```red
-structures: [
-    case-structure [
-        id: 10  name: "case_1"  label: [text: "Case Structure"]
-        x: 100  y: 80  w: 300  h: 200
-        selector: [from: 5  port: 'result]  ; opcional
-        active-frame: 0
-        frames: [
-            frame [id: 0  label: "0"
-                   nodes: [node [id: 11 ...]]  ; coords relativas
-                   wires: [wire [...]]]
-            frame [id: 1  label: "1"
-                   nodes: [...]  wires: [...]]
-            frame [id: 2  label: "Default"
-                   nodes: [...]  wires: [...]]
-        ]
+block-diagram: [
+    nodes: [
+        node [id: 5  type: 'bundle  name: "bundle_1"  label: [text: "Bundle"]
+              x: 200  y: 100
+              config: [fields [name 'string  voltage 'number  active 'boolean]]]
+        node [id: 6  type: 'unbundle  name: "unbundle_1"  label: [text: "Unbundle"]
+              x: 400  y: 100
+              config: [fields [name 'string  voltage 'number  active 'boolean]]]
     ]
+    wires: [
+        wire [from: 5  port: 'result  to: 6  port: 'cluster]
+    ]
+]
+
+front-panel: [
+    control   [id: 1  type: 'cluster  name: "ctrl_1"  label: [text: "Datos"]
+               config: [fields [name 'string  voltage 'number  active 'boolean]]
+               default: [name: ""  voltage: 0.0  active: false]]
+    indicator [id: 2  type: 'cluster  name: "ind_1"   label: [text: "Resultado"]
+               config: [fields [name 'string  voltage 'number  active 'boolean]]]
 ]
 ```
 
 ### Tasks
-- [ ] 5.1 `serialize-diagram`: incluir case-structure con frames
-- [ ] 5.2 `format-qvi`: formatear case-structure en .qvi multi-línea
-- [ ] 5.3 `load-vi`: parsear case-structure, reconstruir frames (coords relativas → absolutas)
-- [ ] 5.4 Test round-trip: save → load → save
+- [x] 6.1 `serialize-diagram`: config/fields ya incluido por `serialize-nodes` (infraestructura existente)
+- [x] 6.2 `format-qvi`: nodes con config se formatean via `mold node-block` (sin cambios)
+- [x] 6.3 `load-vi`: `make-node` ya restaura config desde spec (sin cambios)
+- [x] 6.4 FP: hecho en Phase 5 — `save/load-panel-to/from-diagram` con config
+- [x] 6.5 Tests round-trip: serialize-nodes→load-node-list, save/load-panel (24 tests nuevos → 423/423)
 
 ---
 
-## Phase 6 — Tests y ejemplo
-**Estado:** pending
+## Phase 7 — Tests y ejemplo
+**Estado:** complete ✅
 **Módulos:** tests/, examples/
 
-### Tests
-- [ ] 6.1 Tests modelo: make-frame, make-structure con case-structure
-- [ ] 6.2 Tests compilador: case-structure con selector numérico → `case`
-- [ ] 6.3 Tests compilador: case-structure con selector booleano → `either`
-- [ ] 6.4 Tests compilador: múltiples frames
-- [ ] 6.5 Tests file-io: round-trip con case-structure
-- [ ] 6.6 Tests canvas: navegación entre frames
-
-### Ejemplos
-- [ ] 6.7 `examples/case-numeric.qvi` — selector numérico con 3 frames
-- [ ] 6.8 `examples/case-boolean.qvi` — selector booleano (if/else)
+### Tasks
+- [x] 7.1 Tests modelo: cluster-fields, cluster-in-ports, cluster-out-ports (Phase 0)
+- [x] 7.2 Tests bloques: bundle/unbundle registrados correctamente (Phase 0)
+- [x] 7.3 Tests compilador: bundle → make object! + unbundle → path access (Phase 4)
+- [x] 7.4 Tests compilador: bundle → wire → unbundle (pipeline completo) (Phase 4)
+- [x] 7.5 Tests file-io: round-trip con cluster (Phase 6)
+- [x] 7.6 `examples/cluster-basico.qvi` — bundle 3 campos (string+number+boolean) → unbundle → mostrar
+- [x] 7.7 Verificado headless: `nombre: sensor_A  voltaje: 12.5  activo: true` ✓
 
 ---
 
@@ -245,16 +198,18 @@ structures: [
 
 | Riesgo | Impacto | Mitigación |
 |--------|---------|------------|
-| Navegación entre frames compleja UI | Alto | Usar mismo patrón de clic/hit-test que while-loop |
-| Coords relativas/absolutas en frames | Medio | Mismo patrón que nodos internos de while-loop |
-| Terminal selector tipo dinámico | Bajo | Detectar tipo al cablear, validación en compilación |
-| Case sin default | Bajo | Siempre incluir frame "Default" al crear |
+| Puertos dinámicos = patrón nuevo | Alto | Helpers centralizados en model.red, no dispersar lógica |
+| canvas.red ya tiene 2383 líneas | Alto | Mínimas adiciones, reutilizar render-node existente |
+| bind-emit asume puertos estáticos | Medio | Bifurcar en compile-body para bundle/unbundle |
+| Editor de campos complejo | Medio | Diálogo simple: lista de fields, botones +/− |
+| FP cluster rendering | Medio | Grupo simple con borde, sin nested scroll |
 
 ---
 
 ## Exclusiones (futuro)
 
-- **Túneles de salida** (output tunnels como LabVIEW)
-- **Entradas de frame** (input tunnels)
-- **Case structures anidadas**
-- **Selector string** (solo number y boolean en Fase 2)
+- **Bundle By Name / Unbundle By Name** — Fase 3+
+- **Clusters anidados** (cluster dentro de cluster)
+- **Array de clusters**
+- **Selector de campos** en unbundle (seleccionar qué campos extraer)
+- **Cluster constante** como bloque (literal en el diagrama)

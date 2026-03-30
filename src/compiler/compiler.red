@@ -636,6 +636,85 @@ compile-case-structure: func [
 ]
 
 ; ══════════════════════════════════════════════════
+; EMIT-BUNDLE / EMIT-UNBUNDLE
+; ══════════════════════════════════════════════════
+;
+; Los nodos bundle/unbundle tienen puertos dinámicos (config/fields),
+; por lo que no pueden usar el flujo estándar bind-emit + build-bindings.
+; Generan código directamente manipulando bloques Red.
+
+; Genera código para un nodo bundle:
+;   bundle_1_result: make object! [campo1: var1  campo2: var2 ...]
+emit-bundle: func [
+    node   [object!]
+    diagram [object!]
+    /local result-var fields obj-body fn ft w src-nd field-var code
+][
+    result-var: port-var node 'result
+    fields: cluster-fields node
+    obj-body: copy []
+
+    foreach [fn ft] fields [
+        ; Buscar el wire que entrega este campo
+        field-var: fn   ; si no hay wire, el campo queda sin valor (warning implícito)
+        foreach w diagram/wires [
+            if all [w/to-node = node/id  (to-word w/to-port) = fn] [
+                foreach src-nd diagram/nodes [
+                    if src-nd/id = w/from-node [
+                        field-var: port-var src-nd to-word w/from-port
+                    ]
+                ]
+            ]
+        ]
+        append obj-body to-set-word fn
+        append obj-body field-var
+    ]
+
+    ; Genera: result-var: make object! [fn1: var1  fn2: var2 ...]
+    code: copy []
+    append code to-set-word result-var
+    append code 'make
+    append code object!
+    append/only code obj-body
+    code
+]
+
+; Genera código para un nodo unbundle:
+;   unbundle_1_campo1: cluster_var/campo1
+;   unbundle_1_campo2: cluster_var/campo2  ...
+emit-unbundle: func [
+    node   [object!]
+    diagram [object!]
+    /local fields cluster-var fn ft w src-nd out-var code
+][
+    fields: cluster-fields node
+    cluster-var: none
+
+    foreach w diagram/wires [
+        if all [w/to-node = node/id  (to-word w/to-port) = 'cluster-in] [
+            foreach src-nd diagram/nodes [
+                if src-nd/id = w/from-node [
+                    cluster-var: port-var src-nd to-word w/from-port
+                ]
+            ]
+        ]
+    ]
+    if none? cluster-var [
+        print rejoin ["WARNING: Unbundle '" node/name "' — cluster-in no conectado"]
+        return copy []
+    ]
+
+    code: copy []
+    foreach [fn ft] fields [
+        ; Genera: unbundle_1_fn: cluster_var/fn
+        out-var: port-var node fn
+        append code to-set-word out-var
+        append/only code to-path reduce [cluster-var fn]
+    ]
+    code
+]
+
+; ══════════════════════════════════════════════════
 ; COMPILE-BODY
 ; ══════════════════════════════════════════════════
 ;
@@ -653,6 +732,8 @@ compile-body: func [
             find [while-loop for-loop case-structure] item/type [
                 append code compile-structure/no-gui item diagram
             ]
+            item/type = 'bundle   [append code emit-bundle   item diagram]
+            item/type = 'unbundle [append code emit-unbundle item diagram]
             true [
                 bdef: find-block item/type
                 if all [bdef  bdef/emit] [
@@ -693,6 +774,8 @@ compile-diagram: func [
             item/type = 'case-structure [
                 append run-body compile-case-structure/no-gui item diagram
             ]
+            item/type = 'bundle   [append run-body emit-bundle   item diagram]
+            item/type = 'unbundle [append run-body emit-unbundle item diagram]
             true [
                 node: item
                 bdef: find-block node/type

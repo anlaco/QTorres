@@ -17,6 +17,7 @@ col-block-op:   55.75.105
 col-wire:       195.95.20
 col-wire-bool:  20.160.20
 col-wire-str:   220.100.160
+col-wire-cluster: 139.69.19
 col-wire-sel:   0.160.200
 col-port-in:    50.110.200
 col-port-out:   195.80.25
@@ -47,20 +48,37 @@ text-dy: either system/platform = 'Linux [8] [0]
 block-color: func [node-type /local cat] [
     cat: block-category to-word node-type
     case [
-        cat = 'input  [col-block-ctrl]
-        cat = 'output [col-block-ind]
-        true          [col-block-op]
+        cat = 'input   [col-block-ctrl]
+        cat = 'output  [col-block-ind]
+        cat = 'cluster [col-wire-cluster]
+        true           [col-block-op]
     ]
 ]
 
-; Devuelve los puertos de entrada de un nodo consultando el block-registry.
-in-ports: func [node] [ any [block-in-ports to-word node/type  []] ]
+; Devuelve los puertos de entrada de un nodo.
+; Para bundle: puertos dinámicos desde config/fields.
+; Para el resto: consulta el block-registry.
+in-ports: func [node] [
+    case [
+        node/type = 'bundle [cluster-in-ports node]
+        true                [any [block-in-ports to-word node/type  []]]
+    ]
+]
 
-; Devuelve los puertos de salida de un nodo consultando el block-registry.
-out-ports: func [node] [ any [block-out-ports to-word node/type  []] ]
+; Devuelve los puertos de salida de un nodo.
+; Para unbundle: puertos dinámicos desde config/fields.
+; Para el resto: consulta el block-registry.
+out-ports: func [node] [
+    case [
+        node/type = 'unbundle [cluster-out-ports node]
+        true                   [any [block-out-ports to-word node/type  []]]
+    ]
+]
 
 ; Devuelve el tipo de dato de un puerto de salida ('number por defecto).
+; Para unbundle: los puertos de salida son campos dinámicos del cluster.
 port-out-type: func [node port-name /local bdef p] [
+    if node/type = 'unbundle [return cluster-field-type node to-word port-name]
     bdef: find-block to-word node/type
     if none? bdef [return 'number]
     foreach p bdef/outputs [
@@ -70,7 +88,9 @@ port-out-type: func [node port-name /local bdef p] [
 ]
 
 ; Devuelve el tipo de dato de un puerto de entrada ('number por defecto).
+; Para bundle: los puertos de entrada son campos dinámicos del cluster.
 port-in-type: func [node port-name /local bdef p] [
+    if node/type = 'bundle [return cluster-field-type node to-word port-name]
     bdef: find-block to-word node/type
     if none? bdef [return 'number]
     foreach p bdef/inputs [
@@ -84,6 +104,7 @@ wire-data-color: func [data-type] [
     case [
         data-type = 'boolean [col-wire-bool]
         data-type = 'string  [col-wire-str]
+        data-type = 'cluster [col-wire-cluster]
         data-type = 'array   [col-wire]   ; mismo naranja que number, diferenciado por línea doble
         true                 [col-wire]
     ]
@@ -159,6 +180,20 @@ port-xy: func [node port-name direction /local ports port-index found] [
         found: find ports port-name
         port-index: either found [index? found] [1]
         as-pair (node/x + block-width + port-radius) (node/y + 12 + ((port-index - 1) * 20))
+    ]
+]
+
+; Devuelve la altura visual de un nodo.
+; bundle/unbundle: variable según número de campos.
+; Resto: block-height fijo.
+node-height: func [node /local n-in n-out] [
+    case [
+        any [node/type = 'bundle  node/type = 'unbundle] [
+            n-in:  length? in-ports node
+            n-out: length? out-ports node
+            max block-height (12 + (max n-in n-out) * 20 + 10)
+        ]
+        true [block-height]
     ]
 ]
 
@@ -272,6 +307,11 @@ render-node-list: func [
 ][
     cmds: copy []
     foreach node nodes [
+        ; bundle/unbundle tienen render propio (altura variable, puertos dinámicos)
+        if any [node/type = 'bundle  node/type = 'unbundle] [
+            append cmds render-cluster-node node selected-node
+            continue
+        ]
         node-color: block-color node/type
         append cmds compose [
             pen (node-color - 20.20.20)  line-width 1  fill-pen (node-color)
@@ -362,6 +402,73 @@ render-node-list: func [
                 box (as-pair (node/x - 3) (node/y - 3)) (as-pair (node/x + block-width + 3) (node/y + block-height + 3)) 6
                 line-width 1
             ]
+        ]
+    ]
+    cmds
+]
+
+; ══════════════════════════════════════════════════════════
+; RENDER-CLUSTER-NODE — Bundle / Unbundle con puertos dinámicos
+; ══════════════════════════════════════════════════════════
+
+render-cluster-node: func [
+    "Genera Draw cmds para un nodo bundle/unbundle con altura variable y puertos coloreados"
+    node selected-node
+    /local cmds node-color h type-label ports in-port-y out-port-y port port-col
+][
+    cmds: copy []
+    node-color: col-wire-cluster
+    h: node-height node
+
+    ; Cuerpo del nodo (altura variable)
+    append cmds compose [
+        pen (node-color - 20.20.20)  line-width 1  fill-pen (node-color)
+        box (as-pair node/x node/y) (as-pair (node/x + block-width) (node/y + h)) 5
+        pen off  fill-pen (node-color + 30.30.30)
+        box (as-pair node/x node/y) (as-pair (node/x + 4) (node/y + h)) 0
+    ]
+
+    ; Etiqueta de tipo centrada verticalmente
+    type-label: either node/type = 'bundle ["BUNDLE"] ["UNBUNDLE"]
+    append cmds compose [
+        fill-pen col-text
+        text (as-pair (node/x + 8) (node/y + 14)) (type-label)
+    ]
+
+    ; Puertos de entrada (coloreados por tipo de campo)
+    ports: in-ports node
+    in-port-y: node/y + 12
+    foreach port ports [
+        port-col: wire-data-color port-in-type node port
+        append cmds compose [
+            pen (port-col)  fill-pen (port-col)
+            circle (as-pair (node/x - port-radius) in-port-y) (port-radius)
+            fill-pen col-text
+            text (as-pair (node/x - port-radius - 22) (in-port-y - 7)) (form port)
+        ]
+        in-port-y: in-port-y + 20
+    ]
+
+    ; Puertos de salida (coloreados por tipo de campo o cluster)
+    ports: out-ports node
+    out-port-y: node/y + 12
+    foreach port ports [
+        port-col: wire-data-color port-out-type node port
+        append cmds compose [
+            pen (port-col)  fill-pen (port-col)
+            circle (as-pair (node/x + block-width + port-radius) out-port-y) (port-radius)
+            fill-pen col-text
+            text (as-pair (node/x + block-width + port-radius + 12) (out-port-y - 7)) (form port)
+        ]
+        out-port-y: out-port-y + 20
+    ]
+
+    ; Borde de selección
+    if same? node selected-node [
+        append cmds compose [
+            pen col-sel  line-width 2  fill-pen off
+            box (as-pair (node/x - 3) (node/y - 3)) (as-pair (node/x + block-width + 3) (node/y + h + 3)) 6
+            line-width 1
         ]
     ]
     cmds
@@ -1124,12 +1231,13 @@ hit-port: func [model mouse-x mouse-y /local ports out-y center-x center-y in-y 
     none
 ]
 
-hit-node: func [model mouse-x mouse-y /local found-node node] [
+hit-node: func [model mouse-x mouse-y /local found-node node h] [
     found-node: none
     foreach node model/nodes [
+        h: node-height node
         if all [
             mouse-x >= node/x  mouse-x <= (node/x + block-width)
-            mouse-y >= node/y  mouse-y <= (node/y + block-height)
+            mouse-y >= node/y  mouse-y <= (node/y + h)
         ] [found-node: node]
     ]
     found-node
@@ -1352,6 +1460,73 @@ apply-rename-label: func [node new-text] [
     ]
 ]
 
+; ── Cluster edit dialog ──────────────────────────────────────────────────
+
+; Guarda la lista de campos en node/config/fields.
+apply-cluster-fields: func [node fields-block /local pos] [
+    either pos: find node/config 'fields [
+        pos/2: fields-block
+    ][
+        append node/config reduce ['fields  fields-block]
+    ]
+]
+
+; Parsea el texto del área de edición ("nombre:tipo" por línea) a [nombre 'tipo ...].
+parse-cluster-fields-text: func [text /local result lines parts fname ftype] [
+    result: copy []
+    foreach line split text "^/" [
+        line: trim line
+        if not empty? line [
+            parts: split line ":"
+            if (length? parts) >= 2 [
+                fname: to-word trim parts/1
+                ftype: to-word trim parts/2
+                unless find [number boolean string] ftype [ftype: 'number]
+                append result fname
+                append result to lit-word! ftype
+            ]
+        ]
+    ]
+    result
+]
+
+; Aplica campos parseados y refresca el canvas.
+cluster-apply-and-refresh: func [nd txt cnv] [
+    apply-cluster-fields nd parse-cluster-fields-text txt
+    cnv/draw: render-bd cnv/extra
+    show cnv
+]
+
+; Vars de módulo para el diálogo de edición de cluster (mismo patrón que rename)
+cluster-dialog-node:   none
+cluster-dialog-canvas: none
+cluster-dialog-area:   none
+
+; Abre diálogo para editar los campos de un bundle/unbundle.
+; El usuario introduce campos en formato "nombre:tipo", uno por línea.
+open-cluster-edit-dialog: func [node canvas-face /local cur-fields cur-text] [
+    cluster-dialog-node:   node
+    cluster-dialog-canvas: canvas-face
+    cluster-dialog-area:   none
+    cur-fields: cluster-fields node
+    cur-text: copy ""
+    foreach [fn ft] cur-fields [
+        append cur-text rejoin [form fn ":" form to-word ft "^/"]
+    ]
+    view/no-wait compose/deep [
+        title "Editar campos del cluster"
+        text {Formato: nombre:tipo (uno por línea)} return
+        text {Tipos: number  boolean  string} return
+        cluster-dialog-area: area 260x180 (cur-text)
+        return
+        button "OK" [
+            cluster-apply-and-refresh (node) copy cluster-dialog-area/text (canvas-face)
+            unview
+        ]
+        button "Cancelar" [unview]
+    ]
+]
+
 ; Estado del diálogo de renombrado (view/no-wait requiere vars de módulo
 ; porque la función retorna antes de que el usuario cierre el diálogo).
 rename-dialog-node:   none
@@ -1442,6 +1617,9 @@ open-palette: func [face x y /struct target-struct] [
         button 80 "Index[]"  [palette-add-node 'index-array]  return
         button 80 "Size[]"   [palette-add-node 'array-size]
         button 80 "Subset[]" [palette-add-node 'array-subset]  return
+        text "Cluster:"  return
+        button 80 "Bundle"   [palette-add-node 'bundle]
+        button 80 "Unbundle" [palette-add-node 'unbundle]  return
         text "Estructuras:"  return
         button 80 "While"    [palette-add-structure 'while-loop]
         button 80 "For"      [palette-add-structure 'for-loop]
@@ -2225,6 +2403,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     if node/type = 'const [open-const-edit-dialog node face  exit]
                     if find [str-const str-control] node/type [open-str-edit-dialog node face  exit]
                     if find [arr-const arr-control] node/type [open-arr-edit-dialog node face  exit]
+                    if find [bundle unbundle] node/type [open-cluster-edit-dialog node face  exit]
                     rename-dialog-node:   node
                     rename-dialog-canvas: face
                     rename-dialog-field:  none
@@ -2264,6 +2443,10 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     ]
                     if find [arr-const arr-control] node/type [
                         open-arr-edit-dialog node face
+                        exit
+                    ]
+                    if find [bundle unbundle] node/type [
+                        open-cluster-edit-dialog node face
                         exit
                     ]
                     rename-dialog-node:   node

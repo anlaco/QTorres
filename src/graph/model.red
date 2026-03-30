@@ -340,6 +340,67 @@ make-diagram: func [
     ]
 ]
 
+; ══════════════════════════════════════════════════
+; CLUSTER — Helpers para puertos dinámicos
+; ══════════════════════════════════════════════════
+; bundle/unbundle tienen puertos que dependen de los campos
+; definidos por el usuario en node/config/fields.
+;
+; Formato de config/fields:
+;   [nombre 'string  voltaje 'number  activo 'boolean ...]
+;   (pares word! + lit-word!, uno por campo)
+
+cluster-fields: func [
+    "Devuelve la lista de campos del cluster [nombre 'tipo ...] desde node/config/fields"
+    node [object!]
+    /local fields
+][
+    fields: select node/config 'fields
+    either fields [fields] [copy []]
+]
+
+cluster-in-ports: func [
+    "Devuelve los nombres de puertos de entrada dinámicos de un bundle (uno por campo)"
+    "Para unbundle u otros tipos devuelve [] — sus entradas son estáticas"
+    node [object!]
+    /local result
+][
+    if node/type <> 'bundle [return copy []]
+    result: copy []
+    foreach [field-name field-type] cluster-fields node [
+        append result field-name
+    ]
+    result
+]
+
+cluster-out-ports: func [
+    "Devuelve los nombres de puertos de salida dinámicos de un unbundle (uno por campo)"
+    "Para bundle u otros tipos devuelve [] — sus salidas son estáticas"
+    node [object!]
+    /local result
+][
+    if node/type <> 'unbundle [return copy []]
+    result: copy []
+    foreach [field-name field-type] cluster-fields node [
+        append result field-name
+    ]
+    result
+]
+
+cluster-field-type: func [
+    "Devuelve el tipo de un campo concreto del cluster ('number, 'boolean, 'string)"
+    node [object!]  field [word!]
+    /local fields i
+][
+    fields: cluster-fields node
+    i: 1
+    while [i <= (length? fields)] [
+        if fields/:i = field [return fields/(i + 1)]
+        i: i + 2
+    ]
+    'number
+]
+
 ; make-fp-item y fp-value-text viven en src/ui/panel/panel.red (canónico).
 ; model.red no duplica lógica de Front Panel.
 

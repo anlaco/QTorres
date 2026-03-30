@@ -321,4 +321,21 @@ block 'array-subset 'array [
     emit [result: arr-subset-helper arr start length]
 ]
 
+; ── Cluster ────────────────────────────────────────────────
+; bundle/unbundle tienen puertos dinámicos según node/config/fields.
+; Solo se registran los puertos fijos; los dinámicos los resuelven
+; cluster-in-ports / cluster-out-ports en model.red.
+
+block 'bundle 'cluster [
+    ; Entradas dinámicas: una por campo (ver cluster-in-ports)
+    out result 'cluster
+    emit []  ; generado dinámicamente por emit-bundle en compiler.red
+]
+
+block 'unbundle 'cluster [
+    in cluster-in 'cluster
+    ; Salidas dinámicas: una por campo (ver cluster-out-ports)
+    emit []  ; generado dinámicamente por emit-unbundle en compiler.red
+]
+
 #include %../compiler/compiler.red

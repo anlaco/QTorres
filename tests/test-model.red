@@ -234,4 +234,68 @@ suite "blocks — case-structure registrado"
 assert "case-structure en el registro"          (not none? find-block 'case-structure)
 assert "categoría es structure"                 ('structure = block-category 'case-structure)
 
+; ── cluster-fields / cluster-in-ports / cluster-out-ports ───────────────
+
+suite "cluster-helpers — nodo sin fields"
+
+reset-name-counters
+cn-empty: make-node [type: 'bundle]
+
+assert "cluster-fields sin config devuelve bloque vacío"   ([] = cluster-fields cn-empty)
+assert "cluster-in-ports sin fields devuelve []"           ([] = cluster-in-ports cn-empty)
+assert "cluster-out-ports sin fields devuelve []"          ([] = cluster-out-ports cn-empty)
+
+suite "cluster-helpers — bundle con 3 campos"
+
+reset-name-counters
+cn-b: make-node [
+    type: 'bundle
+    config: [fields [nombre 'string  voltaje 'number  activo 'boolean]]
+]
+
+assert "cluster-fields devuelve 6 elementos"                (6 = length? cluster-fields cn-b)
+assert "cluster-in-ports bundle devuelve 3 nombres"         (3 = length? cluster-in-ports cn-b)
+assert "cluster-in-ports incluye nombre"                    (not none? find cluster-in-ports cn-b 'nombre)
+assert "cluster-in-ports incluye voltaje"                   (not none? find cluster-in-ports cn-b 'voltaje)
+assert "cluster-in-ports incluye activo"                    (not none? find cluster-in-ports cn-b 'activo)
+assert "cluster-out-ports bundle devuelve [] (no salidas de campo)" ([] = cluster-out-ports cn-b)
+
+suite "cluster-helpers — unbundle con 3 campos"
+
+reset-name-counters
+cn-u: make-node [
+    type: 'unbundle
+    config: [fields [nombre 'string  voltaje 'number  activo 'boolean]]
+]
+
+assert "cluster-out-ports unbundle devuelve 3 nombres"      (3 = length? cluster-out-ports cn-u)
+assert "cluster-out-ports incluye nombre"                   (not none? find cluster-out-ports cn-u 'nombre)
+assert "cluster-out-ports incluye voltaje"                  (not none? find cluster-out-ports cn-u 'voltaje)
+assert "cluster-out-ports incluye activo"                   (not none? find cluster-out-ports cn-u 'activo)
+assert "cluster-in-ports unbundle devuelve [] (no entradas de campo)" ([] = cluster-in-ports cn-u)
+
+suite "cluster-helpers — cluster-field-type"
+
+reset-name-counters
+cn-t: make-node [
+    type: 'bundle
+    config: [fields [nombre 'string  voltaje 'number  activo 'boolean]]
+]
+
+assert "cluster-field-type nombre → string"    ('string  = cluster-field-type cn-t 'nombre)
+assert "cluster-field-type voltaje → number"   ('number  = cluster-field-type cn-t 'voltaje)
+assert "cluster-field-type activo → boolean"   ('boolean = cluster-field-type cn-t 'activo)
+assert "cluster-field-type campo inexistente → number (default)" ('number = cluster-field-type cn-t 'noexiste)
+
+suite "cluster-helpers — gen-name"
+
+reset-name-counters
+nb1: make-node [type: 'bundle]
+nb2: make-node [type: 'bundle]
+nu1: make-node [type: 'unbundle]
+
+assert "bundle gen-name bundle_1"    (nb1/name = "bundle_1")
+assert "bundle gen-name bundle_2"    (nb2/name = "bundle_2")
+assert "unbundle gen-name unbundle_1" (nu1/name = "unbundle_1")
+
 print "--- tests finalizados ---"

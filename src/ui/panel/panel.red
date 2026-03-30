@@ -24,11 +24,22 @@ fp-run-button-height: 30
 fp-text-dy: either system/platform = 'Linux [8] [0]
 
 fp-color?: func [item-type] [
-    either find [control bool-control str-control arr-control] item-type [fp-control-color] [fp-indicator-color]
+    either find [control bool-control str-control arr-control cluster-control] item-type [fp-control-color] [fp-indicator-color]
 ]
 
 fp-border-color?: func [item-type] [
-    either find [control bool-control str-control arr-control] item-type [fp-control-color - 20.20.20] [fp-indicator-color - 20.20.20]
+    either find [control bool-control str-control arr-control cluster-control] item-type [fp-control-color - 20.20.20] [fp-indicator-color - 20.20.20]
+]
+
+fp-cluster-fields: func [item /local cfg flds] [
+    cfg: any [item/config  copy []]
+    flds: select cfg 'fields
+    either flds [flds] [copy []]
+]
+
+fp-cluster-height: func [item /local n] [
+    n: (length? fp-cluster-fields item) / 2
+    20 + (max 1 n) * 20
 ]
 
 fp-type-label?: func [item-type] [
@@ -39,9 +50,11 @@ fp-type-label?: func [item-type] [
         item-type = 'bool-indicator ["TF"]
         item-type = 'str-control    ["STR"]
         item-type = 'str-indicator  ["STR"]
-        item-type = 'arr-control    ["ARR"]
-        item-type = 'arr-indicator  ["ARR"]
-        true                        [uppercase form item-type]
+        item-type = 'arr-control      ["ARR"]
+        item-type = 'arr-indicator    ["ARR"]
+        item-type = 'cluster-control  ["CLU"]
+        item-type = 'cluster-indicator ["CLU"]
+        true                          [uppercase form item-type]
     ]
 ]
 
@@ -54,9 +67,11 @@ fp-default-label: func [item-type] [
         item-type = 'bool-indicator ["Boolean"]
         item-type = 'str-control    ["String"]
         item-type = 'str-indicator  ["String"]
-        item-type = 'arr-control    ["Array"]
-        item-type = 'arr-indicator  ["Array"]
-        true                        ["Numeric"]
+        item-type = 'arr-control      ["Array"]
+        item-type = 'arr-indicator    ["Array"]
+        item-type = 'cluster-control  ["Cluster"]
+        item-type = 'cluster-indicator ["Cluster"]
+        true                          ["Numeric"]
     ]
 ]
 
@@ -70,13 +85,15 @@ make-fp-item: func [
         id:        any [select spec 'id        0]
         type:      either find [bool-control bool-indicator] raw-type ['control] [raw-type]
         data-type: case [
-            find [bool-control bool-indicator] raw-type ['boolean]
-            find [str-control  str-indicator]  raw-type ['string]
-            find [arr-control  arr-indicator]  raw-type ['array]
-            true                               ['numeric]
+            find [bool-control bool-indicator]     raw-type ['boolean]
+            find [str-control  str-indicator]      raw-type ['string]
+            find [arr-control  arr-indicator]      raw-type ['array]
+            find [cluster-control cluster-indicator] raw-type ['cluster]
+            true                                   ['numeric]
         ]
         name:      any [select spec 'name      ""]
         label:     none
+        config:    copy any [select spec 'config  copy []]
         default:   case [
             find [bool-control bool-indicator] raw-type [
                 any [select spec 'default  false]
@@ -87,6 +104,10 @@ make-fp-item: func [
             ]
             find [arr-control arr-indicator] raw-type [
                 ; copy siempre: los bloques [] son constantes compartidas en Red
+                copy any [select spec 'default  copy []]
+            ]
+            find [cluster-control cluster-indicator] raw-type [
+                ; block de pares word/valor: [name "" voltage 0.0 active false]
                 copy any [select spec 'default  copy []]
             ]
             true [
@@ -104,6 +125,9 @@ make-fp-item: func [
         ]
         find [arr-control arr-indicator] raw-type [
             copy any [select spec 'value  item/default]
+        ]
+        find [cluster-control cluster-indicator] raw-type [
+            copy any [select spec 'value  copy item/default]
         ]
         true [
             any [select spec 'value  item/default]
@@ -210,7 +234,7 @@ dashed-box: func [x1 y1 x2 y2 dash gap /local cmds pos lim step] [
     cmds
 ]
 
-render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col cx cy field-y field-h lx ly lw bh] [
+render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col cx cy field-y field-h lx ly lw bh fy fn ft fval fval-str] [
     cmds: copy []
     ; Reset estado Draw — pen 0.0.0 es crítico: evita bleed de color de texto
     append cmds [pen 0.0.0  fill-pen off  line-width 1]
@@ -248,6 +272,29 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
         append cmds compose [
             pen 20.20.20  fill-pen off
             text (as-pair (item/offset/x + 4) (item/offset/y + 4 + fp-text-dy)) (fp-value-text item)
+        ]
+    ]
+        item/data-type = 'cluster [
+        ; Cluster: caja marrón con campos internos
+        border-col: 100.50.10
+        col: either item/type = 'cluster-control [159.89.39] [139.69.19]
+        bh: fp-cluster-height item
+        append cmds compose [
+            pen (border-col)  line-width 2  fill-pen (col)
+            box (as-pair item/offset/x item/offset/y)
+               (as-pair (item/offset/x + fp-item-width) (item/offset/y + bh)) 3
+            pen 220.190.160  fill-pen off
+            text (as-pair (item/offset/x + 4) (item/offset/y + 4 + fp-text-dy)) "CLU"
+        ]
+        fy: item/offset/y + 20
+        foreach [fn ft] fp-cluster-fields item [
+            fval: select any [item/value  copy []] fn
+            fval-str: either none? fval [""] [form fval]
+            append cmds compose [
+                pen 240.220.200  fill-pen off
+                text (as-pair (item/offset/x + 4) (fy + fp-text-dy)) (rejoin [form fn ": " fval-str])
+            ]
+            fy: fy + 20
         ]
     ]
         item/data-type = 'array [
@@ -309,7 +356,11 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
     ]  ; end case
 
     ; ── Selección: marcos rallados en body y label ────────────────────────────────────────
-    bh: either item/data-type = 'string [fp-label-height] [fp-item-height]
+    bh: case [
+        item/data-type = 'string  [fp-label-height]
+        item/data-type = 'cluster [fp-cluster-height item]
+        true                      [fp-item-height]
+    ]
     if selected? [
         append cmds compose [pen (fp-selected-color)  line-width 2  fill-pen off]
         append cmds dashed-box
@@ -367,7 +418,11 @@ hit-fp-zone: func [model mx my /local item lx ly lw bh] [
             ]
         ]
         ; Zona de body
-        bh: either item/data-type = 'string [fp-label-height] [fp-item-height]
+        bh: case [
+            item/data-type = 'string  [fp-label-height]
+            item/data-type = 'cluster [fp-cluster-height item]
+            true                      [fp-item-height]
+        ]
         if all [
             mx >= item/offset/x  mx <= (item/offset/x + fp-item-width)
             my >= item/offset/y  my <= (item/offset/y + bh)
@@ -412,6 +467,64 @@ open-str-fp-edit-dialog: func [item panel-face model /local cur-val] [
             foreach pf face/parent/pane [
                 if pf/type = 'field [
                     fp-str-apply-and-refresh (item) copy pf/text (panel-face) (model)
+                    break
+                ]
+            ]
+            unview
+        ]
+        button "Cancelar" [unview]
+    ]
+]
+
+; Aplica valor cluster (texto "campo: valor" por línea) a un item del FP y refresca.
+fp-cluster-apply-and-refresh: func [itm txt pnl mdl /local lines result line parts k v ft] [
+    lines: split txt "^/"
+    result: copy []
+    foreach line lines [
+        line: trim line
+        if empty? line [continue]
+        parts: split line ":"
+        if 2 > length? parts [continue]
+        k: to-word trim parts/1
+        v: trim parts/2
+        ; Buscar tipo del campo en config
+        ft: 'number
+        foreach [fn ftype] fp-cluster-fields itm [
+            if fn = k [ft: ftype]
+        ]
+        append result k
+        append result case [
+            ft = 'boolean [any [find [true yes on] to-word v  false]]
+            ft = 'string  [v]
+            true          [any [attempt [to-float v]  0.0]]
+        ]
+    ]
+    itm/value: result
+    pnl/draw: render-fp-panel mdl mdl/size/x mdl/size/y
+]
+
+; Construye texto "campo: valor" por línea desde item/value + config
+fp-cluster-value-text: func [item /local lines fn ft fval] [
+    lines: copy ""
+    foreach [fn ft] fp-cluster-fields item [
+        fval: select any [item/value  copy []] fn
+        fval-str: either none? fval [""] [form fval]
+        append lines rejoin [form fn ": " fval-str "^/"]
+    ]
+    trim lines
+]
+
+; Abre diálogo para editar los valores de un cluster-control en el FP.
+open-cluster-fp-edit-dialog: func [item panel-face model /local cur-text] [
+    cur-text: fp-cluster-value-text item
+    view/no-wait compose/deep [
+        title "Editar cluster"
+        text "Campos (campo: valor por línea):" return
+        area 220x120 (cur-text) return
+        button "OK" [
+            foreach pf face/parent/pane [
+                if pf/type = 'area [
+                    fp-cluster-apply-and-refresh (item) copy pf/text (panel-face) (model)
                     break
                 ]
             ]
@@ -499,10 +612,11 @@ fp-palette-add-item: func [item-type /local new-id item model w h _cref nid bd-y
     h:      model/size/y
     new-id: 1 + length? model/front-panel
     def-val: case [
-        find [bool-control bool-indicator] item-type [false]
-        find [str-control  str-indicator]  item-type [copy ""]
-        find [arr-control  arr-indicator]  item-type [copy []]
-        true                               [0.0]
+        find [bool-control bool-indicator]       item-type [false]
+        find [str-control  str-indicator]        item-type [copy ""]
+        find [arr-control  arr-indicator]        item-type [copy []]
+        find [cluster-control cluster-indicator] item-type [copy []]
+        true                                     [0.0]
     ]
     ; Construir spec con append/only para default: evitar splice de block! values
     spec: copy []
@@ -517,9 +631,9 @@ fp-palette-add-item: func [item-type /local new-id item model w h _cref nid bd-y
     append model/front-panel item
     fp-palette-panel/draw: render-fp-panel model w h
     show fp-palette-panel
-    ; Sync BD: crear nodo correspondiente
+    ; Sync BD: crear nodo correspondiente (no para cluster — bundle/unbundle se añaden manualmente)
     _cref: select model 'canvas-ref
-    if _cref [
+    if all [_cref  not find [cluster-control cluster-indicator] item-type] [
         nid:  gen-node-id model
         bd-y: 20 + ((length? model/nodes) * 75)
         append model/nodes make-node compose [
@@ -547,9 +661,11 @@ open-fp-palette: func [face x y] [
         button 100 "Bool Indicator" [fp-palette-add-item 'bool-indicator] return
         button 100 "Str Control"    [fp-palette-add-item 'str-control]    return
         button 100 "Str Indicator"  [fp-palette-add-item 'str-indicator]  return
-        button 100 "Arr Control"    [fp-palette-add-item 'arr-control]    return
-        button 100 "Arr Indicator"  [fp-palette-add-item 'arr-indicator]  return
-        button      "Cancelar"      [unview]
+        button 100 "Arr Control"      [fp-palette-add-item 'arr-control]      return
+        button 100 "Arr Indicator"   [fp-palette-add-item 'arr-indicator]    return
+        button 100 "Cluster Ctrl"    [fp-palette-add-item 'cluster-control]  return
+        button 100 "Cluster Ind"     [fp-palette-add-item 'cluster-indicator] return
+        button      "Cancelar"       [unview]
     ]
 ]
 
@@ -650,6 +766,9 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                     all [hit  hit/type = 'arr-control] [
                         open-arr-fp-edit-dialog hit face face/extra
                     ]
+                    all [hit  hit/type = 'cluster-control] [
+                        open-cluster-fp-edit-dialog hit face face/extra
+                    ]
                     all [hit  hit/type = 'control] [
                         open-edit-dialog hit face face/extra
                     ]
@@ -662,13 +781,14 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                 hit: hit-fp-item face/extra mouse-x mouse-y
 
                 case [
-                    all [hit  hit/type = 'bool-control]  [
+                    all [hit  hit/type = 'bool-control]    [
                         hit/value: not hit/value
                         face/draw: render-fp-panel face/extra face/extra/size/x face/extra/size/y
                     ]
-                    all [hit  hit/type = 'str-control]   [open-str-fp-edit-dialog hit face face/extra]
-                    all [hit  hit/type = 'arr-control]   [open-arr-fp-edit-dialog hit face face/extra]
-                    all [hit  hit/type = 'control]        [open-edit-dialog hit face face/extra]
+                    all [hit  hit/type = 'str-control]     [open-str-fp-edit-dialog hit face face/extra]
+                    all [hit  hit/type = 'arr-control]     [open-arr-fp-edit-dialog hit face face/extra]
+                    all [hit  hit/type = 'cluster-control] [open-cluster-fp-edit-dialog hit face face/extra]
+                    all [hit  hit/type = 'control]          [open-edit-dialog hit face face/extra]
                     ; indicador: no hacer nada
                 ]
             ]
@@ -711,7 +831,7 @@ render-panel: func [model panel-width panel-height /local panel-face] [
 ; ══════════════════════════════════════════════════════════
 ; PARSER — load front-panel from qvi-diagram (Phase 3)
 ; ══════════════════════════════════════════════════════════
-load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result item offset-y kw] [
+load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result item offset-y kw bh-step] [
     result: copy []
     fp-block: select diagram-block 'front-panel
 
@@ -719,19 +839,24 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
         offset-y: 20
         parse fp-block [
             any [
-                set kw ['control | 'indicator | 'bool-control | 'bool-indicator | 'str-control | 'str-indicator | 'arr-control | 'arr-indicator]
+                set kw ['control | 'indicator | 'bool-control | 'bool-indicator | 'str-control | 'str-indicator | 'arr-control | 'arr-indicator | 'cluster-control | 'cluster-indicator]
                 set fp-item-spec block! (
                     item: make-fp-item fp-item-spec
                     item/type:      kw
                     item/data-type: case [
-                        find [bool-control bool-indicator] kw ['boolean]
-                        find [str-control  str-indicator]  kw ['string]
-                        find [arr-control  arr-indicator]  kw ['array]
-                        true                               ['numeric]
+                        find [bool-control bool-indicator]       kw ['boolean]
+                        find [str-control  str-indicator]        kw ['string]
+                        find [arr-control  arr-indicator]        kw ['array]
+                        find [cluster-control cluster-indicator] kw ['cluster]
+                        true                                     ['numeric]
+                    ]
+                    if find [cluster-control cluster-indicator] kw [
+                        item/config: copy any [select fp-item-spec 'config  copy []]
                     ]
                     if all [zero? item/offset/x  zero? item/offset/y] [
                         item/offset: as-pair 20 offset-y
-                        offset-y: offset-y + fp-item-height + 10
+                        bh-step: either item/data-type = 'cluster [fp-cluster-height item] [fp-item-height]
+                        offset-y: offset-y + bh-step + 10
                     ]
                     append result item
                 )
@@ -750,14 +875,16 @@ save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
     items: copy []
     foreach item front-panel-items [
         kw:   case [
-            item/type = 'control        ['control]
-            item/type = 'bool-control   ['bool-control]
-            item/type = 'bool-indicator ['bool-indicator]
-            item/type = 'str-control    ['str-control]
-            item/type = 'str-indicator  ['str-indicator]
-            item/type = 'arr-control    ['arr-control]
-            item/type = 'arr-indicator  ['arr-indicator]
-            true                        ['indicator]
+            item/type = 'control           ['control]
+            item/type = 'bool-control      ['bool-control]
+            item/type = 'bool-indicator    ['bool-indicator]
+            item/type = 'str-control       ['str-control]
+            item/type = 'str-indicator     ['str-indicator]
+            item/type = 'arr-control       ['arr-control]
+            item/type = 'arr-indicator     ['arr-indicator]
+            item/type = 'cluster-control   ['cluster-control]
+            item/type = 'cluster-indicator ['cluster-indicator]
+            true                           ['indicator]
         ]
         ; Construir spec con append/only para el default:
         ; compose/deep aplana block! values (splice) — no es válido para arr-control
@@ -767,6 +894,10 @@ save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
         append/only spec compose/deep [text: (item/label/text) visible: (item/label/visible) offset: (item/label/offset)]
         append spec to-set-word 'default
         either block? item/default [append/only spec copy item/default] [append spec item/default]
+        if item/data-type = 'cluster [
+            append spec to-set-word 'config
+            append/only spec copy any [item/config  copy []]
+        ]
         repend spec [to-set-word 'offset  item/offset]
         append items kw
         append/only items spec
@@ -795,7 +926,7 @@ gen-indicator-var-name: func [item /local s fc] [
     to-word rejoin ["l" s]
 ]
 
-compile-panel: func [model /local cmds item ctrl-field-name ind-var-name] [
+compile-panel: func [model /local cmds item ctrl-field-name ind-var-name fn ft fval fld-name] [
     cmds: copy []
 
     foreach item model/front-panel [
@@ -823,6 +954,40 @@ compile-panel: func [model /local cmds item ctrl-field-name ind-var-name] [
                     label (item/label/text)
                     (to-set-word ind-var-name) text 120 (rejoin ["[" form item/default "]"])
                     return
+                ]
+            ]
+            item/type = 'cluster-control [
+                ; Cluster control: un widget por cada campo
+                foreach [fn ft] fp-cluster-fields item [
+                    fld-name: to-word rejoin [form item/name "_" form fn]
+                    fval: select any [item/default  copy []] fn
+                    append cmds compose [label (rejoin [item/label/text " — " form fn])]
+                    case [
+                        ft = 'boolean [
+                            append cmds compose [
+                                (to-set-word fld-name) check (form fn) (any [fval false])
+                                return
+                            ]
+                        ]
+                        true [
+                            append cmds compose [
+                                (to-set-word fld-name) field 120 (form any [fval ""])
+                                return
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+            item/type = 'cluster-indicator [
+                ; Cluster indicator: un text por cada campo
+                foreach [fn ft] fp-cluster-fields item [
+                    fld-name: to-word rejoin [form item/name "_" form fn]
+                    fval: select any [item/default  copy []] fn
+                    append cmds compose [
+                        label (rejoin [item/label/text " — " form fn])
+                        (to-set-word fld-name) text 120 (form any [fval ""])
+                        return
+                    ]
                 ]
             ]
             true [  ; indicator, bool-indicator, str-indicator, arr-indicator

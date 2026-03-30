@@ -1,142 +1,134 @@
-# Findings — Issue #16: Case Structure
+# Findings — Issue #12: Cluster
 
-## Investigación inicial (2026-03-26)
+## Investigación inicial (2026-03-29)
 
-### Estructuras existentes: While/For Loop
+### Infraestructura existente
 
-**Archivo:** `src/graph/model.red:261-295`
-- `make-structure` ya soporta While/For Loop
-- Campo `type:` distingue el tipo de estructura
-- Estructura tiene: `id, type, name, label, x, y, w, h, nodes, wires, cond-wire, shift-regs`
+**Wire colors** (`canvas.red:17-20, 83-90`):
+- Numeric: `col-wire: 195.95.20` (naranja)
+- Boolean: `col-wire-bool: 20.160.20` (verde)
+- String: `col-wire-str: 220.100.160` (rosa)
+- Cluster: **marrón** — definido en visual-spec.md línea 71/155, pendiente de implementar
+- Color sugerido: `col-wire-cluster: 139.69.19`
 
-**Patrón de extensión:**
+**Block-def dialect** (`blocks.red`):
+- Puertos estáticos: `in name 'type`, `out name 'type`
+- Config: `config name 'type default`
+- Emit: bloque Red donde port-names se sustituyen por variables reales
+- 34 bloques registrados, todos con puertos fijos
+
+**Compilador** (`compiler.red`):
+- `bind-emit` sustituye nombres de puertos por variables reales en bloques emit
+- `build-bindings` crea pares [port-name var-name]
+- Funciona con cualquier código Red en emit — `make object! [...]` es válido
+
+**Modelo** (`model.red`):
+- `data-type` ya soporta cualquier word: `'cluster` encaja naturalmente
+- `node/config` puede almacenar definición de campos del cluster
+
+### Red object! — target de compilación
+
 ```red
-s/type: any [select spec 'type  'while-loop]
+; Crear cluster
+my-cluster: make object! [name: "test"  voltage: 12.5  active: true]
+
+; Acceder campo
+my-cluster/voltage     ; → 12.5
+
+; Asignar campo
+my-cluster/name: "new"
 ```
-Puede extenderse para aceptar `'case-structure`
 
-### Compilador actual
+Es completamente estático, compatible con `red -c` (DT-028 ✅).
 
-**Archivo:** `src/compiler/compiler.red:312-415`
-- `compile-structure` bifurca por `st/type`:
-  - `while-loop` → `until [...]`
-  - `for-loop` → `loop N [...]`
-- Patrón sencillo de extensión: añadir rama `case st/type = 'case-structure`
+### DESAFÍO CLAVE: Puertos dinámicos
 
-### Serialización (Actualizado 2026-03-26)
+**Problema:** Todos los bloques actuales tienen puertos fijos definidos en block-def.
+Bundle/unbundle necesitan N puertos según los campos del cluster.
 
-**Archivo:** `src/io/file-io.red`
-- `serialize-diagram` itera sobre `diagram/structures`
-  - **Patrón clave:** usar `case` en lugar de `switch` porque los valores son lit-words
-  - `switch st/type` no funciona porque `st/type` es word!, no lit-word!
-  - `case [st/type = 'for-loop [...] st/type = 'while-loop [...]]` funciona correctamente
-- `format-qvi` formatea cada tipo con su keyword
-  - Case-structure añade `frames: [...]` y `active-frame: N` y `selector: [...]`
-- `load-vi` parse con `parse structs-data [...]`
-  - Case-structure: parse `frames` array con `relative → absolute` coord conversion
+**Opciones evaluadas:**
 
-**Key gotcha:** Red's `1-based indexing` — frame 0 en qvi-diagram es `frames/1` en memoria
+| Opción | Descripción | Pro | Contra |
+|--------|-------------|-----|--------|
+| A — Bloques fijos | `bundle-2`, `bundle-3`, etc. | Simple | Limitado, feo, no escala |
+| B — Config-driven | Campos en `node/config`, ports generados dinámicamente | Flexible, un solo tipo | Requiere cambiar render + compilador para leer config |
+| C — Tipo especial | Como structures (while-loop) | Ya hay patrón | Overengineering — no son contenedores |
 
-### Renderizado
+**Decisión: Opción B** — campos en `node/config`, funciones helper para generar puertos y emit dinámicamente.
 
-**Archivo:** `src/ui/diagram/canvas.red:361-563`
-- `render-structure` genera Draw commands para rectángulo + terminales + nodos internos
-- Terminales actuales:
-  - `[i]` — iteración (while/for)
-  - `[●]` — condición (while)
-  - `[N]` — count (for)
-- Para Case: necesita terminal selector en esquina superior-izquierda
+### Diseño del config para clusters
 
-### Hit-testing
+```red
+; En node/config de un bundle:
+config: [fields [name 'string  voltage 'number  active 'boolean]]
 
-**Archivo:** `src/ui/diagram/canvas.red:740-769`
-- `hit-structure-terminal` detecta `[i]`, `[●]`, `[N]`
-- Extensible para detectar terminal selector de case
+; En node/config de un unbundle:
+config: [fields [name 'string  voltage 'number  active 'boolean]]
+```
 
-### Patrones de LabVIEW Case Structure
+Los puertos se generan leyendo `fields` del config:
+- bundle: 1 puerto `in` por campo + 1 puerto `out result 'cluster`
+- unbundle: 1 puerto `in cluster 'cluster` + 1 puerto `out` por campo
 
-**Comportamiento:**
-1. Selector puede ser numérico, booleano, string, enum
-2. Cada "case" es un frame con su propio diagrama
-3. Frames tienen labels que se muestran en el selector
-4. Usuario navega entre frames con flechas
-5. Default case se ejecuta si no hay match
+### Impacto por módulo
 
-**Diferencias con While/For:**
-- Múltiples frames internos vs uno solo
-- Navegación activa entre frames (solo uno visible a la vez)
-- Terminal selector tiene tipo dinámico (inferido del wire conectado)
+| Módulo | Cambio | Complejidad |
+|--------|--------|-------------|
+| blocks.red | Registrar bundle/unbundle con marcador dinámico | Baja |
+| model.red | Helpers: `cluster-fields`, `cluster-in-ports`, `cluster-out-ports` | Baja |
+| canvas.red | Render puertos dinámicos, color marrón, diálogo edición campos | Alta |
+| compiler.red | Emit dinámico para bundle (`make object!`) y unbundle (path access) | Media |
+| panel.red | Cluster como grupo en FP (control/indicator) | Media |
+| file-io.red | Serializar/deserializar config con fields | Baja |
+| tests/ | Tests para todo lo anterior | Media |
 
-### Decisiones de diseño
+### Patrón de LabVIEW
 
-1. **Terminal selector arriba-izquierda** (igual que `[N]` de for-loop)
-2. **Barra de navegación arriba** con ◀ [N] ▶ [+][−]
-3. **Frames como sub-diagramas** independientes (nodes/wires propios)
-4. **Sin túneles de salida en Fase 2** — simplificación, solo ejecución interna
-5. **Selector obligatorio** — Case sin selector = error de compilación
+- **Bundle**: N entradas escalares → 1 salida cluster
+- **Unbundle**: 1 entrada cluster → N salidas escalares
+- **Bundle By Name**: cluster in + campos seleccionados → cluster out (modifica campos)
+- **Unbundle By Name**: cluster in → campos seleccionados
+- Los campos tienen nombre y tipo
+- El cluster es como un struct/record
 
----
+### Simplificaciones para Fase 2
 
-## Historial (Issue #14: While Loop — ARCHIVADO)
+- **Bundle** y **Unbundle** básicos (todos los campos)
+- **Sin** Bundle By Name / Unbundle By Name (Fase 3+)
+- **Sin** clusters anidados (Fase 3+)
+- **Sin** arrays de clusters (Fase 3+)
+- Campos soportados: `'number`, `'boolean`, `'string`
 
-### Análisis del codebase (2026-03-23)
+### Compilación esperada
 
-### Estado base
-- 132 tests, 132 PASS
-- Tipos implementados: number, boolean, string
-- Infraestructura: topological sort, bind-emit, block-registry, wire color por tipo, type guard
+**Bundle:**
+```red
+; Entrada: ctrl_1 = "John", ctrl_2 = 42.0, ctrl_3 = true
+; Config: fields [name 'string  age 'number  active 'boolean]
+bundle_1_result: make object! [name: ctrl_1  age: ctrl_2  active: ctrl_3]
+```
 
-### Qué reutilizar
+**Unbundle:**
+```red
+; Entrada: bundle_1_result (un object!)
+; Config: fields [name 'string  age 'number  active 'boolean]
+unbundle_1_name: bundle_1_result/name
+unbundle_1_age: bundle_1_result/age
+unbundle_1_active: bundle_1_result/active
+```
 
-| Componente | Reutilizable | Notas |
-|-----------|-------------|-------|
-| `make-node` | Sí | Nodos internos son nodos normales |
-| `make-wire` | Sí | Wires internos misma estructura |
-| `topological-sort` | Sí | Aplicar al sub-diagrama |
-| `bind-emit` + `build-bindings` | Sí | Nodos internos compilan igual |
-| `render-bd` nodos/wires | Reutilizar lógica | Para nodos/wires internos |
-| `hit-node/hit-port/hit-wire` | Modelo | Replicar para internos |
-| `serialize-diagram` | Extender | Sección structures |
-| `format-qvi` | Extender | Formatear structures |
+### Renderizado esperado
 
-### Qué es completamente nuevo
+Bundle/Unbundle son nodos normales (no contenedores como while-loop).
+La diferencia: altura variable según número de campos.
 
-1. Concepto de estructura contenedora (rectángulo con sub-diagrama)
-2. Terminales de borde (condición, iteración)
-3. Drag compuesto (mover estructura + internos)
-4. Resize (dimensiones editables)
-5. Compilación jerárquica (sort principal + sub-sort)
-6. Variable de iteración _i (pseudo-nodo)
-7. [14b] Shift registers (terminales pareados izq/der)
-8. [14b] Wires cruzando bordes
+```
+┌─ Bundle ──────┐        ┌─ Unbundle ────┐
+│ ● name     ●──│        │──● cluster  ● name   │
+│ ● age         │        │             ● age     │
+│ ● active      │        │             ● active  │
+│         result │        │                       │
+└────────────────┘        └───────────────────────┘
+```
 
-### Coordenadas: absoluto en memoria, relativo al serializar
-
-- En memoria: nodos internos con coords absolutas → mismas funciones de render
-- Mover estructura: desplazar todos los nodos por delta
-- Serializar: restar x/y de estructura → coords relativas
-- Cargar: sumar x/y → coords absolutas
-- Clamp: nodos no salen del rectángulo (margen 20px)
-
-### Compilación: `until [...]`
-
-LabVIEW While Loop = ejecuta al menos una vez, para cuando condición = true.
-Red `until [body]` = ejecuta body hasta que retorne true. Encaje perfecto.
-
-### Topological sort con structures
-
-Structure con SRs tiene dependencias externas:
-- Wires a SR-left = entradas (nodos fuente deben compilarse antes)
-- Wires desde SR-right = salidas (structure antes de nodos destino)
-- Structure = nodo virtual en el sort principal
-
-### 6 tipos de wire del loop (14b)
-
-| Wire | Desde → Hasta | Dónde vive |
-|------|--------------|------------|
-| Externo → SR-left | nodo externo → SR | diagram/wires |
-| SR-left → interno | SR → nodo interno | structure/wires |
-| Interno → SR-right | nodo interno → SR | structure/wires |
-| SR-right → externo | SR → nodo externo | diagram/wires |
-| Iteración → interno | i → nodo interno | structure/wires |
-| Interno → condición | nodo → cond | structure/cond-wire |
+Puerto cluster = marrón. Puertos de campo = color según tipo del campo.

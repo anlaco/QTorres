@@ -4,7 +4,7 @@ do %../src/graph/blocks.red
 
 suite "blocks — registro"
 
-assert "registra 34 bloques (26 anteriores + 7 array + 1 case-structure)" (34 = length? block-registry)
+assert "registra 36 bloques (34 anteriores + bundle + unbundle)" (36 = length? block-registry)
 assert "const está en el registro"     (not none? find-block 'const)
 assert "add está en el registro"       (not none? find-block 'add)
 assert "find-block devuelve none para bloques inexistentes" (none? find-block 'nonexistent)
@@ -111,3 +111,30 @@ suite "blocks — string: emit"
 assert "concat emit es [result: rejoin [a b]]"             ([result: rejoin [a b]]        = b-cat/emit)
 assert "str-length emit es [result: to-float length? a]"   ([result: to-float length? a]  = b-len/emit)
 assert "to-string emit es [result: form a]"                ([result: form a]              = b-ts/emit)
+
+suite "blocks — cluster: registro"
+
+assert "registra 36 bloques (34 anteriores + bundle + unbundle)" (36 = length? block-registry)
+assert "bundle está en el registro"   (not none? find-block 'bundle)
+assert "unbundle está en el registro" (not none? find-block 'unbundle)
+
+b-bundle:   find-block 'bundle
+b-unbundle: find-block 'unbundle
+
+assert "bundle categoría es cluster"   ('cluster = b-bundle/category)
+assert "unbundle categoría es cluster" ('cluster = b-unbundle/category)
+
+suite "blocks — cluster: puertos fijos"
+
+bundle-out1:   first b-bundle/outputs
+unbundle-in1:  first b-unbundle/inputs
+
+assert "bundle no tiene entradas fijas"              (0 = length? b-bundle/inputs)
+assert "bundle tiene 1 salida fija (result)"         (1 = length? b-bundle/outputs)
+assert "bundle salida es tipo cluster"               ('cluster = bundle-out1/type)
+assert "bundle salida se llama result"               ('result  = bundle-out1/name)
+
+assert "unbundle tiene 1 entrada fija (cluster-in)"  (1 = length? b-unbundle/inputs)
+assert "unbundle no tiene salidas fijas"             (0 = length? b-unbundle/outputs)
+assert "unbundle entrada es tipo cluster"            ('cluster = unbundle-in1/type)
+assert "unbundle entrada se llama cluster-in"        ('cluster-in = unbundle-in1/name)

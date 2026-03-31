@@ -151,6 +151,57 @@ Cómo se traduce el grafo visual dataflow a ejecución real.
 
 ---
 
+## [P5] Estrategia de testing profesional
+
+**Estado:** PENDIENTE
+
+QTorres se convertirá en un producto industrial desplegado en sistemas educativos y empresas. La estrategia de testing actual (423 tests headless + QA manual) es insuficiente para un producto de ese nivel.
+
+### Estado actual
+
+| Capa | Cobertura | Herramienta |
+|------|-----------|-------------|
+| Modelo (model.red) | Buena | tests unitarios headless |
+| Bloques (blocks.red) | Buena | tests unitarios headless |
+| Compilador (compiler.red) | Buena | tests unitarios + round-trip |
+| Serialización (file-io.red) | Media | round-trip en tests |
+| UI canvas (canvas.red) | **Nula** | solo QA manual |
+| UI panel (panel.red) | **Nula** | solo QA manual |
+| Integración end-to-end | **Baja** | ejemplos headless |
+
+### Necesidades a resolver
+
+1. **Tests de UI automatizados** — Red/View no tiene Selenium/Playwright. Opciones:
+   - A) Framework propio sobre Red/View (simular eventos programáticamente)
+   - B) Herramienta externa con image recognition (Sikuli, PyAutoGUI)
+   - C) Arquitectura testable: separar lógica de rendering para testear sin GUI
+   - **Recomendación: Opción C** — refactorizar para que la lógica de hit-test, CRUD y estado sea testeable sin GUI. El rendering puro queda como capa fina no testeable.
+
+2. **Tests de integración** — pipelines completos (crear nodos → conectar → compilar → ejecutar → verificar output) ejecutables headless, sin GUI.
+
+3. **Tests de regresión visual** — capturar screenshots de referencia y comparar tras cambios. Útil para detectar regresiones de rendering.
+
+4. **Cobertura por módulo** — métricas de qué porcentaje de funciones tiene tests.
+
+5. **Tests de rendimiento** — diagramas con 50+ nodos, 100+ wires. Medir tiempos de render, compilación y serialización.
+
+6. **CI/CD robusto** — los tests de UI deben correr en CI, no solo en local.
+
+### Plan de mejora (NO ejecutar ahora)
+
+- **Corto plazo (Fase 2-3):** Ampliar tests headless, checklist QA manual documentado
+- **Medio plazo (Fase 3-4):** Refactorizar canvas.red/panel.red para Opción C, tests de integración
+- **Largo plazo (Fase 4+):** Tests de regresión visual, tests de rendimiento, CI completo
+
+### Módulos afectados
+
+- `tests/` — todos los ficheros de tests
+- `src/ui/diagram/canvas.red` — refactorizar para testabilidad
+- `src/ui/panel/panel.red` — refactorizar para testabilidad
+- `.github/workflows/` — CI para tests de UI
+
+---
+
 ## Orden de resolución sugerido
 
 ```

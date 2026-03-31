@@ -1,215 +1,291 @@
-# Task Plan — Issue #12: Cluster
+# Plan — QA Fix Sprint
 
-## Meta
-| Campo | Valor |
-|-------|-------|
-| Issue | #12 — Cluster — wire marrón y editor de campos |
-| Inicio | 2026-03-29 |
-| Prerequisito | #16 ✅ (Case Structure mergeado) |
-| Tests base | 347/347 PASS (pendiente verificar) |
-| Estrategia | Entrega única: bundle/unbundle con puertos dinámicos |
+## Contexto
 
-## Goal
-Implementar Cluster como tipo de dato que agrupa valores de tipos distintos (equivalente a struct).
-El usuario crea un bundle con N campos, los conecta con wires, y el compilador genera `make object! [...]`.
+Sesión QA ejecutada 2026-03-30 (resultados en `qa-session-2026-03-30.md`). 33 bugs detectados, 13 confirmados como reales. Este plan cubre los fixes ordenados por impacto y riesgo.
+
+**Reglas:** Todo en Red-Lang. No crear módulos nuevos. Ejecutar `red-cli tests/run-all.red` tras cada cambio.
 
 ---
 
-## Criterios de aceptación (del Issue)
-- [ ] Wire cluster en marrón
-- [ ] Bundle/Unbundle en compilador
-- [ ] Editor visual de campos del cluster
-- [ ] Cluster en Front Panel como grupo
+## Fix 1 — QA-018: Dos wires al mismo puerto de entrada (CRÍTICO)
 
----
+**Problema:** No hay validación que impida conectar dos wires al mismo puerto de entrada. Viola visual-spec 5.2.
 
-## Phase 0 — Modelo y registro de bloques
-**Estado:** complete ✅
-**Módulos:** model.red, blocks.red
+**Fichero:** `src/ui/diagram/canvas.red`
 
-### Diseño
-- `bundle` y `unbundle` se registran en blocks.red como bloques de categoría `'cluster`
-- Puertos dinámicos: no se definen en block-def, se generan desde `node/config/fields`
-- Config: `[fields [campo1 'tipo1 campo2 'tipo2 ...]]`
-- Helpers en model.red: `cluster-fields node`, `cluster-in-ports node`, `cluster-out-ports node`
+**Líneas a modificar:** 1904, 2359 (y potencialmente 1966)
 
-### Tasks
-- [x] 0.1 Registrar `'bundle` en blocks.red (categoría 'cluster, sin puertos fijos, emit vacío)
-- [x] 0.2 Registrar `'unbundle` en blocks.red (categoría 'cluster, sin puertos fijos, emit vacío)
-- [x] 0.3 Helper `cluster-fields` en model.red — extrae `[name 'type ...]` del config
-- [x] 0.4 Helper `cluster-in-ports` en model.red — bundle: devuelve field names; otros: []
-- [x] 0.5 Helper `cluster-out-ports` en model.red — unbundle: devuelve field names; otros: []
-- [x] 0.5b Helper `cluster-field-type` en model.red — tipo de un campo concreto
-- [x] 0.6 `gen-name 'bundle` → "bundle_1", `gen-name 'unbundle` → "unbundle_1"
-- [x] 0.7 Tests: 34 tests nuevos (381/381 PASS)
-
----
-
-## Phase 1 — Wire marrón y constantes visuales
-**Estado:** complete ✅
-**Módulos:** canvas.red
-
-### Tasks
-- [x] 1.1 Constante `col-wire-cluster: 139.69.19` (marrón)
-- [x] 1.2 Actualizar `wire-data-color` para devolver `col-wire-cluster` cuando `data-type = 'cluster`
-- [x] 1.3 Actualizar `block-color` — categoría 'cluster usa col-wire-cluster (marrón oscuro)
-
----
-
-## Phase 2 — Renderizado de bundle/unbundle
-**Estado:** complete ✅
-**Módulos:** canvas.red
-
-### Diseño visual
-Bundle y unbundle son nodos normales con altura variable según número de campos.
-Cada puerto de campo tiene el color de su tipo (naranja=number, verde=bool, rosa=string).
-El puerto cluster (result en bundle, cluster-in en unbundle) es marrón.
-
-### Tasks
-- [x] 2.1 `in-ports`/`out-ports` cluster-aware (bundle→campos dinámicos, unbundle→campos dinámicos)
-- [x] 2.2 `port-out-type`/`port-in-type` cluster-aware (delega a cluster-field-type)
-- [x] 2.3 `node-height` helper — altura variable: max(block-height, 12+N*20+10)
-- [x] 2.4 `render-cluster-node` — cuerpo marrón, puertos coloreados por tipo de campo
-- [x] 2.5 `render-node-list` delega a render-cluster-node con `continue` para bundle/unbundle
-
----
-
-## Phase 3 — Hit-testing e interacción
-**Estado:** complete ✅
-**Módulos:** canvas.red
-
-### Tasks
-- [x] 3.1 `hit-node` usa `node-height` — bundle/unbundle clickeables en toda su altura
-- [x] 3.2 `hit-port` ya funciona — usa `in-ports`/`out-ports` que son cluster-aware
-- [x] 3.3 Wiring type-check automático — `port-out-type`/`port-in-type` son cluster-aware
-- [x] 3.4 `apply-cluster-fields` + `parse-cluster-fields-text` — helpers de edición
-- [x] 3.5 `open-cluster-edit-dialog` — diálogo área de texto (nombre:tipo por línea)
-- [x] 3.6 `on-dbl-click` dispatch — bundle/unbundle abren cluster dialog (nodo normal + interno)
-- [x] 3.7 Paleta — botones "Bundle" y "Unbundle" en sección "Cluster:"
-- [x] 3.8 Delete — ya funciona (bundle/unbundle son nodos normales)
-
----
-
-## Phase 4 — Compilador
-**Estado:** complete ✅
-**Módulos:** compiler.red
-
-### Generación de código
-
-**Bundle** (N inputs → 1 cluster output):
+**Patrón a seguir:** Línea 2156-2158 (for-loop count) ya hace esto correctamente:
 ```red
-bundle_1_result: make object! [
-    name: ctrl_1_value
-    voltage: ctrl_2_value
-    active: ctrl_3_value
+remove-each _w model/wires [
+    all [_w/to-node = _fst/id  _w/to-port = 'count]
 ]
 ```
 
-**Unbundle** (1 cluster input → N outputs):
+**Implementación:**
+1. Crear una función helper (o inline) antes de cada `append wire-list make-wire`:
 ```red
-unbundle_1_name: bundle_1_result/name
-unbundle_1_voltage: bundle_1_result/voltage
-unbundle_1_active: bundle_1_result/active
-```
-
-### Tasks
-- [x] 4.1 `emit-bundle` — genera `bundle_1_result: make object! [fn: var ...]` con fields dinámicos
-- [x] 4.2 `emit-unbundle` — genera `unbundle_1_fn: cluster_var/fn` por cada campo (path!)
-- [x] 4.3 Integrar en `compile-body` — case bundle/unbundle antes del flujo estándar
-- [x] 4.4 Integrar en `compile-diagram` run-body — misma bifurcación
-- [x] 4.5 Topological sort: bundle/unbundle son nodos normales ✓ (sin cambios)
-- [x] 4.6 Tests: emit-bundle, emit-unbundle, pipeline completo bundle→unbundle ejecutado con do
-- [x] Tests: 399/399 PASS (+18 tests)
-
----
-
-## Phase 5 — Front Panel
-**Estado:** complete ✅
-**Módulos:** panel.red
-
-### Diseño
-Cluster en FP se muestra como grupo de controles/indicadores agrupados visualmente.
-- Control cluster = grupo editable (cada campo es un sub-control según su tipo)
-- Indicator cluster = grupo read-only (cada campo es un sub-indicator)
-
-### Tasks
-- [x] 5.1 Tipo 'cluster en `make-fp-item` — campo `config` + data-type 'cluster
-- [x] 5.2 Renderizar cluster control en panel como grupo con borde marrón
-- [x] 5.3 Renderizar campos internos según tipo (texto "campo: valor" por línea)
-- [x] 5.4 `compile-panel` para cluster — un widget por campo (field/check/text)
-- [x] 5.5 Diálogo edición valor default del cluster (área de texto campo:valor)
-
----
-
-## Phase 6 — Serialización
-**Estado:** complete ✅
-**Módulos:** file-io.red
-
-### Formato qvi-diagram
-```red
-block-diagram: [
-    nodes: [
-        node [id: 5  type: 'bundle  name: "bundle_1"  label: [text: "Bundle"]
-              x: 200  y: 100
-              config: [fields [name 'string  voltage 'number  active 'boolean]]]
-        node [id: 6  type: 'unbundle  name: "unbundle_1"  label: [text: "Unbundle"]
-              x: 400  y: 100
-              config: [fields [name 'string  voltage 'number  active 'boolean]]]
-    ]
-    wires: [
-        wire [from: 5  port: 'result  to: 6  port: 'cluster]
-    ]
+; Antes de crear wire, eliminar wire previo al mismo puerto de entrada
+remove-each _w wire-list [
+    all [_w/to-node = target-node-id  _w/to-port = target-port-name]
 ]
+```
+2. Aplicar en las 3 ubicaciones donde se crea un wire a un puerto de entrada sin check:
+   - **Línea ~1904**: wire a nodo interno de estructura — `wire-list` es `st/wires`
+   - **Línea ~1966**: wire externo a SR-left — `model/wires`
+   - **Línea ~2359**: wire a nodo normal — `wire-list` es `model/wires` o `st/wires`
 
-front-panel: [
-    control   [id: 1  type: 'cluster  name: "ctrl_1"  label: [text: "Datos"]
-               config: [fields [name 'string  voltage 'number  active 'boolean]]
-               default: [name: ""  voltage: 0.0  active: false]]
-    indicator [id: 2  type: 'cluster  name: "ind_1"   label: [text: "Resultado"]
-               config: [fields [name 'string  voltage 'number  active 'boolean]]]
+**Notas:** Verificar cuál es el `wire-list` correcto en cada caso (puede ser `model/wires` para wires del diagrama principal o `st/wires` para wires internos de estructuras).
+
+**Test manual:** Crear dos const, un add. Conectar const_1→add/a. Luego conectar const_2→add/a. Solo debe quedar el segundo wire.
+
+---
+
+## Fix 2 — QA-024: Label compartida entre controles numéricos (CRÍTICO)
+
+**Problema:** Dos causas:
+1. `fp-default-label` retorna strings literales (referencia compartida en Red)
+2. `open-edit-dialog` tiene campo `flabel` pero nunca lo asigna a `item/label/text`
+
+**Fichero:** `src/ui/panel/panel.red`
+
+**Fix 2a — Copiar string en `fp-default-label` (línea 64-75):**
+```red
+; ANTES (referencia compartida):
+true ["Numeric"]
+
+; DESPUÉS (copia):
+true [copy "Numeric"]
+```
+Añadir `copy` a CADA rama del `case` en `fp-default-label`. Todas retornan strings literales que hay que copiar.
+
+**Fix 2b — Asignar label en `open-edit-dialog` (línea 592-597):**
+Dentro del botón OK, ANTES de `unview`, añadir:
+```red
+if all [edit-dialog-item/label  object? edit-dialog-item/label] [
+    edit-dialog-item/label/text: copy flabel/text
 ]
 ```
 
-### Tasks
-- [x] 6.1 `serialize-diagram`: config/fields ya incluido por `serialize-nodes` (infraestructura existente)
-- [x] 6.2 `format-qvi`: nodes con config se formatean via `mold node-block` (sin cambios)
-- [x] 6.3 `load-vi`: `make-node` ya restaura config desde spec (sin cambios)
-- [x] 6.4 FP: hecho en Phase 5 — `save/load-panel-to/from-diagram` con config
-- [x] 6.5 Tests round-trip: serialize-nodes→load-node-list, save/load-panel (24 tests nuevos → 423/423)
+**Test manual:** Crear 2 Num Ctrl en FP. Dbl-click en uno, cambiar label a "Voltaje". Verificar que el otro sigue mostrando "Numeric".
 
 ---
 
-## Phase 7 — Tests y ejemplo
-**Estado:** complete ✅
-**Módulos:** tests/, examples/
+## Fix 3 — QA-029: Valores por defecto no se guardan
 
-### Tasks
-- [x] 7.1 Tests modelo: cluster-fields, cluster-in-ports, cluster-out-ports (Phase 0)
-- [x] 7.2 Tests bloques: bundle/unbundle registrados correctamente (Phase 0)
-- [x] 7.3 Tests compilador: bundle → make object! + unbundle → path access (Phase 4)
-- [x] 7.4 Tests compilador: bundle → wire → unbundle (pipeline completo) (Phase 4)
-- [x] 7.5 Tests file-io: round-trip con cluster (Phase 6)
-- [x] 7.6 `examples/cluster-basico.qvi` — bundle 3 campos (string+number+boolean) → unbundle → mostrar
-- [x] 7.7 Verificado headless: `nombre: sensor_A  voltaje: 12.5  activo: true` ✓
+**Problema:** `save-panel-to-diagram` guarda `item/default` en vez de `item/value`.
 
----
+**Fichero:** `src/ui/panel/panel.red`
 
-## Riesgos
+**Línea 896:**
+```red
+; ANTES:
+either block? item/default [append/only spec copy item/default] [append spec item/default]
 
-| Riesgo | Impacto | Mitigación |
-|--------|---------|------------|
-| Puertos dinámicos = patrón nuevo | Alto | Helpers centralizados en model.red, no dispersar lógica |
-| canvas.red ya tiene 2383 líneas | Alto | Mínimas adiciones, reutilizar render-node existente |
-| bind-emit asume puertos estáticos | Medio | Bifurcar en compile-body para bundle/unbundle |
-| Editor de campos complejo | Medio | Diálogo simple: lista de fields, botones +/− |
-| FP cluster rendering | Medio | Grupo simple con borde, sin nested scroll |
+; DESPUÉS:
+either block? item/value [append/only spec copy item/value] [append spec item/value]
+```
+
+**Test manual:** Crear Num Ctrl, editar valor a 42. Save. Cerrar. Load. Verificar que muestra 42.
 
 ---
 
-## Exclusiones (futuro)
+## Fix 4 — QA-032: Ejemplo while-loop-basico.qvi corrupto
 
-- **Bundle By Name / Unbundle By Name** — Fase 3+
-- **Clusters anidados** (cluster dentro de cluster)
-- **Array de clusters**
-- **Selector de campos** en unbundle (seleccionar qué campos extraer)
-- **Cluster constante** como bloque (literal en el diagrama)
+**Problema:** `wires: []` vacío dentro del while-loop. El nodo `gt-op` referencia variables `a` y `b` sin definir.
+
+**Fichero:** `examples/while-loop-basico.qvi`
+
+**Solución:** Regenerar el ejemplo. El while-loop básico debería:
+1. Tener un `const` con límite (ej: 10)
+2. Un `gt-op` comparando [i] con el límite
+3. Wire de [i] → gt-op/a
+4. Wire de const → gt-op/b
+5. Wire de gt-op → condición [●]
+
+**Alternativa:** Abrir QTorres, crear el while-loop manualmente con las conexiones correctas, verificar que Run funciona, y guardar como `while-loop-basico.qvi`.
+
+**Verificación:** `./red-cli examples/while-loop-basico.qvi headless` debe ejecutar sin error.
+
+---
+
+## Fix 5 — QA-003/004/005: Puertos de nodos normales sin color por tipo
+
+**Problema:** `render-node-list` (líneas 379-398) usa colores fijos (`col-port-in` azul, `col-port-out` naranja) para TODOS los puertos, sin consultar el tipo de dato.
+
+**Fichero:** `src/ui/diagram/canvas.red`
+
+**Líneas a modificar:** 379-398 en `render-node-list`
+
+**Implementación:** Usar `wire-data-color` con `port-out-type`/`port-in-type` para colorear cada puerto:
+
+```red
+; ANTES (líneas ~380-382) — puertos de entrada:
+append cmds compose [
+    pen col-port-in  fill-pen col-port-in
+    circle (as-pair (node/x - port-radius) in-port-y) (port-radius)
+]
+
+; DESPUÉS:
+p-col: wire-data-color port-in-type node port
+append cmds compose [
+    pen (p-col)  fill-pen (p-col)
+    circle (as-pair (node/x - port-radius) in-port-y) (port-radius)
+]
+```
+
+```red
+; ANTES (líneas ~391-393) — puertos de salida:
+append cmds compose [
+    pen col-port-out  fill-pen col-port-out
+    circle (as-pair (node/x + block-width + port-radius) out-port-y) (port-radius)
+]
+
+; DESPUÉS:
+p-col: wire-data-color port-out-type node port
+append cmds compose [
+    pen (p-col)  fill-pen (p-col)
+    circle (as-pair (node/x + block-width + port-radius) out-port-y) (port-radius)
+]
+```
+
+**Importante:** El `port` aquí es el nombre del puerto en el `foreach`. Verificar que el `foreach` itera sobre nombres de puertos (words) y no sobre objetos.
+
+**Nota sobre `port-in-type`/`port-out-type`:** Estas funciones ya existen (líneas 80-100) y devuelven el tipo correcto consultando `blocks.red`.
+
+**Test manual:** Crear bool-const → verificar puerto verde. Crear str-const → verificar puerto rosa. Crear arr-const → verificar puerto azul/naranja con doble borde.
+
+---
+
+## Fix 6 — QA-013/014: Etiquetas cortadas en While/For Loop
+
+**Problema:** `render-structure` (línea 636) dibuja la label en `by + 6` sin usar `text-dy` que compensa el baseline en Linux/GTK.
+
+**Fichero:** `src/ui/diagram/canvas.red`
+
+**Línea 636:**
+```red
+; ANTES:
+text (as-pair (bx + 8) (by + 6)) (st/label/text)
+
+; DESPUÉS:
+text (as-pair (bx + 8) (by + 6 + text-dy)) (st/label/text)
+```
+
+**Contexto:** `text-dy` está definido en línea 42 como `either system/platform = 'Linux [8] [0]`. Ya se usa en `render-case-structure` (línea 507) pero NO en `render-structure`.
+
+**Test manual:** Crear While Loop y For Loop en Linux. Verificar que las labels "While Loop" y "For Loop" no se cortan por el marco superior.
+
+---
+
+## Fix 7 — QA-015: Layout roto en Case Structure
+
+**Problema:** Símbolos de navegación pegados al borde, número pisa título, botones tapan título.
+
+**Fichero:** `src/ui/diagram/canvas.red`
+
+**Requiere investigación adicional:** Leer `render-case-structure` completa (desde ~línea 490) y ajustar offsets de:
+- Barra de navegación (constantes `case-nav-height`, `case-btn-size`)
+- Posición del título vs botones ◀▶[+][-]
+- Posición del número de frame activo
+
+**Guía:** El fix probablemente es ajustar las constantes de offset y/o reorganizar dónde se dibuja el título respecto a los botones de navegación. Comparar con cómo render-structure posiciona la label de While/For.
+
+---
+
+## Fix 8 — QA-016: Dbl-click en bool-const abre diálogo label
+
+**Problema:** Al hacer doble clic en un `bool-const`, se abre el diálogo de renombrar label. Debería alternar el valor (como hace single-click). La edición de label debería activarse solo con dbl-click en la LABEL, no en el cuerpo del nodo.
+
+**Fichero:** `src/ui/diagram/canvas.red`
+
+**Líneas a modificar:** Handler `on-dbl-click` (~línea 2434-2475)
+
+**Implementación:** Añadir case para `bool-const` en dbl-click:
+```red
+; Dentro del handler de dbl-click para nodo normal:
+if hit-ref/type = 'bool-const [
+    toggle-bool-const hit-ref
+    ; re-render
+    exit
+]
+```
+
+**Nota del usuario:** En el futuro, dbl-click en la LABEL (no en el cuerpo) debería editar la label, y dbl-click en el cuerpo debería hacer la acción del control. Pero eso requiere separar el hit-test de label vs cuerpo, que es un cambio más grande. Por ahora, hacer que dbl-click en bool-const SIEMPRE alterne.
+
+---
+
+## Fix 9 — #48: Bundle/Unbundle vacíos demasiado grandes
+
+**Problema:** Bundle/Unbundle sin campos tienen tamaño visual excesivo.
+
+**Fichero:** `src/ui/diagram/canvas.red`
+
+**Investigar:** La fórmula `node-height` da 50px (igual que nodos normales) para bundle vacío. El problema puede ser en `render-cluster-node` que reserva espacio extra para la zona de puertos aunque esté vacía. Revisar la función completa (~línea 414-470) y comparar la altura renderizada vs `node-height`.
+
+**Posible fix:** Si `render-cluster-node` añade padding extra innecesario para 0 campos, reducirlo. O si la altura de 50 es correcta pero el render ocupa más espacio visualmente, ajustar el rendering.
+
+---
+
+## Fix 10 — QA-023: Cluster Ctrl/Ind no crean nodo en BD
+
+**Problema:** Al crear un Cluster Ctrl o Cluster Ind desde el FP, no se crea el nodo correspondiente en el BD. El progress.md dice "BD sync desactivado para cluster".
+
+**Fichero:** `src/ui/panel/panel.red`
+
+**Investigar:** Buscar en la función que sincroniza FP→BD (probablemente en la paleta del FP) por qué cluster está excluido. El comentario en progress.md dice "bundle/unbundle se añaden manualmente" — pero debería crear al menos un control/indicator en el BD, no un bundle/unbundle.
+
+**Decisión a tomar:** ¿Cluster Ctrl en FP debería crear un nodo `cluster-control` en BD (como hace Num Ctrl → `control`)? Si es así, hay que añadir el caso en la sincronización FP→BD. Consultar con el usuario si quiere este comportamiento.
+
+---
+
+## Fix 11 — QA-001: BD tapa FP a veces
+
+**Problema:** La ventana FP (400x375) se posiciona en offset 960x60. En pantallas < 1360px de ancho, queda parcialmente oculta.
+
+**Fichero:** `src/qtorres.red`
+
+**Líneas relevantes:** 200-207 (ventana FP), 209-226 (ventana BD)
+
+**Posible fix:** Calcular offset del FP dinámicamente basándose en el tamaño de pantalla:
+```red
+fp-offset: as-pair (min 960 (system/view/screens/1/x - 420)) 60
+```
+O reducir el tamaño del BD si la pantalla es pequeña.
+
+**Alternativa minimalista:** Solo asegurar que FP siempre esté visible con `view/no-wait/flags [on-top]` o similar.
+
+---
+
+## Orden de ejecución recomendado
+
+1. **Fix 2** (QA-024 label compartida) — más fácil, 1 fichero, bajo riesgo
+2. **Fix 3** (QA-029 valores no se guardan) — 1 línea
+3. **Fix 1** (QA-018 dos wires) — crítico pero más complejo
+4. **Fix 5** (QA-003/004/005 colores de puertos) — visual, impactante
+5. **Fix 6** (QA-013/014 labels cortadas) — 1 línea + text-dy
+6. **Fix 4** (QA-032 ejemplo corrupto) — regenerar fichero
+7. **Fix 8** (QA-016 bool-const dbl-click) — comportamiento
+8. **Fix 9** (#48 cluster vacío) — investigar primero
+9. **Fix 7** (QA-015 case layout) — investigar primero
+10. **Fix 10** (QA-023 cluster sync) — decisión del usuario
+11. **Fix 11** (QA-001 BD tapa FP) — último, bajo impacto
+
+Tras cada fix: `red-cli tests/run-all.red` → 423/423 PASS
+
+---
+
+## Verificación final
+
+1. Ejecutar los 423 tests automatizados
+2. Re-ejecutar los tests QA fallidos del checklist `qa-session-2026-03-30.md`
+3. Ejecutar todos los ejemplos headless:
+   - `./red-cli examples/suma-basica.qvi headless`
+   - `./red-cli examples/while-loop-basico.qvi headless`
+   - `./red-cli examples/while-loop-suma.qvi headless`
+   - `./red-cli examples/for-loop-basico.qvi headless`
+   - `./red-cli examples/case-numeric.qvi headless`
+   - `./red-cli examples/case-boolean.qvi headless`
+   - `./red-cli examples/cluster-basico.qvi headless`
+4. Abrir QTorres, crear pipeline suma + cluster + while, guardar, cerrar, recargar, Run

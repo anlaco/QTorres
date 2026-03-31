@@ -1,6 +1,6 @@
 # QTorres — Contexto para Claude Code
 
-> Última actualización: 2026-03-27
+> Última actualización: 2026-03-31
 
 ## Reglas absolutas — NUNCA violar
 
@@ -271,6 +271,54 @@ Spec visual: cada tipo implementa su aspecto según `docs/visual-spec.md`.
 - #21 Puerto serie RS-232/RS-485 (Arduino, ESP32)
 - #22 TCP/IP genérico (Modbus TCP, protocolos propios)
 - #23 DAQ analógico (comedi/libcomedi)
+
+## Ollama MCP — Delegación de tareas a modelo local
+
+QTorres tiene un MCP server que conecta con Ollama (modelo local). Ollama tiene cargado automáticamente CLAUDE.md y el skill de Red-Lang como contexto del proyecto.
+
+### Cuándo usar Ollama (herramienta `ollama_delegate`)
+
+**USAR para:**
+- **Generar código Red mecánico** — emit de bloques, funciones simples, boilerplate. Ollama tiene el SKILL.md y genera código idiomático.
+- **Revisar ficheros grandes** — `ollama_review_file` o `ollama_explain_file` lee el fichero server-side sin gastar tokens de Claude. Ideal para canvas.red (2383 líneas).
+- **Verificar convenciones** — "¿este código cumple las reglas del proyecto?"
+- **Tareas repetitivas** — generar tests, formatear datos, transformar estructuras.
+
+**NO USAR para:**
+- **Decisiones de arquitectura** — Ollama no razona bien sobre trade-offs complejos.
+- **Debugging** — necesita ver el contexto completo de ejecución, que no tiene.
+- **Modificar ficheros** — Ollama no puede escribir ficheros, solo genera texto. Claude debe aplicar los cambios.
+- **Tareas que requieren leer múltiples ficheros + razonar sobre relaciones** — Haiku/Sonnet via Agent son mejores.
+
+### Parámetros clave de `ollama_delegate`
+
+| Parámetro | Uso |
+|-----------|-----|
+| `task` | Instrucción clara y específica. Cuanto más precisa, mejor resultado. |
+| `files` | Rutas absolutas de ficheros que Ollama lee server-side (0 tokens para Claude). |
+| `response_format` | `"concise"` (por defecto), `"detailed"`, o `"code_only"` (solo código). |
+| `context` | Contexto adicional que Ollama necesita más allá de CLAUDE.md/SKILL.md. |
+
+### Ejemplo de uso correcto
+
+```
+ollama_delegate(
+  task: "Escribe el block-def para un bloque 'divide' con puertos a, b → out, emit que genere división",
+  response_format: "code_only"
+)
+```
+
+### Configuración
+
+El contexto se define en `.ollama-context.json` en la raíz del proyecto:
+```json
+{
+  "context_files": ["./CLAUDE.md", "./skills/red-lang/SKILL.md"],
+  "system_prompt": "You are a coding assistant for QTorres..."
+}
+```
+
+El MCP server se lanza con la ruta del proyecto como argumento (configurado en `.claude.json`).
 
 ## Comandos útiles
 

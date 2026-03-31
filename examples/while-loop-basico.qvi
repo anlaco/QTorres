@@ -1,7 +1,16 @@
 Red [Title: "while-loop-basico" Needs: 'View]
 
+; Ejemplo: while loop básico — cuenta de 0 a 10
+;
+; Estructura del diagrama:
+;   while_1 (While Loop)
+;     Interno:
+;       limite_1  (const 10.0)   — límite de iteraciones
+;       gt_1      (gt-op)        — i > 10  → detener al superar el límite
+;     Condición: gt_1 (i > limite → true cuando i > 10)
+
 qvi-diagram: [
-    meta: [description: "" version: 1 author: "" tags: []]
+    meta: [description: "While loop básico — cuenta de 0 a 10" version: 1 author: "" tags: [while-loop]]
     icon: []
     block-diagram: [
         nodes: [
@@ -12,28 +21,25 @@ qvi-diagram: [
         while-loop [
             id: 10  name: "while_1"  label: [text: "While Loop" visible: true]
             x: 80  y: 80  w: 340  h: 200
-            condition: [from: 13 port: result]
+            condition: [from: 12 port: result]
             nodes: [
-                    node [
-    id: 11 type: 'const
-    name: "limite_1"
-    label: [text: "" visible: false]
-    x: 40 y: 40
-]
-                    node [
-    id: 12 type: 'gt-op
-    name: "gt_1"
-    label: [text: "" visible: false]
-    x: 150 y: 40
-]
-                    node [
-    id: 13 type: 'bool-const
-    name: "cond_1"
-    label: [text: "" visible: false]
-    x: 200 y: 70
-]
+                node [
+                    id: 11 type: 'const
+                    name: "limite_1"
+                    label: [text: "10" visible: false]
+                    x: 40 y: 40
+                    config: [default 10.0]
+                ]
+                node [
+                    id: 12 type: 'gt-op
+                    name: "gt_1"
+                    label: [text: "" visible: false]
+                    x: 150 y: 40
+                ]
             ]
             wires: [
+                wire [from: -3  from-port: _while_1_i  to: 12  to-port: a]
+                wire [from: 11  from-port: result      to: 12  to-port: b]
             ]
         ]
         ]
@@ -43,8 +49,25 @@ qvi-diagram: [
 ; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
 either empty? system/options/args [
     view layout [
-        button "Run" [_while_1_i: 0 until [limite_1_result: 10.0 gt_1_result: a > b cond_1_result: true _while_1_i: _while_1_i + 1 cond_1_result]]
+        button "Run" [
+            _while_1_i: 0
+            until [
+                limite_1_result: 10.0
+                gt_1_result: _while_1_i > limite_1_result
+                _while_1_i: _while_1_i + 1
+                do-events/no-wait
+                gt_1_result
+            ]
+        ]
     ]
 ][
-    _while_1_i: 0 until [limite_1_result: 10.0 gt_1_result: a > b cond_1_result: true _while_1_i: _while_1_i + 1 cond_1_result]
+    _while_1_i: 0
+    until [
+        limite_1_result: 10.0
+        gt_1_result: _while_1_i > limite_1_result
+        _while_1_i: _while_1_i + 1
+        do-events/no-wait
+        gt_1_result
+    ]
+    print rejoin ["Iteraciones: " _while_1_i]
 ]

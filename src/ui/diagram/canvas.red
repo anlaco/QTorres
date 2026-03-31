@@ -357,20 +357,20 @@ render-node-list: func [
         either all [node/label  object? node/label  node/label/visible] [
             append cmds compose [
                 fill-pen col-text
-                text (as-pair (node/x + 10) (node/y + 10)) (any [node/label/text ""])
-                text (as-pair (node/x + 10) (node/y + 26)) (type-label)
+                text (as-pair (node/x + 10) (node/y + 10 + text-dy)) (any [node/label/text ""])
+                text (as-pair (node/x + 10) (node/y + 26 + text-dy)) (type-label)
             ]
         ][
             either all [node/label  string? node/label] [
                 append cmds compose [
                     fill-pen col-text
-                    text (as-pair (node/x + 10) (node/y + 10)) (node/label)
-                    text (as-pair (node/x + 10) (node/y + 26)) (type-label)
+                    text (as-pair (node/x + 10) (node/y + 10 + text-dy)) (node/label)
+                    text (as-pair (node/x + 10) (node/y + 26 + text-dy)) (type-label)
                 ]
             ][
                 append cmds compose [
                     fill-pen col-text
-                    text (as-pair (node/x + 10) (node/y + 14)) (type-label)
+                    text (as-pair (node/x + 10) (node/y + 14 + text-dy)) (type-label)
                 ]
             ]
         ]
@@ -381,7 +381,7 @@ render-node-list: func [
                 pen col-port-in  fill-pen col-port-in
                 circle (as-pair (node/x - port-radius) in-port-y) (port-radius)
                 fill-pen col-text
-                text (as-pair (node/x - port-radius - 22) (in-port-y - 7)) (form port)
+                text (as-pair (node/x - port-radius - 22) (in-port-y - 7 + text-dy)) (form port)
             ]
             in-port-y: in-port-y + 20
         ]
@@ -392,7 +392,7 @@ render-node-list: func [
                 pen col-port-out  fill-pen col-port-out
                 circle (as-pair (node/x + block-width + port-radius) out-port-y) (port-radius)
                 fill-pen col-text
-                text (as-pair (node/x + block-width + port-radius + 12) (out-port-y - 7)) (form port)
+                text (as-pair (node/x + block-width + port-radius + 12) (out-port-y - 7 + text-dy)) (form port)
             ]
             out-port-y: out-port-y + 20
         ]
@@ -432,7 +432,7 @@ render-cluster-node: func [
     type-label: either node/type = 'bundle ["BUNDLE"] ["UNBUNDLE"]
     append cmds compose [
         fill-pen col-text
-        text (as-pair (node/x + 8) (node/y + 14)) (type-label)
+        text (as-pair (node/x + 8) (node/y + 14 + text-dy)) (type-label)
     ]
 
     ; Puertos de entrada (coloreados por tipo de campo)
@@ -563,7 +563,7 @@ render-case-structure: func [
         text (as-pair (sel-x + 3) (by + nav-h + 3 + text-dy)) "?"
     ]
 
-    ; 8) Handle de resize — esquina inferior-derecha
+    ; 8) Handle de resize — esquina inferior-derecha 10x10
     append cmds compose [
         pen col-struct-border  line-width 1  fill-pen (col-struct-border + 40.40.40)
         box (as-pair (bx2 - 10) (by2 - 10)) (as-pair bx2 by2) 0
@@ -633,7 +633,7 @@ render-structure: func [
     if all [st/label  object? st/label] [
         append cmds compose [
             pen off  fill-pen (col-struct-border)
-            text (as-pair (bx + 8) (by + 6)) (st/label/text)
+            text (as-pair (bx + 8) (by + 6 + text-dy)) (st/label/text)
         ]
     ]
 
@@ -643,14 +643,15 @@ render-structure: func [
         box (as-pair (bx + 8) (by2 - tx - 8))
             (as-pair (bx + 8 + tx) (by2 - 8)) 2
         pen off  fill-pen col-text
-        text (as-pair (bx + 11) (by2 - tx - 5)) "i"
+        text (as-pair (bx + 11) (by2 - tx - 5 + text-dy)) "i"
     ]
 
     ; 4) Terminal condición [●] — círculo verde abajo-derecha (solo while-loop)
+    ; Desplazado a bx2-24, by2-24 para no solapar con el handle de resize (14x14)
     if st/type = 'while-loop [
         append cmds compose [
             pen (col-struct-border)  line-width 1  fill-pen (col-struct-term-cond)
-            circle (as-pair (bx2 - 16) (by2 - 16)) 8
+            circle (as-pair (bx2 - 24) (by2 - 24)) 8
         ]
     ]
 
@@ -661,7 +662,7 @@ render-structure: func [
             box (as-pair (bx + 8) (by + 8))
                 (as-pair (bx + 8 + tx) (by + 8 + tx)) 2
             pen off  fill-pen col-text
-            text (as-pair (bx + 11) (by + 11)) "N"
+            text (as-pair (bx + 11) (by + 11 + text-dy)) "N"
         ]
     ]
 
@@ -691,13 +692,13 @@ render-structure: func [
             unless _sr-has-ext-wire [
                 append cmds compose [
                     pen off  fill-pen (col-struct-border)
-                    text (as-pair (bx + 10) (by + y-off - 7)) (form sr/init-value)
+                    text (as-pair (bx + 10) (by + y-off - 7 + text-dy)) (form sr/init-value)
                 ]
             ]
         ]
     ]
 
-    ; 6) Handle de resize — cuadrado 8x8 esquina inferior-derecha
+    ; 6) Handle de resize — cuadrado 10x10 esquina inferior-derecha
     append cmds compose [
         pen col-struct-border  line-width 1  fill-pen (col-struct-border + 40.40.40)
         box (as-pair (bx2 - 10) (by2 - 10)) (as-pair bx2 by2) 0
@@ -803,7 +804,7 @@ render-structure: func [
             foreach nd st/nodes [if nd/id = st/cond-wire/from [cond-src: nd]]
             if cond-src [
                 src-xy: port-xy cond-src st/cond-wire/port 'out
-                dst-xy: as-pair (bx2 - 16) (by2 - 16)
+                dst-xy: as-pair (bx2 - 24) (by2 - 24)
                 mid-cx: to-integer (src-xy/x + dst-xy/x) / 2
                 append cmds compose [
                     pen (col-wire-bool)  line-width 2
@@ -1045,11 +1046,11 @@ hit-structure-terminal: func [model mouse-x mouse-y /local st bx by by2 bx2 tx t
                 mouse-y >= (by2 - tx - 8 - tol)  mouse-y <= (by2 - 8 + tol)
             ] [return reduce [st 'iter]]
         ]
-        ; Terminal condición [●]: círculo en (bx2-16, by2-16) radio 8 — solo while-loop
+        ; Terminal condición [●]: círculo en (bx2-24, by2-24) radio 8 — solo while-loop
         if st/type = 'while-loop [
             if all [
-                (absolute (mouse-x - (bx2 - 16))) <= (8 + tol)
-                (absolute (mouse-y - (by2 - 16))) <= (8 + tol)
+                (absolute (mouse-x - (bx2 - 24))) <= (8 + tol)
+                (absolute (mouse-y - (by2 - 24))) <= (8 + tol)
             ] [return reduce [st 'cond]]
         ]
         ; Terminal count [N]: cuadrado (bx+8, by+8) → (bx+8+tx, by+8+tx) — solo for-loop
@@ -1069,8 +1070,8 @@ hit-structure-resize: func [model mouse-x mouse-y /local st bx2 by2] [
     foreach st model/structures [
         bx2: st/x + st/w  by2: st/y + st/h
         if all [
-            mouse-x >= (bx2 - 12)  mouse-x <= (bx2 + 2)
-            mouse-y >= (by2 - 12)  mouse-y <= (by2 + 2)
+            mouse-x >= (bx2 - 16)  mouse-x <= (bx2 + 2)
+            mouse-y >= (by2 - 16)  mouse-y <= (by2 + 2)
         ] [return st]
     ]
     none
@@ -2103,7 +2104,19 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     return none
                 ]
 
-                ; 4) Terminal de estructura (condición/iteración)?
+                ; 4) Handle de resize de estructura? — antes que terminal para evitar conflicto
+                ;    con el círculo condición del while-loop en la esquina inferior-derecha
+                hit-result: hit-structure-resize model mouse-x mouse-y
+                if hit-result [
+                    model/selected-struct: hit-result
+                    model/resize-struct: hit-result
+                    model/selected-node: none
+                    model/selected-wire: none
+                    face/draw: render-bd model
+                    return none
+                ]
+
+                ; 5) Terminal de estructura (condición/iteración)?
                 hit-result: hit-structure-terminal model mouse-x mouse-y
                 if hit-result [
                     ; Terminal [i]: si no hay wire activo, iniciar wire desde iteración
@@ -2175,17 +2188,6 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none  model/wire-src-sr: none
                     model/broken-wire: none
                     model/selected-struct: hit-result/1
-                    model/selected-node: none
-                    model/selected-wire: none
-                    face/draw: render-bd model
-                    return none
-                ]
-
-                ; 4) Handle de resize de estructura?
-                hit-result: hit-structure-resize model mouse-x mouse-y
-                if hit-result [
-                    model/selected-struct: hit-result
-                    model/resize-struct: hit-result
                     model/selected-node: none
                     model/selected-wire: none
                     face/draw: render-bd model

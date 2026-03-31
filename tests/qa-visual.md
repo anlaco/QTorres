@@ -6,7 +6,7 @@
 > **Cómo usar:** Abrir QTorres (`red-view src/qtorres.red`), seguir los pasos en orden.
 > Marcar cada test como PASS/FAIL. Anotar bugs con descripción y screenshot si es posible.
 >
-> **Última ejecución:** (pendiente)
+> **Última ejecución:** 2026-03-30 (en curso)
 
 ---
 

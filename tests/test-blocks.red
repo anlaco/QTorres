@@ -4,7 +4,7 @@ do %../src/graph/blocks.red
 
 suite "blocks — registro"
 
-assert "registra 36 bloques (34 anteriores + bundle + unbundle)" (36 = length? block-registry)
+assert "registra 38 bloques (34 anteriores + bundle + unbundle + waveform-chart + waveform-graph)" (38 = length? block-registry)
 assert "const está en el registro"     (not none? find-block 'const)
 assert "add está en el registro"       (not none? find-block 'add)
 assert "find-block devuelve none para bloques inexistentes" (none? find-block 'nonexistent)
@@ -114,7 +114,7 @@ assert "to-string emit es [result: form a]"                ([result: form a]    
 
 suite "blocks — cluster: registro"
 
-assert "registra 36 bloques (34 anteriores + bundle + unbundle)" (36 = length? block-registry)
+assert "registra 38 bloques (34 anteriores + bundle + unbundle + waveform-chart + waveform-graph)" (38 = length? block-registry)
 assert "bundle está en el registro"   (not none? find-block 'bundle)
 assert "unbundle está en el registro" (not none? find-block 'unbundle)
 
@@ -138,3 +138,57 @@ assert "unbundle tiene 1 entrada fija (cluster-in)"  (1 = length? b-unbundle/inp
 assert "unbundle no tiene salidas fijas"             (0 = length? b-unbundle/outputs)
 assert "unbundle entrada es tipo cluster"            ('cluster = unbundle-in1/type)
 assert "unbundle entrada se llama cluster-in"        ('cluster-in = unbundle-in1/name)
+
+suite "blocks — waveform: registro"
+
+assert "waveform-chart está en el registro"   (not none? find-block 'waveform-chart)
+assert "waveform-graph está en el registro"  (not none? find-block 'waveform-graph)
+
+b-chart: find-block 'waveform-chart
+b-graph: find-block 'waveform-graph
+
+assert "waveform-chart categoría es output"  ('output = b-chart/category)
+assert "waveform-graph categoría es output"   ('output = b-graph/category)
+
+suite "blocks — waveform: puertos"
+
+chart-in1: first b-chart/inputs
+graph-in1:  first b-graph/inputs
+
+assert "waveform-chart tiene 1 entrada"     (1 = length? b-chart/inputs)
+assert "waveform-chart tiene 0 salidas"     (0 = length? b-chart/outputs)
+assert "waveform-chart input es tipo number" ('number = chart-in1/type)
+assert "waveform-chart input se llama value" ('value  = chart-in1/name)
+
+assert "waveform-graph tiene 1 entrada"     (1 = length? b-graph/inputs)
+assert "waveform-graph tiene 0 salidas"      (0 = length? b-graph/outputs)
+assert "waveform-graph input es tipo array"  ('array  = graph-in1/type)
+assert "waveform-graph input se llama array" ('array   = graph-in1/name)
+
+suite "blocks — waveform: emit"
+
+assert "waveform-chart no tiene emit (se maneja en compile-panel)" (none? b-chart/emit)
+assert "waveform-graph no tiene emit (se maneja en compile-panel)" (none? b-graph/emit)
+
+suite "blocks — waveform: FP item"
+
+; Cargar panel.red para make-fp-item
+do %../src/ui/panel/panel.red
+
+wc: make-fp-item [id: 100  type: 'waveform-chart  name: "chart_1"  label: [text: "Señal" visible: true]  offset: 50x50]
+wg: make-fp-item [id: 101  type: 'waveform-graph  name: "graph_1"  label: [text: "Array" visible: true]  offset: 50x250]
+
+assert "waveform-chart type correcto"      ('waveform-chart = wc/type)
+assert "waveform-chart data-type es waveform" ('waveform = wc/data-type)
+assert "waveform-chart name correcto"       ("chart_1" = wc/name)
+assert "waveform-chart label/text correcto" ("Señal" = wc/label/text)
+assert "waveform-chart value es block"      (block? wc/value)
+assert "waveform-chart value vacío inicial" (empty? wc/value)
+assert "waveform-chart config es block"     (block? any [wc/config copy []])
+
+assert "waveform-graph type correcto"       ('waveform-graph = wg/type)
+assert "waveform-graph data-type es waveform" ('waveform = wg/data-type)
+assert "waveform-graph name correcto"       ("graph_1" = wg/name)
+assert "waveform-graph label/text correcto" ("Array" = wg/label/text)
+assert "waveform-graph value es block"      (block? wg/value)
+assert "waveform-graph value vacío inicial"  (empty? wg/value)

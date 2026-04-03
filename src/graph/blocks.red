@@ -338,4 +338,25 @@ block 'unbundle 'cluster [
     emit []  ; generado dinámicamente por emit-unbundle en compiler.red
 ]
 
+; ── Waveform ─────────────────────────────────────────────────────────────────
+; Waveform Chart: acumula valores en buffer circular (history)
+; Muestra señal estilo osciloscopio, actualización punto a punto
+
+block 'waveform-chart 'output [
+    in value 'number
+    ; Sin puertos de salida — es un indicador
+    ; Config: history-size (default 1024 puntos)
+    ; El emit se maneja en compile-panel porque actualiza el buffer del chart
+    ; en runtime, no genera código Red estático
+]
+
+; Waveform Graph: muestra array completo de una vez
+; Sin buffer interno, actualización batch
+
+block 'waveform-graph 'output [
+    in array 'array
+    ; Sin puertos de salida — es un indicador
+    ; El emit se maneja en compile-panel
+]
+
 #include %../compiler/compiler.red

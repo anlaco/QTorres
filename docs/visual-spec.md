@@ -235,8 +235,81 @@ especificado. Se documentarán conforme sea necesario:
 
 ---
 
+## 8. Waveform Chart y Graph
+
+### 8.1 Diferencia fundamental
+
+| Aspecto | Waveform Chart | Waveform Graph |
+|---------|----------------|----------------|
+| **Datos** | Buffer circular (history) | Sin buffer |
+| **Actualización** | Incremental (punto a punto) | Batch (reemplaza todo) |
+| **Input** | Acepta scalar O array | Requiere array |
+| **Uso** | Real-time, loops | Post-análisis |
+
+### 8.2 Especificación visual
+
+**Dimensiones:**
+- Área de trazado: 200x160 px
+- Fondo negro (estilo osciloscopio)
+- Grid gris tenue (opcional)
+- Línea de señal verde (RGB: 0.200.0)
+
+**Waveform Chart:**
+- Label "CHART" en esquina superior izquierda
+- Número de puntos (n=X) en esquina superior derecha
+- Buffer configurable (default: 1024 puntos)
+- Escala automática en Y
+
+**Waveform Graph:**
+- Label "GRAPH" en esquina superior izquierda
+- Número de puntos (n=X) en esquina superior derecha
+- Muestra array completo
+- Escala automática en Y
+
+### 8.3 En el Front Panel
+
+**Renderizado (Draw dialect):**
+```
+┌─────────────────────────────────┐
+│ CHART                    n=1024 │
+│  ┌───────────────────────────┐  │
+│  │ ░░░░░░░░░░░░░░░░░░░░░░░░░ │  │  <- grid gris
+│  │ ░░░░░░░░░░░░░░░░░░░░░░░░░ │  │
+│  │ ░░░░░░░░░░░░░░░░░░░░░░░░░ │  │
+│  │ ░░░░▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░ │  │  <- señal verde
+│  │ ░░░░░░░░░░░░░░░░░░░░░░░░░ │  │
+│  └───────────────────────────┘  │
+└─────────────────────────────────┘
+```
+
+### 8.4 En el Block Diagram
+
+**Bloques:**
+- `waveform-chart`: 1 entrada (number), sin salidas
+- `waveform-graph`: 1 entrada (array), sin salidas
+
+**Wire colors:**
+- Chart input: naranja (numérico escalar)
+- Graph input: naranja con borde doble (array)
+
+### 8.5 Compilación
+
+El código generado usa `base` faces con Draw:
+
+```red
+; Waveform Chart
+chart_1: base 200x160 draw []
+
+; En el botón Run (dentro del loop):
+append chart_1/draw/values new-value
+chart_1/draw: render-waveform chart_1/draw/values
+```
+
+---
+
 ## Historial
 
 | Fecha      | Cambio |
 |------------|--------|
+| 2026-04-03 | Añadida sección 8: Waveform Chart y Graph |
 | 2026-03-22 | Creación inicial — reunión de planificación |

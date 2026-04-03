@@ -1121,7 +1121,38 @@ append/only block to-path [do-events no-wait]
 ```
 This applies to all `path!` and `lit-path!` values. Always use `append/only` when adding paths to blocks.
 
-### 13. Infix ops steal function arguments — ALWAYS parenthesize
+### 13. min-of / max-of / minimum-of / maximum-of NO existen en Red 0.6.6
+```red
+; WRONG — estas funciones no existen en Red 0.6.6
+min-y: min-of values
+max-y: maximum-of values
+
+; CORRECT — loop manual
+min-y: first values
+foreach v values [if v < min-y [min-y: v]]
+max-y: first values
+foreach v values [if v > max-y [max-y: v]]
+```
+`min` y `max` solo aceptan DOS valores escalares (`min 3 5`), no series. Para min/max de una serie, usar loop manual.
+
+### 14. compose con block variable produce bloque anidado, no splice
+```red
+pts: [10x20 30x40 50x60]
+
+; WRONG — compose inserta pts como bloque anidado
+compose [line (pts)]
+; => [line [10x20 30x40 50x60]]   ← line recibe un block!, no pairs
+
+; CORRECT — construir el comando con append
+line-cmd: copy [line]
+append line-cmd pts
+append cmds line-cmd
+; => [... line 10x20 30x40 50x60]  ← correcto para Draw
+```
+Esto afecta a todos los comandos Draw que aceptan múltiples pares (`line`, `polygon`, etc.).
+Usa `append` directamente cuando necesites hacer *splice* de una serie de valores.
+
+### 15. Infix ops steal function arguments — ALWAYS parenthesize
 ```red
 ; WRONG — = is infix and binds tighter than to-word's argument
 if to-word sr/name = port-name [...]

@@ -1800,7 +1800,7 @@ canvas-delete-selected: func [canvas /local model node-id node-name node-type st
         ; Sync FP: borrar item correspondiente si es control/indicator
         _pref: select model 'panel-ref
         if all [
-            find [control indicator bool-control bool-indicator str-control str-indicator] node-type
+            find [control indicator bool-control bool-indicator str-control str-indicator arr-control arr-indicator cluster-control cluster-indicator waveform-chart waveform-graph] node-type
             _pref
         ][
             remove-each item model/front-panel [item/name = node-name]

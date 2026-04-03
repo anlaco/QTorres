@@ -1,0 +1,60 @@
+Red [Title: "waveform-demo" Needs: 'View]
+
+; Ejemplo: Waveform Chart y Graph
+;
+; Waveform Chart: acumula valores en cada iteración del loop
+; Waveform Graph: muestra un array completo
+;
+; NOTA: Este ejemplo requiere la implementación completa de waveform
+; en el compilador (actualización del draw en runtime).
+
+qvi-diagram: [
+    meta: [description: "Demo de Waveform Chart y Graph" version: 1 author: "" tags: [waveform chart graph]]
+    icon: []
+    front-panel: [
+        waveform-chart [id: 1  type: 'waveform-chart  name: "chart_1"
+                       label: [text: "Señal" visible: true]  default: []
+                       config: [history-size 1024]
+                       offset: 20x20]
+        waveform-graph [id: 2  type: 'waveform-graph  name: "graph_1"
+                       label: [text: "Array" visible: true]  default: [1.0 2.0 3.0 4.0 5.0 4.0 3.0 2.0 1.0]
+                       offset: 240x20]
+    ]
+    block-diagram: [
+        nodes: [
+            ; NOTA: Los nodos de waveform son indicadores en el BD
+            ; Se conectan a la salida del loop (chart) o al array (graph)
+        ]
+        wires: []
+        structures: []
+    ]
+]
+
+; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
+; NOTA: La implementación completa de waveform requiere actualización
+; del draw en runtime, que aún no está implementada en el compilador.
+;
+; El código generado para waveform-chart debería:
+; 1. Crear un base face con draw []
+; 2. En el botón Run: actualizar el draw con los datos del buffer
+;
+; El código generado para waveform-graph debería:
+; 1. Crear un base face con draw []
+; 2. En el botón Run: asignar el array y actualizar el draw
+
+either empty? system/options/args [
+    view layout [
+        text "Señal (Chart):"
+        f_chart_1: base 200x160 draw [] return
+        text "Array (Graph):"
+        f_graph_1: base 200x160 draw [] return
+        button "Run" [
+            ; TODO: Implementar actualización de draw para waveform
+            print "Waveform aún no implementado en runtime"
+        ]
+    ]
+][
+    print "Waveform demo - modo headless"
+    print "Chart: buffer circular de valores"
+    print "Graph: [1.0 2.0 3.0 4.0 5.0 4.0 3.0 2.0 1.0]"
+]

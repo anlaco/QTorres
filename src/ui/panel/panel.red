@@ -19,6 +19,10 @@ fp-label-height:     20
 fp-label-above:      18
 fp-run-button-height: 30
 
+; Waveform dimensions (área de trazado)
+fp-chart-width:      200
+fp-chart-height:     160
+
 ; GTK-010: en Linux/GTK, Draw text usa baseline como Y en vez de top-left.
 ; Compensamos añadiendo fp-text-dy a todas las coordenadas Y de texto.
 fp-text-dy: either system/platform = 'Linux [8] [0]
@@ -54,6 +58,8 @@ fp-type-label?: func [item-type] [
         item-type = 'arr-indicator    ["ARR"]
         item-type = 'cluster-control  ["CLU"]
         item-type = 'cluster-indicator ["CLU"]
+        item-type = 'waveform-chart   ["CHART"]
+        item-type = 'waveform-graph   ["GRAPH"]
         true                          [uppercase form item-type]
     ]
 ]
@@ -71,6 +77,8 @@ fp-default-label: func [item-type] [
         item-type = 'arr-indicator    ["Array"]
         item-type = 'cluster-control  ["Cluster"]
         item-type = 'cluster-indicator ["Cluster"]
+        item-type = 'waveform-chart   ["Chart"]
+        item-type = 'waveform-graph   ["Graph"]
         true                          ["Numeric"]
     ]
 ]
@@ -89,6 +97,7 @@ make-fp-item: func [
             find [str-control  str-indicator]      raw-type ['string]
             find [arr-control  arr-indicator]      raw-type ['array]
             find [cluster-control cluster-indicator] raw-type ['cluster]
+            find [waveform-chart waveform-graph]   raw-type ['waveform]
             true                                   ['numeric]
         ]
         name:      any [select spec 'name      ""]
@@ -110,6 +119,10 @@ make-fp-item: func [
                 ; block de pares word/valor: [name "" voltage 0.0 active false]
                 copy any [select spec 'default  copy []]
             ]
+            find [waveform-chart waveform-graph] raw-type [
+                ; waveform: buffer de valores (array vacío inicialmente)
+                copy any [select spec 'default  copy []]
+            ]
             true [
                 any [select spec 'default  0.0]
             ]
@@ -129,9 +142,20 @@ make-fp-item: func [
         find [cluster-control cluster-indicator] raw-type [
             copy any [select spec 'value  copy item/default]
         ]
+        find [waveform-chart waveform-graph] raw-type [
+            ; waveform: buffer de valores (array)
+            copy any [select spec 'value  item/default]
+            ; Asegurar que value es un array
+            if none? item/value [item/value: copy []]
+            item/value
+        ]
         true [
             any [select spec 'value  item/default]
         ]
+    ]
+    ; Asegurar que value nunca es none
+    if none? item/value [
+        item/value: either find [waveform-chart waveform-graph] raw-type [copy []] [0.0]
     ]
 
     ; Name: usar explícito, o generar automáticamente
@@ -234,6 +258,121 @@ dashed-box: func [x1 y1 x2 y2 dash gap /local cmds pos lim step] [
     cmds
 ]
 
+; ══════════════════════════════════════════════════════════
+; RENDER WAVEFORM — Draw signal plot
+; ══════════════════════════════════════════════════════════
+
+render-waveform: func [item selected? /local cmds w h values min-y max-y y-range x-scale y-scale pts i v px py] [
+    ; Dimensiones del área de trazado
+    w: fp-chart-width
+    h: fp-chart-height
+    cmds: copy []
+
+    ; Fondo negro (plot area estilo osciloscopio)
+    append cmds compose [
+        pen 60.60.60  line-width 1  fill-pen 15.15.15
+        box (as-pair item/offset/x item/offset/y)
+           (as-pair (item/offset/x + w) (item/offset/y + h)) 3
+    ]
+
+    ; Grid opcional: líneas grises cada 20% del área
+    append cmds [pen 40.40.40  line-width 1]
+    ; Líneas verticales
+    repeat i 4 [
+        px: item/offset/x + (w * i / 5)
+        append cmds compose [line (as-pair px item/offset/y) (as-pair px (item/offset/y + h))]
+    ]
+    ; Líneas horizontales
+    repeat i 4 [
+        py: item/offset/y + (h * i / 5)
+        append cmds compose [line (as-pair item/offset/x py) (as-pair (item/offset/x + w) py)]
+    ]
+
+    ; Línea de señal (verde estilo osciloscopio)
+    values: any [item/value  copy []]
+    ; Debug: verificar que values es un block
+    unless block? values [values: copy []]
+    ; Filtrar solo valores numéricos
+    values: copy values
+    remove-each v values [not number? v]
+
+    if not empty? values [
+        ; Calcular escala automática
+        ; Compute min and max manually (Red 0.6.6 lacks min-of/max-of)
+        min-y: first values
+        foreach v values [if v < min-y [min-y: v]]
+        max-y: first values
+        foreach v values [if v > max-y [max-y: v]]
+
+        ; Evitar división por cero y dar margen
+        y-range: max-y - min-y
+        if y-range = 0 [y-range: 1]
+        ; Margen 10% arriba y abajo
+        min-y: min-y - (y-range * 0.1)
+        max-y: max-y + (y-range * 0.1)
+        y-range: max-y - min-y
+
+        ; Escalar valores al área (dejando 10px margen)
+        y-scale: (h - 20) / y-range
+        x-scale: either (length? values) > 1 [
+            (w - 20) / ((length? values) - 1)
+        ][
+            w - 20  ; un solo punto: centrar
+        ]
+
+        ; Generar puntos de la línea
+        pts: copy []
+        i: 0
+        foreach v values [
+            px: item/offset/x + 10 + to-integer (i * x-scale)
+            py: item/offset/y + h - 10 - to-integer ((v - min-y) * y-scale)
+            append pts as-pair px py
+            i: i + 1
+        ]
+
+        ; Dibujar línea verde (line necesita >= 2 puntos en Draw)
+        either (length? pts) >= 2 [
+            append cmds [pen 0.200.0  line-width 1]
+            line-cmd: copy [line]
+            append line-cmd pts
+            append cmds line-cmd
+        ][
+            ; Un solo punto: dibujar círculo pequeño
+            append cmds compose [pen 0.200.0  fill-pen 0.200.0  circle (first pts) 2]
+        ]
+    ]
+
+    ; Label del tipo (esquina superior izquierda)
+    type-lbl: fp-type-label? item/type
+    append cmds compose [
+        pen 150.150.150
+        text (as-pair (item/offset/x + 4) (item/offset/y + 4 + fp-text-dy)) (type-lbl)
+    ]
+
+    ; Número de puntos (esquina superior derecha)
+    append cmds compose [
+        pen 150.150.150
+        text (as-pair (item/offset/x + w - 40) (item/offset/y + 4 + fp-text-dy))
+             (rejoin ["n=" length? any [item/value  copy []]])
+    ]
+
+    ; Selección: marco rallado
+    if selected? [
+        append cmds compose [
+            pen (fp-selected-color)
+            line-width 2
+            fill-pen off
+        ]
+        append cmds dashed-box
+            (item/offset/x - 3) (item/offset/y - 3)
+            (item/offset/x + w + 3) (item/offset/y + h + 3)
+            6 4
+        append cmds [line-width 1]
+    ]
+
+    cmds
+]
+
 render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col cx cy field-y field-h lx ly lw bh fy fn ft fval fval-str] [
     cmds: copy []
     ; Reset estado Draw — pen 0.0.0 es crítico: evita bleed de color de texto
@@ -323,6 +462,10 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
                  (fp-value-text item)
         ]
     ]
+        item/data-type = 'waveform [
+        ; Waveform: renderiza gráfico estilo osciloscopio
+        append cmds render-waveform item selected?
+    ]
         true [
         ; Numeric / Boolean: caja de color
         col: fp-color? item/type
@@ -357,9 +500,10 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
 
     ; ── Selección: marcos rallados en body y label ────────────────────────────────────────
     bh: case [
-        item/data-type = 'string  [fp-label-height]
-        item/data-type = 'cluster [fp-cluster-height item]
-        true                      [fp-item-height]
+        item/data-type = 'string   [fp-label-height]
+        item/data-type = 'cluster  [fp-cluster-height item]
+        item/data-type = 'waveform [fp-chart-height]
+        true                       [fp-item-height]
     ]
     if selected? [
         append cmds compose [pen (fp-selected-color)  line-width 2  fill-pen off]
@@ -419,12 +563,15 @@ hit-fp-zone: func [model mx my /local item lx ly lw bh] [
         ]
         ; Zona de body
         bh: case [
-            item/data-type = 'string  [fp-label-height]
-            item/data-type = 'cluster [fp-cluster-height item]
-            true                      [fp-item-height]
+            item/data-type = 'string   [fp-label-height]
+            item/data-type = 'cluster  [fp-cluster-height item]
+            item/data-type = 'waveform [fp-chart-height]
+            true                       [fp-item-height]
         ]
+        ; Ancho del body: waveform es más ancho
+        bw: either item/data-type = 'waveform [fp-chart-width] [fp-item-width]
         if all [
-            mx >= item/offset/x  mx <= (item/offset/x + fp-item-width)
+            mx >= item/offset/x  mx <= (item/offset/x + bw)
             my >= item/offset/y  my <= (item/offset/y + bh)
         ] [return reduce [item 'body]]
     ]
@@ -616,6 +763,7 @@ fp-palette-add-item: func [item-type /local new-id item model w h _cref nid bd-y
         find [str-control  str-indicator]        item-type [copy ""]
         find [arr-control  arr-indicator]        item-type [copy []]
         find [cluster-control cluster-indicator] item-type [copy []]
+        find [waveform-chart waveform-graph]     item-type [copy []]
         true                                     [0.0]
     ]
     ; Construir spec con append/only para default: evitar splice de block! values
@@ -631,9 +779,9 @@ fp-palette-add-item: func [item-type /local new-id item model w h _cref nid bd-y
     append model/front-panel item
     fp-palette-panel/draw: render-fp-panel model w h
     show fp-palette-panel
-    ; Sync BD: crear nodo correspondiente (no para cluster — bundle/unbundle se añaden manualmente)
+    ; Sync BD: crear nodo correspondiente para todos los tipos FP
     _cref: select model 'canvas-ref
-    if all [_cref  not find [cluster-control cluster-indicator] item-type] [
+    if _cref [
         nid:  gen-node-id model
         bd-y: 20 + ((length? model/nodes) * 75)
         append model/nodes make-node compose [
@@ -665,6 +813,8 @@ open-fp-palette: func [face x y] [
         button 100 "Arr Indicator"   [fp-palette-add-item 'arr-indicator]    return
         button 100 "Cluster Ctrl"    [fp-palette-add-item 'cluster-control]  return
         button 100 "Cluster Ind"     [fp-palette-add-item 'cluster-indicator] return
+        button 100 "Waveform Chart"  [fp-palette-add-item 'waveform-chart]   return
+        button 100 "Waveform Graph"  [fp-palette-add-item 'waveform-graph]   return
         button      "Cancelar"       [unview]
     ]
 ]
@@ -839,7 +989,7 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
         offset-y: 20
         parse fp-block [
             any [
-                set kw ['control | 'indicator | 'bool-control | 'bool-indicator | 'str-control | 'str-indicator | 'arr-control | 'arr-indicator | 'cluster-control | 'cluster-indicator]
+                set kw ['control | 'indicator | 'bool-control | 'bool-indicator | 'str-control | 'str-indicator | 'arr-control | 'arr-indicator | 'cluster-control | 'cluster-indicator | 'waveform-chart | 'waveform-graph]
                 set fp-item-spec block! (
                     item: make-fp-item fp-item-spec
                     item/type:      kw
@@ -848,6 +998,7 @@ load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result
                         find [str-control  str-indicator]        kw ['string]
                         find [arr-control  arr-indicator]        kw ['array]
                         find [cluster-control cluster-indicator] kw ['cluster]
+                        find [waveform-chart waveform-graph]      kw ['waveform]
                         true                                     ['numeric]
                     ]
                     if find [cluster-control cluster-indicator] kw [
@@ -884,6 +1035,8 @@ save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
             item/type = 'arr-indicator     ['arr-indicator]
             item/type = 'cluster-control   ['cluster-control]
             item/type = 'cluster-indicator ['cluster-indicator]
+            item/type = 'waveform-chart    ['waveform-chart]
+            item/type = 'waveform-graph    ['waveform-graph]
             true                           ['indicator]
         ]
         ; Construir spec con append/only para el default:
@@ -988,6 +1141,15 @@ compile-panel: func [model /local cmds item ctrl-field-name ind-var-name fn ft f
                         (to-set-word fld-name) text 120 (form any [fval ""])
                         return
                     ]
+                ]
+            ]
+            find [waveform-chart waveform-graph] item/type [
+                ; Waveform: base face con Draw
+                ind-var-name: gen-indicator-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ind-var-name) base (as-pair fp-chart-width fp-chart-height) draw []
+                    return
                 ]
             ]
             true [  ; indicator, bool-indicator, str-indicator, arr-indicator

@@ -401,6 +401,17 @@ cluster-field-type: func [
     'number
 ]
 
+; ══════════════════════════════════════════════════
+; HELPERS DE BÚSQUEDA
+; ══════════════════════════════════════════════════
+
+find-node-by-id: func [nodes id /local node] [
+    foreach node nodes [
+        if node/id = id [return node]
+    ]
+    none
+]
+
 ; make-fp-item y fp-value-text viven en src/ui/panel/panel.red (canónico).
 ; model.red no duplica lógica de Front Panel.
 

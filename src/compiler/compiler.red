@@ -231,21 +231,18 @@ build-bindings: func [
                     ]
                     ; Nodo fuente normal
                     true [
-                        found: false
-                        foreach src diagram/nodes [
-                            if src/id = w/from-node [
-                                append bindings p/name
-                                append bindings port-var src w/from-port
-                                found: true
-                            ]
-                        ]
-                        ; Nodo fuente es una estructura (SR-right → externo, task 10.5)
-                        if all [not found  in diagram 'structures  block? diagram/structures] [
-                            foreach st diagram/structures [
-                                if st/id = w/from-node [
-                                    ; Variable SR: _sr_name
-                                    append bindings p/name
-                                    append bindings to-word rejoin ["_" form w/from-port]
+                        src: find-node-by-id diagram/nodes w/from-node
+                        either src [
+                            append bindings p/name
+                            append bindings port-var src w/from-port
+                        ][
+                            ; Nodo fuente es una estructura (SR-right → externo)
+                            if all [in diagram 'structures  block? diagram/structures] [
+                                foreach st diagram/structures [
+                                    if st/id = w/from-node [
+                                        append bindings p/name
+                                        append bindings to-word rejoin ["_" form w/from-port]
+                                    ]
                                 ]
                             ]
                         ]
@@ -338,11 +335,8 @@ compile-structure: func [
         n-val: none
         foreach w outer-diagram/wires [
             if all [w/to-node = st/id  w/to-port = 'count] [
-                foreach src outer-diagram/nodes [
-                    if src/id = w/from-node [
-                        n-val: port-var src to-word w/from-port
-                    ]
-                ]
+src: find-node-by-id outer-diagram/nodes w/from-node
+                        if src [n-val: port-var src to-word w/from-port]
             ]
         ]
         if none? n-val [
@@ -361,11 +355,8 @@ compile-structure: func [
             init-val: sr/init-value
             foreach w outer-diagram/wires [
                 if all [w/to-node = st/id  (to-word w/to-port) = to-word sr/name] [
-                    foreach src outer-diagram/nodes [
-                        if src/id = w/from-node [
-                            init-val: port-var src to-word w/from-port
-                        ]
-                    ]
+src: find-node-by-id outer-diagram/nodes w/from-node
+                                if src [init-val: port-var src to-word w/from-port]
                 ]
             ]
             append code to-set-word sr-sym
@@ -427,11 +418,8 @@ compile-structure: func [
         ; ¿Hay un wire externo que inicializa este SR?
         foreach w outer-diagram/wires [
             if all [w/to-node = st/id  (to-word w/to-port) = to-word sr/name] [
-                foreach src outer-diagram/nodes [
-                    if src/id = w/from-node [
-                        init-val: port-var src to-word w/from-port
-                    ]
-                ]
+src: find-node-by-id outer-diagram/nodes w/from-node
+                            if src [init-val: port-var src to-word w/from-port]
             ]
         ]
         append code to-set-word sr-sym
@@ -480,8 +468,7 @@ compile-structure: func [
 
     ; Condición final (última expresión del until)
     cond-expr: either st/cond-wire [
-        cond-node: none
-        foreach nd st/nodes [if nd/id = st/cond-wire/from [cond-node: nd]]
+        cond-node: find-node-by-id st/nodes st/cond-wire/from
         either cond-node [
             port-var cond-node st/cond-wire/port
         ][
@@ -530,10 +517,7 @@ compile-case-structure: func [
     sel-var: none
     sel-type: 'number  ; default
     if st/selector-wire [
-        sel-node: none
-        foreach nd outer-diagram/nodes [
-            if nd/id = st/selector-wire/from [sel-node: nd]
-        ]
+sel-node: find-node-by-id outer-diagram/nodes st/selector-wire/from
         if sel-node [
             sel-port: to-word st/selector-wire/port
             sel-var: port-var sel-node sel-port
@@ -659,11 +643,8 @@ emit-bundle: func [
         field-var: fn   ; si no hay wire, el campo queda sin valor (warning implícito)
         foreach w diagram/wires [
             if all [w/to-node = node/id  (to-word w/to-port) = fn] [
-                foreach src-nd diagram/nodes [
-                    if src-nd/id = w/from-node [
-                        field-var: port-var src-nd to-word w/from-port
-                    ]
-                ]
+                src-nd: find-node-by-id diagram/nodes w/from-node
+                if src-nd [field-var: port-var src-nd to-word w/from-port]
             ]
         ]
         append obj-body to-set-word fn
@@ -692,11 +673,8 @@ emit-unbundle: func [
 
     foreach w diagram/wires [
         if all [w/to-node = node/id  (to-word w/to-port) = 'cluster-in] [
-            foreach src-nd diagram/nodes [
-                if src-nd/id = w/from-node [
-                    cluster-var: port-var src-nd to-word w/from-port
-                ]
-            ]
+            src-nd: find-node-by-id diagram/nodes w/from-node
+            if src-nd [cluster-var: port-var src-nd to-word w/from-port]
         ]
     ]
     if none? cluster-var [
@@ -810,11 +788,10 @@ compile-diagram: func [
                         foreach w diagram/wires [
                             if w/to-node = node/id [
                                 ; Fuente: nodo normal
-                                foreach src diagram/nodes [
-                                    if src/id = w/from-node [
-                                        src-var: port-var src to-word w/from-port
-                                        append run-body compose [(to set-path! reduce [face-sym 'text]) form (src-var)]
-                                    ]
+                                src: find-node-by-id diagram/nodes w/from-node
+                                if src [
+                                    src-var: port-var src to-word w/from-port
+                                    append run-body compose [(to set-path! reduce [face-sym 'text]) form (src-var)]
                                 ]
                                 ; Fuente: estructura (SR-right → indicador externo)
                                 if all [in diagram 'structures  block? diagram/structures] [

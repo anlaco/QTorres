@@ -298,4 +298,60 @@ assert "bundle gen-name bundle_1"    (nb1/name = "bundle_1")
 assert "bundle gen-name bundle_2"    (nb2/name = "bundle_2")
 assert "unbundle gen-name unbundle_1" (nu1/name = "unbundle_1")
 
+; ── tests de regresión para bug #54 ─────────────────────────────────────
+
+suite "cluster-fields — regresión bug #54"
+
+reset-name-counters
+n1: make-node [type: 'bundle]
+
+assert "cluster-fields devuelve [] cuando no hay config/fields" ([] = cluster-fields n1)
+
+reset-name-counters
+n2: make-node [
+    type: 'bundle
+    config: [fields [nombre 'string  voltaje 'number]]
+]
+
+assert "cluster-fields devuelve campos cuando existen en config" (
+    4 = length? cluster-fields n2
+)
+assert "cluster-fields devuelve nombres y tipos correctos" (
+    (cluster-fields n2) = [nombre 'string voltaje 'number]
+)
+
+reset-name-counters
+n3: make-node [type: 'bundle]
+
+; Simular añadir fields con el patrón usado en el código
+either pos: find n3/config 'fields [
+    pos/2: [nombre 'string  voltaje 'number]
+][
+    append n3/config reduce ['fields [nombre 'string voltaje 'number]]
+]
+
+assert "cluster-fields devuelve campos añadidos dinámicamente" (
+    4 = length? cluster-fields n3
+)
+assert "cluster-fields devuelve nombres y tipos correctos tras añadir" (
+    (cluster-fields n3) = [nombre 'string voltaje 'number]
+)
+
+reset-name-counters
+c1: make-node [
+    type: 'bundle
+    config: [fields [x 'number  y 'number]]
+]
+c2: make-node [
+    type: 'bundle
+    config: [fields [nombre 'string]]
+]
+
+assert "cluster-control puede tener fields distintos al indicator" (
+    (cluster-fields c1) = [x 'number y 'number]
+)
+assert "cluster-indicator puede tener fields distintos al control" (
+    (cluster-fields c2) = [nombre 'string]
+)
+
 print "--- tests finalizados ---"

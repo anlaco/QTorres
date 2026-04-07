@@ -661,20 +661,114 @@ fp-cluster-value-text: func [item /local lines fn ft fval] [
     trim lines
 ]
 
-; Abre diálogo para editar los valores de un cluster-control en el FP.
-open-cluster-fp-edit-dialog: func [item panel-face model /local cur-text] [
-    cur-text: fp-cluster-value-text item
+; Parsea el texto del área de edición ("nombre:tipo" por línea) a [nombre 'tipo ...].
+; Copiado y adaptado de parse-cluster-fields-text en canvas.red
+parse-cluster-fields-text: func [text /local result lines parts fname ftype] [
+    result: copy []
+    foreach line split text "^/" [
+        line: trim line
+        if not empty? line [
+            parts: split line ":"
+            if (length? parts) >= 2 [
+                fname: to-word trim parts/1
+                ftype: to-word trim parts/2
+                unless find [number boolean string] ftype [ftype: 'number]
+                append result fname
+                append result to lit-word! ftype
+            ]
+        ]
+    ]
+    result
+]
+
+; Aplica campos y valores de cluster al item y refresca ambos paneles
+fp-cluster-sync-and-refresh: func [item new-fields new-values panel-face model /local pos _cref bd-node] [
+    ; Guardar campos en item/config/fields
+    either pos: find item/config 'fields [
+        pos/2: new-fields
+    ][
+        append item/config reduce ['fields new-fields]
+    ]
+    
+    ; Guardar valores en item/value
+    item/value: new-values
+    
+    ; Buscar nodo BD correspondiente y actualizar sus campos
+    _cref: select model 'canvas-ref
+    if _cref [
+        foreach nd _cref/extra/nodes [
+            if nd/name = item/name [
+                ; Aplicar campos al nodo BD (mismo patrón que apply-cluster-fields)
+                either pos: find nd/config 'fields [
+                    pos/2: new-fields
+                ][
+                    append nd/config reduce ['fields new-fields]
+                ]
+                break
+            ]
+        ]
+        ; Refrescar BD
+        _cref/draw: render-bd _cref/extra
+        show _cref
+    ]
+    
+    ; Refrescar FP
+    panel-face/draw: render-fp-panel model model/size/x model/size/y
+]
+
+; Abre diálogo para editar los campos y valores de un cluster-control/indicator en el FP.
+open-cluster-fp-edit-dialog: func [item panel-face model /local cur-fields-text cur-values-text] [
+    ; Construir texto de campos ("nombre:tipo" por línea)
+    cur-fields-text: copy ""
+    foreach [fn ft] fp-cluster-fields item [
+        append cur-fields-text rejoin [form fn ":" form to-word ft "^/"]
+    ]
+    
+    ; Construir texto de valores ("nombre: valor" por línea)
+    cur-values-text: copy ""
+    foreach [fn ft] fp-cluster-fields item [
+        fval: select any [item/value copy []] fn
+        fval-str: either none? fval [""] [form fval]
+        append cur-values-text rejoin [form fn ": " fval-str "^/"]
+    ]
+    
     view/no-wait compose/deep [
         title "Editar cluster"
-        text "Campos (campo: valor por línea):" return
-        area 220x120 (cur-text) return
+        text "CAMPOS (nombre:tipo por línea — Tipos: number boolean string)" return
+        fp-clust-fields-area: area 260x90 (cur-fields-text) return
+        text "VALORES (nombre: valor por línea):" return
+        fp-clust-values-area: area 260x90 (cur-values-text) return
         button "OK" [
-            foreach pf face/parent/pane [
-                if pf/type = 'area [
-                    fp-cluster-apply-and-refresh (item) copy pf/text (panel-face) (model)
-                    break
+            ; Parsear campos
+            new-fields: parse-cluster-fields-text copy fp-clust-fields-area/text
+            
+            ; Parsear valores
+            lines: split trim fp-clust-values-area/text "^/"
+            result: copy []
+            foreach line lines [
+                line: trim line
+                if empty? line [continue]
+                parts: split line ":"
+                if 2 > length? parts [continue]
+                k: to-word trim parts/1
+                v: trim parts/2
+                ; Buscar tipo del campo en new-fields
+                ft: 'number
+                i: 1
+                while [i <= (length? new-fields)] [
+                    if new-fields/:i = k [ft: new-fields/(i + 1)]
+                    i: i + 2
+                ]
+                append result k
+                append result case [
+                    ft = 'boolean [any [find [true yes on] to-word v  false]]
+                    ft = 'string  [v]
+                    true          [any [attempt [to-float v]  0.0]]
                 ]
             ]
+            
+            ; Aplicar cambios y refrescar
+            fp-cluster-sync-and-refresh (item) new-fields result (panel-face) (model)
             unview
         ]
         button "Cancelar" [unview]
@@ -919,6 +1013,9 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                     all [hit  hit/type = 'cluster-control] [
                         open-cluster-fp-edit-dialog hit face face/extra
                     ]
+                    all [hit  hit/type = 'cluster-indicator] [
+                        open-cluster-fp-edit-dialog hit face face/extra
+                    ]
                     all [hit  hit/type = 'control] [
                         open-edit-dialog hit face face/extra
                     ]
@@ -938,6 +1035,7 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                     all [hit  hit/type = 'str-control]     [open-str-fp-edit-dialog hit face face/extra]
                     all [hit  hit/type = 'arr-control]     [open-arr-fp-edit-dialog hit face face/extra]
                     all [hit  hit/type = 'cluster-control] [open-cluster-fp-edit-dialog hit face face/extra]
+                    all [hit  hit/type = 'cluster-indicator] [open-cluster-fp-edit-dialog hit face face/extra]
                     all [hit  hit/type = 'control]          [open-edit-dialog hit face face/extra]
                     ; indicador: no hacer nada
                 ]

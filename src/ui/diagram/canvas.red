@@ -2394,6 +2394,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     if node/type = 'const [open-const-edit-dialog node face  exit]
                     if find [str-const str-control] node/type [open-str-edit-dialog node face  exit]
                     if find [arr-const arr-control] node/type [open-arr-edit-dialog node face  exit]
+                    if find [cluster-control cluster-indicator] node/type [open-cluster-edit-dialog node face  exit]
                     if find [bundle unbundle] node/type [open-cluster-edit-dialog node face  exit]
                     rename-dialog-node:   node
                     rename-dialog-canvas: face
@@ -2434,6 +2435,10 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     ]
                     if find [arr-const arr-control] node/type [
                         open-arr-edit-dialog node face
+                        exit
+                    ]
+                    if find [cluster-control cluster-indicator] node/type [
+                        open-cluster-edit-dialog node face
                         exit
                     ]
                     if find [bundle unbundle] node/type [

@@ -102,8 +102,8 @@ btn-run: make face! [
                     foreach wire model/wires [
                         if wire/to-node = n/id [
                             ; Fuente: nodo normal
-                            foreach src model/nodes [
-                                if src/id = wire/from-node [
+                            src: find-node-by-id model/nodes wire/from-node
+                            if src [
                                     result-var: port-var src to-word wire/from-port
                                     result-val: attempt [get result-var]
                                     foreach item model/front-panel [
@@ -135,7 +135,6 @@ btn-run: make face! [
                                         ]
                                     ]
                                 ]
-                            ]
                             ; Fuente: estructura (SR-right → indicador externo)
                             foreach st model/structures [
                                 if st/id = wire/from-node [

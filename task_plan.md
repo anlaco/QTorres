@@ -16,32 +16,6 @@
 
 **Problema:** No hay validación que impida conectar dos wires al mismo puerto de entrada. Viola visual-spec 5.2.
 
-**Fichero:** `src/ui/diagram/canvas.red`
-
-**Líneas a modificar:** 1904, 2359 (y potencialmente 1966)
-
-**Patrón a seguir:** Línea 2156-2158 (for-loop count) ya hace esto correctamente:
-```red
-remove-each _w model/wires [
-    all [_w/to-node = _fst/id  _w/to-port = 'count]
-]
-```
-
-**Implementación:**
-1. Crear una función helper (o inline) antes de cada `append wire-list make-wire`:
-```red
-; Antes de crear wire, eliminar wire previo al mismo puerto de entrada
-remove-each _w wire-list [
-    all [_w/to-node = target-node-id  _w/to-port = target-port-name]
-]
-```
-2. Aplicar en las 3 ubicaciones donde se crea un wire a un puerto de entrada sin check:
-   - **Línea ~1904**: wire a nodo interno de estructura — `wire-list` es `st/wires`
-   - **Línea ~1966**: wire externo a SR-left — `model/wires`
-   - **Línea ~2359**: wire a nodo normal — `wire-list` es `model/wires` o `st/wires`
-
-**Notas:** Verificar cuál es el `wire-list` correcto en cada caso (puede ser `model/wires` para wires del diagrama principal o `st/wires` para wires internos de estructuras).
-
 ## Fases
 
 ### Phase 0: Diseño ✅ COMPLETE

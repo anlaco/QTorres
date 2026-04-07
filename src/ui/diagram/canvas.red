@@ -261,11 +261,8 @@ render-wire-list: func [
 ][
     cmds: copy []
     foreach wire wires [
-        src-node: none  dst-node: none
-        foreach node nodes [
-            if node/id = wire/from-node [src-node: node]
-            if node/id = wire/to-node   [dst-node: node]
-        ]
+        src-node: find-node-by-id nodes wire/from-node
+        dst-node: find-node-by-id nodes wire/to-node
         if all [src-node dst-node] [
             out-xy: port-xy src-node wire/from-port 'out
             in-xy:  port-xy dst-node wire/to-port   'in
@@ -582,7 +579,7 @@ render-case-structure: func [
     if st/selector-wire [
         do [
             sel-src: none
-            foreach nd model/nodes [if nd/id = st/selector-wire/from [sel-src: nd]]
+            sel-src: find-node-by-id model/nodes st/selector-wire/from
             if sel-src [
                 src-xy: port-xy sel-src st/selector-wire/port 'out
                 dst-xy: as-pair (sel-x + 7) (by + nav-h + 11)
@@ -735,16 +732,15 @@ render-structure: func [
         foreach w st/wires [
             ; Iter (-3) → nodo interno
             if w/from-node = -3 [
-                foreach nd st/nodes [
-                    if nd/id = w/to-node [
-                        in-xy: port-xy nd w/to-port 'in
-                        mid-x: to-integer (iter-src/x + in-xy/x) / 2
-                        append cmds compose [
-                            pen col-wire  line-width 2
-                            line (iter-src) (as-pair mid-x iter-src/y)
-                                 (as-pair mid-x in-xy/y) (in-xy)
-                            line-width 1
-                        ]
+                nd: find-node-by-id st/nodes w/to-node
+                if nd [
+                    in-xy: port-xy nd w/to-port 'in
+                    mid-x: to-integer (iter-src/x + in-xy/x) / 2
+                    append cmds compose [
+                        pen col-wire  line-width 2
+                        line (iter-src) (as-pair mid-x iter-src/y)
+                             (as-pair mid-x in-xy/y) (in-xy)
+                        line-width 1
                     ]
                 ]
             ]
@@ -752,18 +748,17 @@ render-structure: func [
             if w/from-node = -1 [
                 _sr-found: find-sr st/shift-regs w/from-port
                 if _sr-found [
-                    foreach nd st/nodes [
-                        if nd/id = w/to-node [
-                            _src-xy: sr-xy st _sr-found 'left
-                            _in-xy:  port-xy nd w/to-port 'in
-                            _mid-x:  to-integer (_src-xy/x + _in-xy/x) / 2
-                            _sr-col2: sr-type-color _sr-found/data-type
-                            append cmds compose [
-                                pen (_sr-col2)  line-width 2
-                                line (_src-xy) (as-pair _mid-x _src-xy/y)
-                                     (as-pair _mid-x _in-xy/y) (_in-xy)
-                                line-width 1
-                            ]
+                    nd: find-node-by-id st/nodes w/to-node
+                    if nd [
+                        _src-xy: sr-xy st _sr-found 'left
+                        _in-xy:  port-xy nd w/to-port 'in
+                        _mid-x:  to-integer (_src-xy/x + _in-xy/x) / 2
+                        _sr-col2: sr-type-color _sr-found/data-type
+                        append cmds compose [
+                            pen (_sr-col2)  line-width 2
+                            line (_src-xy) (as-pair _mid-x _src-xy/y)
+                                 (as-pair _mid-x _in-xy/y) (_in-xy)
+                            line-width 1
                         ]
                     ]
                 ]
@@ -772,18 +767,17 @@ render-structure: func [
             if w/to-node = -2 [
                 _sr-found: find-sr st/shift-regs w/to-port
                 if _sr-found [
-                    foreach nd st/nodes [
-                        if nd/id = w/from-node [
-                            _out-xy: port-xy nd w/from-port 'out
-                            _dst-xy: sr-xy st _sr-found 'right
-                            _mid-x:  to-integer (_out-xy/x + _dst-xy/x) / 2
-                            _sr-col2: sr-type-color _sr-found/data-type
-                            append cmds compose [
-                                pen (_sr-col2)  line-width 2
-                                line (_out-xy) (as-pair _mid-x _out-xy/y)
-                                     (as-pair _mid-x _dst-xy/y) (_dst-xy)
-                                line-width 1
-                            ]
+                    nd: find-node-by-id st/nodes w/from-node
+                    if nd [
+                        _out-xy: port-xy nd w/from-port 'out
+                        _dst-xy: sr-xy st _sr-found 'right
+                        _mid-x:  to-integer (_out-xy/x + _dst-xy/x) / 2
+                        _sr-col2: sr-type-color _sr-found/data-type
+                        append cmds compose [
+                            pen (_sr-col2)  line-width 2
+                            line (_out-xy) (as-pair _mid-x _out-xy/y)
+                                 (as-pair _mid-x _dst-xy/y) (_dst-xy)
+                            line-width 1
                         ]
                     ]
                 ]
@@ -801,7 +795,7 @@ render-structure: func [
     if st/cond-wire [
         do [
             cond-src: none
-            foreach nd st/nodes [if nd/id = st/cond-wire/from [cond-src: nd]]
+            cond-src: find-node-by-id st/nodes st/cond-wire/from
             if cond-src [
                 src-xy: port-xy cond-src st/cond-wire/port 'out
                 dst-xy: as-pair (bx2 - 24) (by2 - 24)
@@ -841,7 +835,7 @@ render-bd: func [model /local cmds src-port-xy mid st] [
                 if all [_sst/type = 'for-loop  _sw/to-node = _sst/id  _sw/to-port = 'count] [
                     do [
                         _snd: none
-                        foreach _nd model/nodes [if _nd/id = _sw/from-node [_snd: _nd]]
+                        _snd: find-node-by-id model/nodes _sw/from-node
                         if _snd [
                             _sout: port-xy _snd _sw/from-port 'out
                             _htx: to-integer (struct-terminal-size / 2)
@@ -862,8 +856,7 @@ render-bd: func [model /local cmds src-port-xy mid st] [
                     do [
                         _sfound: either block? _sst/shift-regs [find-sr _sst/shift-regs _sw/to-port] [none]
                         if _sfound [
-                            _snd: none
-                            foreach _nd model/nodes [if _nd/id = _sw/from-node [_snd: _nd]]
+                            _snd: find-node-by-id model/nodes _sw/from-node
                             if _snd [
                                 _sout: port-xy _snd _sw/from-port 'out
                                 _sdst: sr-xy _sst _sfound 'left
@@ -885,7 +878,7 @@ render-bd: func [model /local cmds src-port-xy mid st] [
                         _sfound: either block? _sst/shift-regs [find-sr _sst/shift-regs _sw/from-port] [none]
                         if _sfound [
                             _snd: none
-                            foreach _nd model/nodes [if _nd/id = _sw/to-node [_snd: _nd]]
+                            _snd: find-node-by-id model/nodes _sw/to-node
                             if _snd [
                                 _ssrc: sr-xy _sst _sfound 'right
                                 _sin:  port-xy _snd _sw/to-port 'in
@@ -964,9 +957,8 @@ node-structure: func [model node /local st nd frame] [
     foreach st model/structures [
         ; While/For loop: buscar en st/nodes
         if find [while-loop for-loop] st/type [
-            foreach nd st/nodes [
-                if nd/id = node/id [return st]
-            ]
+            nd: find-node-by-id st/nodes node/id
+            if nd [return st]
         ]
         ; Case structure: buscar en frame activo
         if st/type = 'case-structure [
@@ -1248,11 +1240,8 @@ hit-node: func [model mouse-x mouse-y /local found-node node h] [
 hit-wire-in-list: func [wires nodes mouse-x mouse-y /local tolerance src-node dst-node out-xy in-xy mid-x wire node] [
     tolerance: 8
     foreach wire wires [
-        src-node: none  dst-node: none
-        foreach node nodes [
-            if node/id = wire/from-node [src-node: node]
-            if node/id = wire/to-node   [dst-node: node]
-        ]
+        src-node: find-node-by-id nodes wire/from-node
+        dst-node: find-node-by-id nodes wire/to-node
         if all [src-node dst-node] [
             out-xy: port-xy src-node wire/from-port 'out
             in-xy:  port-xy dst-node wire/to-port   'in

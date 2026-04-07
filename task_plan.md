@@ -14,7 +14,7 @@
 - [NI Knowledge Base: Waveform Graphs vs Charts](https://knowledge.ni.com/KnowledgeArticleDetails?id=kA00Z000000P9zsSAC)
 - [LabVIEW Docs: Waveform Charts](https://ni.com/docs/en-US/bundle/labview/page/waveform-charts.html)
 
----
+**Problema:** No hay validación que impida conectar dos wires al mismo puerto de entrada. Viola visual-spec 5.2.
 
 ## Fases
 

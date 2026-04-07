@@ -1891,7 +1891,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                                             actual-from-node: model/wire-src-struct/id
                                         ]
                                     ]
-                                    append wire-list make-wire compose [
+                                    add-wire wire-list make-wire compose [
                                         from: (actual-from-node)
                                         from-port: (actual-from-port)
                                         to: (hit-nd/id)
@@ -1953,7 +1953,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                                     _out-t: port-out-type model/wire-src model/wire-port
                                     either _out-t = _sr/data-type [
                                         model/broken-wire: none
-                                        append model/wires make-wire compose [
+                                        add-wire model/wires make-wire compose [
                                             from: (model/wire-src/id)  from-port: (model/wire-port)
                                             to: (_st/id)  to-port: (to-word _sr/name)
                                         ]
@@ -1973,7 +1973,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                                     _out-t: port-out-type model/wire-src model/wire-port
                                     either _out-t = _sr/data-type [
                                         model/broken-wire: none
-                                        append _st/wires make-wire compose [
+                                        add-wire _st/wires make-wire compose [
                                             from: (model/wire-src/id)  from-port: (model/wire-port)
                                             to: -2  to-port: (to-word _sr/name)
                                         ]
@@ -2158,7 +2158,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                                 remove-each _w model/wires [
                                     all [_w/to-node = _fst/id  _w/to-port = 'count]
                                 ]
-                                append model/wires make-wire compose [
+                                add-wire model/wires make-wire compose [
                                     from: (model/wire-src/id)  from-port: (model/wire-port)
                                     to: (_fst/id)  to-port: "count"
                                 ]
@@ -2347,7 +2347,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                                     actual-from-node: model/wire-src-struct/id
                                 ]
                             ]
-                            append wire-list make-wire compose [
+                            add-wire wire-list make-wire compose [
                                 from: (actual-from-node)
                                 from-port: (actual-from-port)
                                 to: (hit-result/1/id)

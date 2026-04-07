@@ -412,6 +412,42 @@ find-node-by-id: func [nodes id /local node] [
     none
 ]
 
+; ══════════════════════════════════════════════════
+; WIRE GUARD — previene múltiples wires al mismo puerto entrada (QA-018)
+; ══════════════════════════════════════════════════
+; Regla absoluta #6: NUNCA permitir múltiples wires a un puerto de entrada.
+; Esta función verifica si ya existe un wire conectado al mismo nodo+puerto destino.
+; Devuelve true si EL wire YA EXISTE (para no añadirlo de nuevo).
+wire-exists-to-port?: func [
+    "Comprueba si ya existe un wire conectado al mismo puerto de entrada"
+    wires     [block!]   "Lista de wires a comprobar (model/wires o st/wires)"
+    to-id     [integer!] "ID del nodo destino"
+    to-port   [word!]    "Nombre del puerto de entrada"
+    /local w
+][
+    foreach w wires [
+        if all [
+            (w/to-node = to-id)
+            (w/to-port = to-port)
+        ] [
+            return true
+        ]
+    ]
+    false
+]
+
+; Añade un wire a una lista solo si el puerto destino no tiene ya uno (QA-018).
+; Usar en lugar de `append wires make-wire [...]` en canvas.red y tests.
+add-wire: func [
+    "Añade wire a la lista si el puerto destino aún no tiene uno (regla #6)"
+    wires  [block!]  "Lista de wires destino (model/wires o st/wires)"
+    wire   [object!] "Wire creado con make-wire"
+][
+    unless wire-exists-to-port? wires wire/to-node wire/to-port [
+        append wires wire
+    ]
+]
+
 ; make-fp-item y fp-value-text viven en src/ui/panel/panel.red (canónico).
 ; model.red no duplica lógica de Front Panel.
 

@@ -298,4 +298,45 @@ assert "bundle gen-name bundle_1"    (nb1/name = "bundle_1")
 assert "bundle gen-name bundle_2"    (nb2/name = "bundle_2")
 assert "unbundle gen-name unbundle_1" (nu1/name = "unbundle_1")
 
+; ── QA-018 — prohibir múltiples wires al mismo puerto de entrada ─────────
+
+reset-name-counters
+
+; Crear un diagrama con nodos con IDs manuales (make-diagram no tiene next-id)
+demo-model: make-diagram "demo"
+
+n1: make-node compose [id: (1)  type: 'add  x: 100  y: 100]
+n2: make-node compose [id: (2)  type: 'add  x: 250  y: 100]
+n3: make-node compose [id: (3)  type: 'add  x: 400  y: 100]
+n4: make-node compose [id: (4)  type: 'add  x: 550  y: 100]
+
+append demo-model/nodes n1
+append demo-model/nodes n2
+append demo-model/nodes n3
+append demo-model/nodes n4
+
+; Crear 2 wires al mismo puerto de entrada (to-port = 'a)
+; El segundo no debe ser añadido (regla absoluta #6 — add-wire lo rechaza)
+add-wire demo-model/wires make-wire compose [
+    from: (1)  from-port: 'result  to: (2)  to-port: 'a
+]
+add-wire demo-model/wires make-wire compose [
+    from: (3)  from-port: 'result  to: (2)  to-port: 'a
+]
+
+assert "QA-018: solo 1 wire al mismo puerto" (1 = length? demo-model/wires)
+assert "QA-018: el primer wire se mantiene"  (1 = demo-model/wires/1/from-node)
+
+; Crear 2 wires a puertos distintos del mismo nodo → ambos deben añadirse
+add-wire demo-model/wires make-wire compose [
+    from: (1)  from-port: 'result  to: (4)  to-port: 'a
+]
+add-wire demo-model/wires make-wire compose [
+    from: (2)  from-port: 'result  to: (4)  to-port: 'b
+]
+
+assert "QA-018: 3 wires en total"         (3 = length? demo-model/wires)
+assert "QA-018: primer wire a puerto 'a"  (1 = demo-model/wires/2/from-node)
+assert "QA-018: segundo wire a puerto 'b" (2 = demo-model/wires/3/from-node)
+
 print "--- tests finalizados ---"

@@ -57,21 +57,24 @@ QTorres/
 │   ├── labview-comportamiento.md # Arquitectura LabVIEW: renderizado, modos, estilos
 │   └── GTK_ISSUES.md       # Bugs del backend GTK en Linux
 ├── src/
-│   ├── qtorres.red         # Punto de entrada + toolbar + ventana principal (226 líneas)
+│   ├── qtorres.red         # Punto de entrada + toolbar + ventana principal
 │   ├── graph/
-│   │   ├── model.red       # Modelo: make-label, base-element, make-node, make-wire, make-frame, gen-name (346 líneas)
-│   │   └── blocks.red      # Registro de bloques + dialecto block-def — 34 bloques (324 líneas)
+│   │   ├── model.red       # Modelo: make-label, make-node, make-wire, make-fp-item, set-config, find-node-by-id (635 líneas)
+│   │   └── blocks.red      # Registro de bloques + dialecto block-def — 34 bloques
 │   ├── compiler/
-│   │   └── compiler.red    # Compilador: topo-sort, bind-emit, compile-body/diagram/structures (831 líneas)
+│   │   └── compiler.red    # Compilador: topo-sort, bind-emit, compile-body/diagram/panel (1029 líneas)
 │   ├── runner/
-│   │   └── runner.red      # Runner: ejecución en memoria con do (33 líneas)
+│   │   └── runner.red      # Runner: ejecución en memoria con do
 │   ├── io/
-│   │   └── file-io.red     # File I/O: serialize, format, save/load .qvi (647 líneas)
+│   │   └── file-io.red     # File I/O: serialize, format, save/load .qvi, save/load-panel (738 líneas)
 │   └── ui/
 │       ├── diagram/
-│       │   └── canvas.red  # Block Diagram canvas: render, hit-test, eventos (2383 líneas) ⚠️ SPLIT PENDIENTE
+│       │   ├── canvas.red          # BD canvas: hit-test, CRUD, actor render-diagram (1226 líneas)
+│       │   ├── canvas-render.red   # Render puro BD: constantes, geometría, Draw (932 líneas)
+│       │   └── canvas-dialogs.red  # Diálogos edición, paleta, SR helpers (397 líneas)
 │       └── panel/
-│           └── panel.red   # Front Panel: render, hit-test, compile-panel (928 líneas)
+│           ├── panel.red           # FP: hit-test, diálogos, paleta, actor render-panel (535 líneas)
+│           └── panel-render.red    # Render puro FP: constantes, Draw, waveform (411 líneas)
 ├── tests/
 │   ├── run-all.red         # Runner de tests automatizados
 │   ├── test-blocks.red     # Tests del registro de bloques (34 bloques, puertos, emit)
@@ -103,15 +106,21 @@ QTorres/
 - Runner en memoria, File I/O con round-trip, Front Panel con Draw
 - Tests automatizados + CI en GitHub Actions
 
-**Fase 2 — EN PROGRESO.** Tipos de datos y estructuras de control:
+**Fase 2 ✅ COMPLETADA (pendiente merge PR#60).** Tipos de datos y estructuras de control:
 - ~~#9 Tipo booleano~~ ✅
 - ~~#10 Tipo string~~ ✅
 - ~~#14 While Loop~~ ✅ (con shift registers)
 - ~~#15 For Loop~~ ✅
 - ~~#11 Array 1D~~ ✅ (bloques arr-const, build-array, index-array, array-size, array-subset)
-- ~~#16 Case Structure~~ ✅ (PR#46 pendiente de merge — frames navegables, case/either)
+- ~~#16 Case Structure~~ ✅
+- ~~#12 Cluster~~ ✅
+- ~~#13 Waveform Chart y Graph~~ ✅
+- ~~#54 Cluster persiste campos~~ ✅  ~~#48/#50/#51 bugs menores~~ ✅
+- QA-018/029: protecciones de integridad ✅
+- Refactor 4A-4E: responsabilidades reorganizadas, ficheros grandes divididos ✅
+- 465 tests PASS
 
-**Próximo paso:** Issue #12 (Cluster).
+**Próximo paso:** Fase 3 — #17 Sub-VI con connector pane.
 
 ## Decisiones técnicas clave
 
@@ -373,50 +382,50 @@ Cubre sintaxis core, View, Draw, VID, Parse, patrones idiomáticos y gotchas.
 
 ### Responsabilidades mal ubicadas
 
-| Función | Está en | Debería estar en | Por qué |
-|---------|---------|-------------------|---------|
-| `compile-panel`, `gen-panel-var-name`, `gen-standalone-code` | panel.red | compiler.red | Lógica de compilación en un módulo de UI |
-| `save-panel-to-diagram`, `load-panel-from-diagram` | panel.red | file-io.red | Serialización en un módulo de UI |
-| `make-diagram-model` | canvas.red | model.red | Creación de modelo en un módulo de UI |
-| `make-fp-item` | panel.red | model.red | Constructor de datos en un módulo de UI |
-| Lógica de `btn-run` (50+ líneas inline) | qtorres.red | función nombrada (ej: `run-diagram`) | Lógica de negocio inline en un actor de face |
+> **Refactor 4A completado (2026-04-08, PR #60):** Las responsabilidades más críticas ya están en sus módulos correctos.
 
-### Dependencia circular canvas.red <-> panel.red
+| Función | Movida a | Estado |
+|---------|----------|--------|
+| `compile-panel`, `gen-panel-var-name`, `gen-standalone-code` | `compiler.red` | ✅ Movida |
+| `save-panel-to-diagram`, `load-panel-from-diagram` | `file-io.red` | ✅ Movida |
+| `make-diagram-model` | `model.red` | ✅ Movida |
+| `make-fp-item`, `fp-cluster-fields`, `fp-default-label` | `model.red` | ✅ Movida |
+| `find-node-by-id` | `model.red` | ✅ Añadida |
+| `set-config` | `model.red` | ✅ Añadida |
+| Lógica de `btn-run` (50+ líneas inline) | qtorres.red | ⚠️ Pendiente Fase 3 |
+
+### Dependencia canvas.red <-> panel.red
 
 - `canvas.red` llama a `render-fp-panel` (definida en panel.red)
-- `panel.red` llama a `render-bd`, `gen-node-id` (definidas en canvas.red)
+- `panel.red` llama a `render-bd`, `gen-node-id` (definidas en canvas-render.red)
 
-Funciona porque el chain loading carga canvas antes que panel, pero:
-- Ninguno puede testearse aisladamente
-- El orden de `#include` es frágil
-- **Regla para IA:** NO agravar esta dependencia. Si necesitas sincronizar BD↔FP, usar el patrón existente; no crear nuevas dependencias cruzadas.
+El acoplamiento es **por diseño del dominio** (FP↔BD son una unidad 1:1) y no es deuda técnica.
+- **Regla para IA:** NO agravar esta dependencia. Usar el patrón existente para sincronizar BD↔FP.
 
-### Ficheros demasiado grandes (riesgo de pérdida de contexto)
+### Ficheros y tamaños (2026-04-08)
 
-| Fichero | Líneas | Riesgo |
-|---------|--------|--------|
-| canvas.red | 2383 | **CRÍTICO** — split urgente. Render, hit-test, eventos, diálogos, paleta, CRUD, modelo, estructuras, arrays. |
-| panel.red | 928 | **ALTO** — Render + hit-test + eventos + serialización + compilación + diálogos + demo. |
-| compiler.red | 831 | **ALTO** — compile-diagram + todas las estructuras. |
-| file-io.red | 647 | Medio — `format-qvi` recorre `ui-layout` por índice (frágil). |
+| Fichero | Líneas | Contenido |
+|---------|--------|-----------|
+| canvas.red | 1226 | Hit-test, CRUD, actor render-diagram |
+| canvas-render.red | 932 | Constantes visuales, geometría, Draw |
+| canvas-dialogs.red | 397 | Diálogos de edición, paleta, SR helpers |
+| panel.red | 535 | Hit-test, diálogos FP, paleta FP, actor |
+| panel-render.red | 411 | Constantes FP, render Draw, waveform |
+| compiler.red | 1029 | compile-diagram + compile-panel + estructuras |
+| file-io.red | 738 | serialize, save/load .qvi, save/load panel |
+| model.red | 635 | Constructores, helpers, find-node-by-id, set-config |
 
-**Regla para IA:** Al trabajar en canvas.red o panel.red, leer el fichero COMPLETO antes de hacer cambios. No asumir que entiendes la estructura por haber leído solo una parte.
+**Regla para IA:** Al trabajar en canvas.red o panel.red y sus submódulos, leer el fichero COMPLETO antes de hacer cambios.
 
-### Abstracciones que faltan
+### Abstracciones pendientes
 
-1. **`find-node-by-id`** — El patrón `foreach node model/nodes [if node/id = target-id [...]]` se repite ~15 veces en canvas.red, compiler.red, panel.red y qtorres.red. Debería ser una función en model.red.
-2. **`set-config`** — El patrón `either pos: find node/config 'default [pos/2: val] [append node/config reduce ['default val]]` se repite 3 veces en canvas.red. Debería ser un helper en model.red.
-3. **Conocimiento de tipos disperso** — El comportamiento por tipo (`bool-const`, `str-const`, etc.) está hardcodeado en canvas.red, panel.red, compiler.red y blocks.red. Añadir un tipo nuevo requiere tocar 4+ ficheros en 10+ ubicaciones. blocks.red debería llevar hints de renderizado/compilación.
+1. **Conocimiento de tipos disperso** — El comportamiento por tipo (`bool-const`, `str-const`, etc.) está hardcodeado en canvas-render.red, panel-render.red, compiler.red y blocks.red. Añadir un tipo nuevo requiere tocar 4+ ficheros. blocks.red debería llevar hints de renderizado/compilación.
 
 ### Estado global compartido
 
-`app-model` (definido en qtorres.red) es el único modelo compartido. canvas.red, panel.red y qtorres.red lo leen y mutan a través de `face/extra`. No hay mecanismo de notificación — cada módulo muta directamente y llama al render del otro.
+`app-model` (definido en qtorres.red) es el único modelo compartido. canvas.red, panel.red y qtorres.red lo leen y mutan a través de `face/extra`. No hay mecanismo de notificación.
 
-### Plan de corrección (NO ejecutar ahora)
+### Plan de corrección (pendiente Fase 3)
 
-Estos refactorings se harán como Issues dedicados cuando haya un hueco entre features:
-1. Extraer `make-diagram-model` y `make-fp-item` → model.red
-2. Mover `compile-panel` + helpers → compiler.red
-3. Mover `save/load-panel-*` → file-io.red
-4. Añadir `find-node-by-id` y `set-config` a model.red
-5. Romper la dependencia circular canvas↔panel con callbacks
+1. Centralizar conocimiento de tipos en blocks.red (hints de renderizado)
+2. Extraer lógica de `btn-run` a función nombrada en qtorres.red

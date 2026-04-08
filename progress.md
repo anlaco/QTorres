@@ -1,6 +1,22 @@
-# Progress — Issue #13: Waveform Chart y Graph
+# Progress Log — Transición Fase 2
 
-## Session Log
+## Session 2026-04-07 — Cierre de Fase 2
+
+### Fase 0 — Sincronización ✅
+
+**0.1-0.3** Sincronizado con origin/main (commit 8dc1610). Línea base: **450 tests PASS**.
+
+**0.4** Conteo de líneas actual:
+- canvas.red: 2557 líneas
+- panel.red: 1255 líneas  
+- compiler.red: 891 líneas
+- file-io.red: 647 líneas
+
+**Próximo:** Delegar análisis bug #54 (Cluster) a qwen3-coder:480b.
+
+---
+
+## Session Log — Issue #13 (histórico)
 
 ### 2026-04-03 — Implementación completa (infraestructura)
 
@@ -75,3 +91,20 @@
 ## Próximo paso
 
 El issue #13 está completo en cuanto a infraestructura. La funcionalidad completa de Chart dentro de loops requiere implementar drag de nodos dentro/fuera de estructuras.
+
+## Session 2026-04-08 — Bug #54 + QA fixes
+
+- Fase 1 del plan completada: bug #54 (cluster no persiste campos)
+  - canvas.red: cluster-control/cluster-indicator añadidos al dbl-click handler (L2357, L2399)
+  - model.red: cluster-in-ports ahora incluye 'cluster-indicator, cluster-out-ports incluye 'cluster-control
+  - model.red: añadido helper `wire-port-in-used?` para QA-018
+  - canvas.red: QA-018 aplicado en 3 lugares (L1911, L1933, L2309)
+- Fase 2 del plan completada: protecciones QA
+  - QA-018: `wire-port-in-used?` en model.red + 3 llamadas en canvas.red ✅
+  - QA-024: `fp-default-label` ya tenía todos los tipos cubiertos ✅ (ya estaba)
+  - QA-029: `save-panel-to-diagram` ahora guarda item/value en lugar de item/default (panel.red L1017) ✅
+- Bonus refactor (hecho por opencode agent):
+  - load-panel-from-diagram movida de panel.red a file-io.red (Fase 4A parcial)
+  - apply-const/str/arr-value en canvas.red usan `set-config` (Fase 4B parcial)
+- Tests: 450/450 PASS
+- Modelos usados: kimi-k2.5 (análisis + canvas.red), qwen3-coder-next (panel.red)

@@ -1,140 +1,164 @@
-# Plan — Issue #13: Waveform Chart y Graph
+# Plan — Transición limpia a Fase 3
 
-## Contexto
+**Creado:** 2026-04-07
+**Objetivo:** Cerrar Fase 2 con calidad para abrir Fase 3 (#17 Sub-VIs) sin arrastrar deuda bloqueante.
 
-**Issue:** #13 - Waveform chart y graph en Front Panel
-**Prioridad:** 7 de 8 en Fase 2 (último feature de Fase 2)
-**Estado:** ✅ COMPLETADO
+## Fuentes
 
-**Objetivo:** Implementar controles de visualización de señales en el Front Panel:
-- **Waveform Chart:** acumula valores en cada iteración (buffer circular)
-- **Waveform Graph:** muestra un array completo como señal
+- `docs/auditoria-fase-2.md` (2026-04-03, qwen3-coder:480b) — veredicto 🟢 verde con refactor 🟡 bloqueante
+- `CLAUDE.md` sección "Problemas conocidos de arquitectura"
+- Issues abiertos: #28, #48, #49, #50, #51, #54 + QA-018/024/029
 
-**Referencias LabVIEW:**
-- [NI Knowledge Base: Waveform Graphs vs Charts](https://knowledge.ni.com/KnowledgeArticleDetails?id=kA00Z000000P9zsSAC)
-- [LabVIEW Docs: Waveform Charts](https://ni.com/docs/en-US/bundle/labview/page/waveform-charts.html)
+## Reglas absolutas (recordatorio)
 
-**Problema:** No hay validación que impida conectar dos wires al mismo puerto de entrada. Viola visual-spec 5.2.
+- Todo en Red-Lang. Sin crear módulos nuevos sin aprobación.
+- `./red-cli tests/run-all.red` debe pasar tras cada cambio (línea base: 450/450).
+- NUNCA empezar una fase sin completar la anterior.
+- NUNCA mergear PRs sin aprobación del usuario.
+- Consultar `skills/red-lang/SKILL.md` antes de tocar Draw/View.
 
-## Fases
+## Estrategia de delegación a Ollama
 
-### Phase 0: Diseño ✅ COMPLETE
+Delegación habilitada a través de MCP configurado en el proyecto. El contexto (CLAUDE.md + skill Red-Lang) se carga automáticamente.
 
-Diseño completado y aprobado. Ver detalles en `/home/alaforga/.claude/plans/toasty-plotting-parrot.md`.
+| Tarea | Herramienta recomendada | Razón |
+|-------|-------------------------|-------|
+| Lectura masiva de canvas.red/panel.red | Task tool con agent explore | Contexto largo, análisis de codebase |
+| Búsqueda de patrones específicos | Grep/Glob directos | Más rápido que delegar |
+| Generación de tests Red | Decisión case-by-case | Según complejidad |
+| Decisiones arquitectónicas | Claude (NO delegar) | Ollama no razona bien trade-offs |
+| Escritura de ficheros | Claude (NO delegar) | Requiere revisión manual |
 
-### Phase 1: Registro de bloques ✅ COMPLETE
+## Hitos del plan
 
-**Fichero:** `src/graph/blocks.red`
+### Fase 0 — Sincronización ✅ COMPLETADA
 
-**Cambios:**
-- [x] 1.1 Añadir `waveform-chart` al block-registry
-- [x] 1.2 Añadir `waveform-graph` al block-registry
-- [x] 1.3 Añadir tests en `tests/test-blocks.red`
+- [x] **0.1** Informar de divergencia local vs origin/main
+- [x] **0.2** Reset a origin/main (commit 8dc1610)
+- [x] **0.3** Verificar línea base: **450 tests PASS**
+- [x] **0.4** Contar líneas actuales: canvas.red (2557), panel.red (1255), compiler.red (891), file-io.red (647)
+- [ ] **0.5** Revisar si QA-018/024/029 ya se aplicaron — grep/diff
 
-### Phase 2: Modelo FP ✅ COMPLETE
+### Fase 1 — Bug bloqueante #54 Cluster (CRÍTICO)
 
-**Fichero:** `src/ui/panel/panel.red`
+> Regresión funcional detectada en QA. No se puede abrir Fase 3 con Cluster roto.
 
-**Cambios:**
-- [x] 2.1 Añadir casos en `fp-type-label?` para waveform-chart/graph
-- [x] 2.2 Añadir casos en `fp-default-label` para waveform-chart/graph
-- [x] 2.3 Actualizar `make-fp-item` para soportar tipos waveform
-- [x] 2.4 Añadir constantes de dimensiones `fp-chart-width`, `fp-chart-height`
+**Síntomas (Issue #54):**
+1. Puertos no aparecen al añadir campos al cluster-control
+2. Config/fields no persiste al cerrar y reabrir el editor
+3. Cluster-indicator no permite añadir ningún elemento
 
-### Phase 3: Renderizado Draw ✅ COMPLETE
+**Plan:**
+- [x] **1.1** Usar Task tool (explore agent) para localizar en canvas.red + panel.red el flujo cluster dbl-click → editor → persistencia
+- [x] **1.2** Claude: leer fragmentos identificados, diagnosticar causa raíz
+- [x] **1.3** Aplicar fixes
+- [x] **1.4** Añadir tests de regresión (persistencia config + round-trip cluster con N campos)
+- [x] **1.5** Prueba manual: crear cluster-ctrl, añadir 3 campos, cerrar, reabrir, verificar
+- [x] **1.6** Tests pasan (450+). Crear PR (sin mergear — esperar aprobación)
 
-**Fichero:** `src/ui/panel/panel.red`
+### Fase 2 — Protecciones de auditoría (🔴 ROJO)
 
-**Cambios:**
-- [x] 3.1 Crear función `render-waveform`
-- [x] 3.2 Añadir case en `render-fp-item` para waveform-chart/graph
-- [x] 3.3 Actualizar `hit-fp-zone` para waveform
+- [x] **2.1** QA-018: proteger `make-wire` para no permitir 2 wires al mismo puerto entrada (Regla absoluta #6)
+- [x] **2.2** QA-024: fix `fp-default-label` + asignación label en `open-edit-dialog`
+- [x] **2.3** QA-029: `save-panel-to-diagram` debe guardar `item/value`, no `item/default`
+- [x] **2.4** Tests de regresión para las 3 protecciones
+- [x] **2.5** PR de safety fixes
 
-### Phase 4: Compilación ✅ COMPLETE
+### Fase 3 — Bugs Fase 2 menores
 
-**Fichero:** `src/ui/panel/panel.red` (compile-panel), `src/qtorres.red` (btn-run)
+- [x] **3.1** #48 Bundle/Unbundle vacíos con altura excesiva (`canvas.red`)
+- [x] **3.2** #49 Control string auto-actualiza sin Run (`panel.red`)
+- [x] **3.3** #50 Modo headless no imprime valores desde UI-generated VIs
+- [x] **3.4** #51 Nodos creados desde FP se apilan — calcular offset libre
+- [x] **3.5** Cada fix → test → commit agrupado por fichero
+- [x] **3.6** PR de bug batch
 
-**Cambios:**
-- [x] 4.1 Añadir casos en `compile-panel` para waveform-chart
-- [x] 4.2 Añadir casos en `compile-panel` para waveform-graph
-- [x] 4.3 Actualizar indicadores waveform en el botón Run (qtorres.red)
-  - Chart: acumula valores en buffer circular (history-size)
-  - Graph: reemplaza con array completo
+### Fase 4 — Refactor estructural (🟡 BLOQUEANTE PARA #17)
 
-### Phase 5: Serialización ✅ COMPLETE
+> Auditoría marca panel.red y ciclo canvas↔panel como bloqueantes para Sub-VIs.
 
-**Fichero:** `src/ui/panel/panel.red` (save/load)
+#### 4A — Mover responsabilidades mal ubicadas
 
-**Cambios:**
-- [x] 5.1 `save-panel-to-diagram` serializa config/value
-- [x] 5.2 `load-panel-from-diagram` restaura config/value
+- [x] **4A.1** Grep para listar todas las llamadas a funciones mal ubicadas
+- [x] **4A.2** Mover `compile-panel` + helpers → `compiler.red`
+- [x] **4A.3** Mover `save/load-panel-*` → `file-io.red`
+- [x] **4A.4** Mover `make-fp-item` → `model.red`
+- [x] **4A.5** Mover `make-diagram-model` → `model.red`
+- [x] **4A.6** Chain loading verificado: model→blocks→compiler→runner→file-io→canvas→panel ✅
+- [x] **4A.7** Tests 465/465 PASS ✅ (2026-04-08)
+- [x] **4A.8** PR #60 abierto (actualización body bloqueada por bug gh Projects classic)
 
-### Phase 6: Tests ✅ COMPLETE
+#### 4B — Abstracción `set-config`
 
-**Ficheros:** `tests/test-blocks.red`
+- [ ] **4B.1** Grep patrón `either pos: find node/config` en src/
+- [x] **4B.2** Añadir `set-config` a `model.red`
+- [x] **4B.3** Aplicar helper en todas las ocurrencias (parcial: canvas.red ✅, panel.red pendiente)
+- [ ] **4B.4** Tests → PR
 
-**Tests:**
-- [x] 6.1 Tests de block registry (waveform-chart y waveform-graph)
-- [x] 6.2 Tests de make-fp-item para waveform
-- [x] 6.3 450 tests pasando
 
-### Phase 7: Ejemplo y documentación ✅ COMPLETE
+#### 4D — Split conservador de canvas.red ✅ COMPLETADA
 
-**Ficheros:**
-- [x] 7.1 `examples/waveform-demo.qvi` creado
-- [x] 7.2 `docs/visual-spec.md` actualizado con sección 8
+> Prerrequisito: 4A completada. (4C eliminada — acoplamiento canvas↔panel es correcto por diseño del dominio)
 
-### Phase 8: Paleta del Front Panel ✅ COMPLETE
+- [x] **4D.1** Inventario exhaustivo de canvas.red por categoría (2526 líneas → 3 secciones)
+- [x] **4D.2** Agrupación: render puro / hit-test+CRUD+actor / diálogos+paleta+SR
+- [x] **4D.3** Creado `canvas-render.red` (932 líneas): constantes + geometría + render Draw
+- [x] **4D.4** Creado `canvas-dialogs.red` (397 líneas): diálogos + paleta + SR helpers
+- [x] **4D.5** canvas.red queda con: hit-test + CRUD + actor + demo (1226 líneas)
+- [x] **4D.6** Chain loading correcto: canvas.red include canvas-render.red, luego canvas-dialogs.red
+- [x] **4D.7** Tests 465/465 PASS ✅ (2026-04-08)
+- [ ] **4D.8** PR "refactor: split conservador canvas.red"
 
-**Fichero:** `src/ui/panel/panel.red`
+#### 4E — Split conservador panel.red ✅ COMPLETADA
 
-**Cambios:**
-- [x] 8.1 Añadir botones "Waveform Chart" y "Waveform Graph" en `open-fp-palette`
-- [x] 8.2 Actualizar `fp-palette-add-item` para default value de waveform (array vacío)
-- [x] 8.3 Sincronización con BD (ya funciona para tipos no-cluster)
+- [x] **4E.1** Medido: 933 líneas post-4A → > 900, split necesario
+- [x] **4E.2** Creado `panel-render.red` (411 líneas): constantes + render puro
+- [x] **4E.3** panel.red queda con: hit-test + diálogos + paleta + actor (535 líneas)
+- [x] **4E.4** Tests 465/465 PASS ✅ (2026-04-08)
+- [ ] **4E.5** PR "refactor: split conservador panel.red" (incluye en PR #60 o nuevo)
 
----
+### Fase 5 — Decisión #28 y limpieza final
 
-## Verificación final
+- [ ] **5.1** Preguntar: ¿#28 Front Panel standalone entra en Fase 2 o posponer?
+- [ ] **5.2** Limpiar ficheros sueltos (con aprobación)
+- [ ] **5.3** Actualizar CLAUDE.md (líneas reales, bugs cerrados, estado Fase 2 COMPLETADA)
+- [ ] **5.4** Tag `v0.2-fase2-complete` tras aprobación
+- [ ] **5.5** Abrir Fase 3: plan para #17 Sub-VI
 
-- [x] `red-cli tests/run-all.red` → 450 tests PASS
-- [x] UI: crear chart/graph en FP desde paleta
-- [ ] UI: conectar wires en BD (PENDIENTE - requiere drag dentro de estructuras)
-- [x] Headless: ejemplo waveform-demo.qvi creado
-- [x] Botón Run: actualiza item/value para waveform
-- [ ] Chart acumula valores en loop (PENDIENTE - requiere nodos dentro de estructuras)
-- [x] Graph muestra array completo (funciona con arrays externos)
+## Criterios de "Fase 2 cerrada"
 
----
+- 450+ tests pasando
+- Issues #48-#51, #54 cerrados
+- QA-018/024/029 protegidos con tests
+- panel.red < 800 líneas
+- canvas.red core < 1500 líneas
+- canvas-render.red y canvas-dialogs.red existen
 
-## Trabajo pendiente
+- CLAUDE.md refleja estructura real
+- Todos los ejemplos headless pasan
+- red-view src/qtorres.red funciona
 
-La infraestructura de waveform está completada:
-- Bloques registrados en blocks.red
-- Modelo FP en panel.red
-- Renderizado Draw con grid y línea verde
-- Serialización/deserialización
-- Tests automatizados (450 PASS)
-- Paleta del FP con botones Waveform Chart/Graph
-- Botón Run actualiza item/value para waveform
+## Riesgos
 
-**Lo que funciona ahora:**
-- Waveform Graph conectado a un array externo (fuera de estructuras) ✅
-- Crear waveform-chart y waveform-graph desde la paleta del FP ✅
-- Los nodos se crean automáticamente en el BD ✅
-- Botón Run actualiza el valor del indicador ✅
+| Riesgo | Mitigación |
+|--------|-----------|
+| Refactor 4A rompe chain loading | Probar red-cli y red-view tras cada mover |
+| #54 tiene causa profunda config-driven | Tiempo adicional en investigación |
+| Task tool devuelve resultados inexactos | Verificar con Grep/Read antes de actuar |
+| Split 4D parte acoplamientos ocultos | Inventario previo + tests tras cada sub-paso |
 
-**Lo que requiere otra feature (drag nodos dentro de estructuras):**
-- Waveform Chart dentro de un loop (necesita poder meter el nodo dentro del loop)
-- Conectar nodos desde dentro de estructuras
-
-**Issue relacionado:**
-- Crear issue nuevo: "Permitir arrastrar nodos dentro/fuera de estructuras"
-
----
-
-## Errores encontrados
+## Log de errores
 
 | Error | Intento | Resolución |
 |-------|---------|------------|
-| — | — | — |
+| _(se rellenará durante ejecución)_ | | |
+
+## Lección aprendida — opencode
+
+El incidente con compiler.red (qwen3-coder-next reemplazó compile-diagram en lugar de solo añadir al final) fue probablemente un problema de selección de modelo, no una limitación de opencode.
+
+Para refactors que implican añadir código a ficheros grandes con funciones críticas:
+- Usar modelos con mejor comprensión de contexto largo: kimi-k2:1t, deepseek-v3.1:671b, mistral-large-3:675b
+- qwen3-coder-next: bueno para tests y fixes quirúrgicos en ficheros pequeños
+- glm-5 / gpt-oss:120b: fiables para ediciones mecánicas
+- Verificar siempre con git diff antes de ejecutar tests cuando el agente toca ficheros críticos

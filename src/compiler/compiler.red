@@ -832,7 +832,8 @@ emit-cluster-indicator-headless: func [
 ]
 
 compile-body: func [
-    diagram [object!]
+    diagram  [object!]
+    /with-prints  ; añade print por indicador — solo para ejecución standalone (red-cli .qvi)
     /local sorted code item bdef
 ][
     sorted: build-sorted-items diagram
@@ -855,19 +856,21 @@ compile-body: func [
         ]
     ]
 
-    ; Prints para modo headless — un print por indicador conectado
-    foreach item sorted [
-        bdef: find-block item/type
-        if none? bdef [continue]
-        if bdef/category = 'output [
-            if all [in diagram 'wires  block? diagram/wires] [
-                foreach w diagram/wires [
-                    if w/to-node = item/id [
-                        src: find-node-by-id diagram/nodes w/from-node
-                        if src [
-                            src-var: port-var src to-word w/from-port
-                            lbl: either all [item/label  object? item/label] [item/label/text] [any [item/name ""]]
-                            append code compose [print rejoin [(lbl) ": " form (src-var)]]
+    ; Prints para modo standalone (red-cli .qvi) — solo con /with-prints
+    if with-prints [
+        foreach item sorted [
+            bdef: find-block item/type
+            if none? bdef [continue]
+            if bdef/category = 'output [
+                if all [in diagram 'wires  block? diagram/wires] [
+                    foreach w diagram/wires [
+                        if w/to-node = item/id [
+                            src: find-node-by-id diagram/nodes w/from-node
+                            if src [
+                                src-var: port-var src to-word w/from-port
+                                lbl: either all [item/label  object? item/label] [item/label/text] [any [item/name ""]]
+                                append code compose [print rejoin [(lbl) ": " form (src-var)]]
+                            ]
                         ]
                     ]
                 ]
@@ -895,7 +898,7 @@ compile-diagram: func [
     /local sorted headless run-body ui-layout item node bdef face-n cfg-val w src src-var bindings
 ][
     sorted:   build-sorted-items diagram
-    headless: compile-body diagram
+    headless: compile-body/with-prints diagram
 
     ; ── Cuerpo del botón Run (modo UI) ────────────────────────
     run-body: copy []

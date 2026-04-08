@@ -554,6 +554,13 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                                             actual-from-node: model/wire-src-struct/id
                                         ]
                                     ]
+                                    ; QA-018: no permitir 2 wires al mismo puerto de entrada
+                                    if wire-port-in-used? wire-list hit-nd/id hit-port-name [
+                                        model/wire-src: none  model/wire-port: none  model/mouse-pos: none
+                                        model/wire-src-struct: none  model/wire-src-sr: none
+                                        face/draw: render-bd model
+                                        exit
+                                    ]
                                     append wire-list make-wire compose [
                                         from: (actual-from-node)
                                         from-port: (actual-from-port)

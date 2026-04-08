@@ -203,6 +203,11 @@ open-edit-dialog: func [item panel-face model /local label-text default-text] [
         edit-dialog-fval: field 200 default-text
         return
         button "OK" [
+            ; Guardar label si el usuario lo modificó
+            if all [edit-dialog-item/label  object? edit-dialog-item/label] [
+                edit-dialog-item/label/text: copy flabel/text
+            ]
+            ; Guardar valor numérico
             edit-dialog-item/value: attempt [to-float edit-dialog-fval/text]
             if none? edit-dialog-item/value [edit-dialog-item/value: edit-dialog-item/default]
             edit-dialog-panel/draw: render-fp-panel edit-dialog-model (edit-dialog-model/size/x) (edit-dialog-model/size/y)

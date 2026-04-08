@@ -1,10 +1,10 @@
 Red [Title: "QTorres — Tests blocks"]
 
-do %../src/graph/blocks.red
+do %../src/graph/model.red  ; model.red incluye blocks.red y ahora también make-fp-item (4A)
 
 suite "blocks — registro"
 
-assert "registra 38 bloques (34 anteriores + bundle + unbundle + waveform-chart + waveform-graph)" (38 = length? block-registry)
+assert "registra 40 bloques (34 + bundle + unbundle + cluster-control + cluster-indicator + waveform-chart + waveform-graph)" (40 = length? block-registry)
 assert "const está en el registro"     (not none? find-block 'const)
 assert "add está en el registro"       (not none? find-block 'add)
 assert "find-block devuelve none para bloques inexistentes" (none? find-block 'nonexistent)
@@ -114,7 +114,7 @@ assert "to-string emit es [result: form a]"                ([result: form a]    
 
 suite "blocks — cluster: registro"
 
-assert "registra 38 bloques (34 anteriores + bundle + unbundle + waveform-chart + waveform-graph)" (38 = length? block-registry)
+assert "registra 40 bloques (34 + bundle + unbundle + cluster-control + cluster-indicator + waveform-chart + waveform-graph)" (40 = length? block-registry)
 assert "bundle está en el registro"   (not none? find-block 'bundle)
 assert "unbundle está en el registro" (not none? find-block 'unbundle)
 
@@ -172,8 +172,8 @@ assert "waveform-graph no tiene emit (se maneja en compile-panel)" (none? b-grap
 
 suite "blocks — waveform: FP item"
 
-; Cargar panel.red para make-fp-item
-do %../src/ui/panel/panel.red
+; make-fp-item movida a model.red (4A) — ya cargado al inicio del test
+; (antes: do %../src/ui/panel/panel.red)
 
 wc: make-fp-item [id: 100  type: 'waveform-chart  name: "chart_1"  label: [text: "Señal" visible: true]  offset: 50x50]
 wg: make-fp-item [id: 101  type: 'waveform-graph  name: "graph_1"  label: [text: "Array" visible: true]  offset: 50x250]

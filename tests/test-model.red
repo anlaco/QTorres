@@ -287,15 +287,46 @@ assert "cluster-field-type voltaje → number"   ('number  = cluster-field-type 
 assert "cluster-field-type activo → boolean"   ('boolean = cluster-field-type cn-t 'activo)
 assert "cluster-field-type campo inexistente → number (default)" ('number = cluster-field-type cn-t 'noexiste)
 
-suite "cluster-helpers — gen-name"
+suite "cluster-helpers — cluster-control: 1 puerto estático tipo 'cluster (nuevo modelo)"
+; cluster-control/indicator tienen 1 solo cable tipo 'cluster (no puertos dinámicos por campo).
+; cluster-in-ports / cluster-out-ports son helpers solo para bundle/unbundle.
 
 reset-name-counters
-nb1: make-node [type: 'bundle]
-nb2: make-node [type: 'bundle]
-nu1: make-node [type: 'unbundle]
+cn-ctrl: make-node [
+    type: 'cluster-control
+    config: [fields [x 'number  y 'number  label 'string]]
+]
 
-assert "bundle gen-name bundle_1"    (nb1/name = "bundle_1")
-assert "bundle gen-name bundle_2"    (nb2/name = "bundle_2")
-assert "unbundle gen-name unbundle_1" (nu1/name = "unbundle_1")
+assert "cluster-out-ports cluster-control devuelve [] (puerto estático, no dinámico)" ([] = cluster-out-ports cn-ctrl)
+assert "cluster-in-ports cluster-control devuelve []"                                  ([] = cluster-in-ports cn-ctrl)
+; El puerto estático 'out (tipo 'cluster) viene de block-out-ports
+assert "block-out-ports cluster-control devuelve [out]"    ([out] = block-out-ports 'cluster-control)
+
+suite "cluster-helpers — cluster-indicator: 1 puerto estático tipo 'cluster (nuevo modelo)"
+
+reset-name-counters
+cn-ind: make-node [
+    type: 'cluster-indicator
+    config: [fields [voltaje 'number  corriente 'number]]
+]
+
+assert "cluster-in-ports cluster-indicator devuelve [] (puerto estático, no dinámico)" ([] = cluster-in-ports cn-ind)
+assert "cluster-out-ports cluster-indicator devuelve []"                                ([] = cluster-out-ports cn-ind)
+; El puerto estático 'in (tipo 'cluster) viene de block-in-ports
+assert "block-in-ports cluster-indicator devuelve [in]"    ([in] = block-in-ports 'cluster-indicator)
+
+suite "wire-port-in-used? — protección QA-018"
+
+reset-name-counters
+qa-wires: reduce [
+    make-wire [from: 1  from-port: 'out  to: 2  to-port: 'a]
+    make-wire [from: 3  from-port: 'out  to: 4  to-port: 'b]
+]
+
+assert "wire-port-in-used? detecta puerto ocupado"               (true  = wire-port-in-used? qa-wires 2 'a)
+assert "wire-port-in-used? detecta otro puerto ocupado"          (true  = wire-port-in-used? qa-wires 4 'b)
+assert "wire-port-in-used? puerto libre devuelve false"          (false = wire-port-in-used? qa-wires 2 'b)
+assert "wire-port-in-used? nodo distinto mismo puerto → false"   (false = wire-port-in-used? qa-wires 5 'a)
+assert "wire-port-in-used? lista vacía siempre false"            (false = wire-port-in-used? [] 2 'a)
 
 print "--- tests finalizados ---"

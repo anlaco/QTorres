@@ -692,6 +692,82 @@ emit-unbundle: func [
     code
 ]
 
+; Genera código para un nodo cluster-control:
+;   ctrl_1_out: make object! [campo1: to-float ctrl_1_campo1_fld/text  ...]
+; Los nombres de las faces del FP siguen el patrón: rejoin [node/name "_" fn "_fld"]
+emit-cluster-control: func [
+    node    [object!]
+    diagram [object!]
+    /local out-var fp-item fields fn ft fld-name obj-body code
+][
+    out-var: port-var node 'out
+    ; Buscar el item FP correspondiente para obtener los campos
+    fp-item: none
+    foreach it diagram/front-panel [
+        if it/name = node/name [fp-item: it  break]
+    ]
+    fields: either fp-item [fp-cluster-fields fp-item] [copy []]
+    obj-body: copy []
+    foreach [fn ft] fields [
+        fld-name: to-word rejoin [form node/name "_" form fn "_fld"]
+        append obj-body to-set-word fn
+        append obj-body compose [
+            (switch ft [
+                boolean [compose [any [attempt [to-logic (to-path reduce [fld-name 'data])]  false]]]
+                string  [to-path reduce [fld-name 'text]]
+            ])
+        ]
+        if not find [boolean string] ft [
+            ; numeric por defecto
+            clear back tail obj-body
+            append/only obj-body to-path reduce [fld-name 'text]
+            ; wrap con to-float
+            last-val: last obj-body
+            remove back tail obj-body
+            append obj-body 'to-float
+            append obj-body last-val
+        ]
+    ]
+    code: copy []
+    append code to-set-word out-var
+    append code 'make
+    append code object!
+    append/only code obj-body
+    code
+]
+
+; Genera código para un nodo cluster-indicator:
+;   Para cada campo, actualiza el text face del FP con el valor del campo del cluster.
+emit-cluster-indicator: func [
+    node    [object!]
+    diagram [object!]
+    /local fields in-var w src-nd fp-item fn ft fld-name code
+][
+    ; Encontrar el wire de entrada (puerto 'in)
+    in-var: none
+    foreach w diagram/wires [
+        if all [w/to-node = node/id  (to-word w/to-port) = 'in] [
+            src-nd: find-node-by-id diagram/nodes w/from-node
+            if src-nd [in-var: port-var src-nd to-word w/from-port]
+        ]
+    ]
+    if none? in-var [return copy []]
+    ; Buscar item FP para obtener campos
+    fp-item: none
+    foreach it diagram/front-panel [
+        if it/name = node/name [fp-item: it  break]
+    ]
+    fields: either fp-item [fp-cluster-fields fp-item] [copy []]
+    code: copy []
+    foreach [fn ft] fields [
+        fld-name: to-word rejoin [form node/name "_" form fn "_ind"]
+        ; fld-name/text: form in-var/fn
+        append code to-set-path reduce [fld-name 'text]
+        append/only code to-path reduce [in-var fn]
+    ]
+    code
+]
+
 ; ══════════════════════════════════════════════════
 ; COMPILE-BODY
 ; ══════════════════════════════════════════════════
@@ -699,8 +775,65 @@ emit-unbundle: func [
 ; Genera el bloque de cómputo headless listo para ejecutar con do.
 ; Incluye todos los nodos normales y las estructuras.
 
-compile-body: func [
+; Versión headless de emit-cluster-control: usa config 'default en lugar de faces del FP.
+emit-cluster-control-headless: func [
+    node    [object!]
     diagram [object!]
+    /local out-var fp-item fields defaults fn ft fval obj-body code
+][
+    out-var: port-var node 'out
+    fp-item: none
+    foreach it diagram/front-panel [if it/name = node/name [fp-item: it  break]]
+    fields:   either fp-item [fp-cluster-fields fp-item] [copy []]
+    defaults: either fp-item [select fp-item/config 'default] [none]
+    obj-body: copy []
+    foreach [fn ft] fields [
+        fval: either defaults [select defaults fn] [none]
+        append obj-body to-set-word fn
+        case [
+            ft = 'boolean [append obj-body any [all [logic? fval fval]  false]]
+            ft = 'string  [append obj-body any [all [string? fval fval] ""]]
+            true          [append obj-body any [fval 0.0]]
+        ]
+    ]
+    code: copy []
+    append code to-set-word out-var
+    append code 'make
+    append code object!
+    append/only code obj-body
+    code
+]
+
+; Versión headless de emit-cluster-indicator: imprime cada campo del cluster.
+emit-cluster-indicator-headless: func [
+    node    [object!]
+    diagram [object!]
+    /local fp-item fields in-var w src-nd fn ft lbl code
+][
+    in-var: none
+    foreach w diagram/wires [
+        if all [w/to-node = node/id  (to-word w/to-port) = 'in] [
+            src-nd: find-node-by-id diagram/nodes w/from-node
+            if src-nd [in-var: port-var src-nd to-word w/from-port]
+        ]
+    ]
+    if none? in-var [return copy []]
+    fp-item: none
+    foreach it diagram/front-panel [if it/name = node/name [fp-item: it  break]]
+    fields: either fp-item [fp-cluster-fields fp-item] [copy []]
+    lbl: either all [node/label  object? node/label] [node/label/text] [any [node/name ""]]
+    code: copy []
+    foreach [fn ft] fields [
+        append code compose [
+            print rejoin [(rejoin [lbl " — " form fn]) ": " form (to-path reduce [in-var fn])]
+        ]
+    ]
+    code
+]
+
+compile-body: func [
+    diagram  [object!]
+    /with-prints  ; añade print por indicador — solo para ejecución standalone (red-cli .qvi)
     /local sorted code item bdef
 ][
     sorted: build-sorted-items diagram
@@ -710,8 +843,10 @@ compile-body: func [
             find [while-loop for-loop case-structure] item/type [
                 append code compile-structure/no-gui item diagram
             ]
-            item/type = 'bundle   [append code emit-bundle   item diagram]
-            item/type = 'unbundle [append code emit-unbundle item diagram]
+            item/type = 'bundle              [append code emit-bundle                   item diagram]
+            item/type = 'unbundle            [append code emit-unbundle                 item diagram]
+            item/type = 'cluster-control     [append code emit-cluster-control-headless item diagram]
+            item/type = 'cluster-indicator   [append code emit-cluster-indicator-headless item diagram]
             true [
                 bdef: find-block item/type
                 if all [bdef  bdef/emit] [
@@ -720,6 +855,29 @@ compile-body: func [
             ]
         ]
     ]
+
+    ; Prints para modo standalone (red-cli .qvi) — solo con /with-prints
+    if with-prints [
+        foreach item sorted [
+            bdef: find-block item/type
+            if none? bdef [continue]
+            if bdef/category = 'output [
+                if all [in diagram 'wires  block? diagram/wires] [
+                    foreach w diagram/wires [
+                        if w/to-node = item/id [
+                            src: find-node-by-id diagram/nodes w/from-node
+                            if src [
+                                src-var: port-var src to-word w/from-port
+                                lbl: either all [item/label  object? item/label] [item/label/text] [any [item/name ""]]
+                                append code compose [print rejoin [(lbl) ": " form (src-var)]]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ]
+
     code
 ]
 
@@ -740,7 +898,7 @@ compile-diagram: func [
     /local sorted headless run-body ui-layout item node bdef face-n cfg-val w src src-var bindings
 ][
     sorted:   build-sorted-items diagram
-    headless: compile-body diagram
+    headless: compile-body/with-prints diagram
 
     ; ── Cuerpo del botón Run (modo UI) ────────────────────────
     run-body: copy []
@@ -752,8 +910,10 @@ compile-diagram: func [
             item/type = 'case-structure [
                 append run-body compile-case-structure/no-gui item diagram
             ]
-            item/type = 'bundle   [append run-body emit-bundle   item diagram]
-            item/type = 'unbundle [append run-body emit-unbundle item diagram]
+            item/type = 'bundle            [append run-body emit-bundle            item diagram]
+            item/type = 'unbundle          [append run-body emit-unbundle          item diagram]
+            item/type = 'cluster-control   [append run-body emit-cluster-control   item diagram]
+            item/type = 'cluster-indicator [append run-body emit-cluster-indicator item diagram]
             true [
                 node: item
                 bdef: find-block node/type
@@ -886,6 +1046,123 @@ compile-diagram: func [
     result-map/headless:  headless
     result-map/ui-layout: ui-layout
     result-map
+]
+
+; ══════════════════════════════════════════════════════════
+; COMPILE-PANEL (movido desde panel.red — 4A refactor)
+; ══════════════════════════════════════════════════════════
+
+gen-panel-var-name: func [item /local s fc] [
+    s: copy item/name
+    if not empty? s [
+        fc: uppercase copy/part s 1
+        s: rejoin [fc  skip s 1]
+    ]
+    to-word rejoin ["f" s]
+]
+
+gen-indicator-var-name: func [item /local s fc] [
+    s: copy item/name
+    if not empty? s [
+        fc: uppercase copy/part s 1
+        s: rejoin [fc  skip s 1]
+    ]
+    to-word rejoin ["l" s]
+]
+
+compile-panel: func [model /local cmds item ctrl-field-name ind-var-name fn ft fval fld-name] [
+    cmds: copy []
+
+    foreach item model/front-panel [
+        case [
+            find [control str-control] item/type [
+                ctrl-field-name: gen-panel-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ctrl-field-name) field 120 (form item/default)
+                    return
+                ]
+            ]
+            item/type = 'bool-control [
+                ctrl-field-name: gen-panel-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ctrl-field-name) check (item/label/text) (item/default)
+                    return
+                ]
+            ]
+            item/type = 'arr-control [
+                ind-var-name: gen-indicator-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ind-var-name) text 120 (rejoin ["[" form item/default "]"])
+                    return
+                ]
+            ]
+            item/type = 'cluster-control [
+                foreach [fn ft] fp-cluster-fields item [
+                    fld-name: to-word rejoin [form item/name "_" form fn]
+                    fval: select any [item/default  copy []] fn
+                    append cmds compose [label (rejoin [item/label/text " — " form fn])]
+                    case [
+                        ft = 'boolean [
+                            append cmds compose [
+                                (to-set-word fld-name) check (form fn) (any [fval false])
+                                return
+                            ]
+                        ]
+                        true [
+                            append cmds compose [
+                                (to-set-word fld-name) field 120 (form any [fval ""])
+                                return
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+            item/type = 'cluster-indicator [
+                foreach [fn ft] fp-cluster-fields item [
+                    fld-name: to-word rejoin [form item/name "_" form fn]
+                    fval: select any [item/default  copy []] fn
+                    append cmds compose [
+                        label (rejoin [item/label/text " — " form fn])
+                        (to-set-word fld-name) text 120 (form any [fval ""])
+                        return
+                    ]
+                ]
+            ]
+            find [waveform-chart waveform-graph] item/type [
+                ind-var-name: gen-indicator-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ind-var-name) base 200x160 draw []
+                    return
+                ]
+            ]
+            true [
+                ind-var-name: gen-indicator-var-name item
+                append cmds compose [
+                    label (item/label/text)
+                    (to-set-word ind-var-name) text 120 (form item/default)
+                    return
+                ]
+            ]
+        ]
+    ]
+
+    append cmds compose [button "Run" []]
+    cmds
+]
+
+gen-standalone-code: func [model /local vid-code] [
+    vid-code: compile-panel model
+    rejoin [
+        "Red [title: {QTorres Panel Demo} Needs: 'View]" newline
+        "qvi-diagram: []" newline
+        "view layout [" newline
+        "    " mold vid-code newline
+        "]"
+    ]
 ]
 
 #include %../runner/runner.red

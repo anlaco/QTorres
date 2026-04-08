@@ -233,6 +233,17 @@ make-wire: func [
     w
 ]
 
+wire-port-in-used?: func [
+    "Devuelve true si algún wire ya conecta al puerto 'in' to-node/to-port (QA-018)"
+    wires-block [block!] to-node [integer!] to-port [word!]
+    /local w
+][
+    foreach w wires-block [
+        if all [w/to-node = to-node  w/to-port = to-port] [return true]
+    ]
+    false
+]
+
 make-shift-register: func [
     "Crea un shift register (par de terminales ▲/▼) para un while-loop"
     spec [block!]
@@ -360,12 +371,12 @@ cluster-fields: func [
 ]
 
 cluster-in-ports: func [
-    "Devuelve los nombres de puertos de entrada dinámicos de un bundle (uno por campo)"
-    "Para unbundle u otros tipos devuelve [] — sus entradas son estáticas"
+    "Devuelve los nombres de puertos de entrada dinámicos de bundle (uno por campo)"
+    "Para otros tipos devuelve [] — sus entradas son estáticas"
     node [object!]
     /local result
 ][
-    if node/type <> 'bundle [return copy []]
+    unless node/type = 'bundle [return copy []]
     result: copy []
     foreach [field-name field-type] cluster-fields node [
         append result field-name
@@ -374,12 +385,12 @@ cluster-in-ports: func [
 ]
 
 cluster-out-ports: func [
-    "Devuelve los nombres de puertos de salida dinámicos de un unbundle (uno por campo)"
-    "Para bundle u otros tipos devuelve [] — sus salidas son estáticas"
+    "Devuelve los nombres de puertos de salida dinámicos de unbundle (uno por campo)"
+    "Para otros tipos devuelve [] — sus salidas son estáticas"
     node [object!]
     /local result
 ][
-    if node/type <> 'unbundle [return copy []]
+    unless node/type = 'unbundle [return copy []]
     result: copy []
     foreach [field-name field-type] cluster-fields node [
         append result field-name
@@ -412,7 +423,213 @@ find-node-by-id: func [nodes id /local node] [
     none
 ]
 
-; make-fp-item y fp-value-text viven en src/ui/panel/panel.red (canónico).
-; model.red no duplica lógica de Front Panel.
+; Actualiza o añade una clave en node/config (4B — evita duplicar el patrón either/find).
+set-config: func [node key value /local pos] [
+    either pos: find node/config key [pos/2: value][append node/config reduce [key value]]
+]
+
+; Crea el modelo de datos del diagrama (movido de canvas.red — 4A).
+make-diagram-model: func [] [
+    make object! [
+        nodes:          copy []
+        wires:          copy []
+        structures:     copy []
+        front-panel:    copy []
+        next-id:        1
+        selected-node:  none
+        selected-wire:  none
+        selected-fp:    none
+        selected-struct: none
+        drag-node:      none
+        drag-fp:        none
+        drag-struct:    none
+        drag-struct-off: none
+        resize-struct:  none
+        drag-off:       none
+        drag-is-label:  false
+        wire-src:        none
+        wire-port:       none
+        wire-src-struct: none
+        wire-src-sr:     none
+        selected-sr:     none
+        mouse-pos:       none
+        broken-wire:     none
+        canvas-ref:      none
+        size:            0x0
+    ]
+]
+
+; ══════════════════════════════════════════════════
+; FP-ITEM MODEL (movido desde panel.red — 4A refactor)
+; ══════════════════════════════════════════════════
+
+fp-cluster-fields: func [
+    "Devuelve la lista de campos del cluster FP item [nombre tipo ...]"
+    item [object!]
+    /local cfg flds
+][
+    cfg: any [item/config  copy []]
+    flds: select cfg 'fields
+    either flds [flds] [copy []]
+]
+
+fp-default-label: func [item-type] [
+    case [
+        item-type = 'bool-control   ["Boolean"]
+        item-type = 'bool-indicator ["Boolean"]
+        item-type = 'str-control    ["String"]
+        item-type = 'str-indicator  ["String"]
+        item-type = 'arr-control      ["Array"]
+        item-type = 'arr-indicator    ["Array"]
+        item-type = 'cluster-control  ["Cluster"]
+        item-type = 'cluster-indicator ["Cluster"]
+        item-type = 'waveform-chart   ["Chart"]
+        item-type = 'waveform-graph   ["Graph"]
+        true                          ["Numeric"]
+    ]
+]
+
+make-fp-item: func [
+    "Crea un item del Front Panel (control o indicator)"
+    spec [block!]
+    /local item lbl-spec raw-type
+][
+    raw-type: any [select spec 'type  'control]
+    item: make object! [
+        id:        any [select spec 'id        0]
+        type:      either find [bool-control bool-indicator] raw-type ['control] [raw-type]
+        data-type: case [
+            find [bool-control bool-indicator]     raw-type ['boolean]
+            find [str-control  str-indicator]      raw-type ['string]
+            find [arr-control  arr-indicator]      raw-type ['array]
+            find [cluster-control cluster-indicator] raw-type ['cluster]
+            find [waveform-chart waveform-graph]   raw-type ['waveform]
+            true                                   ['numeric]
+        ]
+        name:      any [select spec 'name      ""]
+        label:     none
+        config:    copy any [select spec 'config  copy []]
+        default:   case [
+            find [bool-control bool-indicator] raw-type [
+                any [select spec 'default  false]
+            ]
+            find [str-control str-indicator] raw-type [
+                ; copy siempre: las literales "" en Red son constantes compartidas
+                copy any [select spec 'default  ""]
+            ]
+            find [arr-control arr-indicator] raw-type [
+                ; copy siempre: los bloques [] son constantes compartidas en Red
+                copy any [select spec 'default  copy []]
+            ]
+            find [cluster-control cluster-indicator] raw-type [
+                ; block de pares word/valor: [name "" voltage 0.0 active false]
+                copy any [select spec 'default  copy []]
+            ]
+            find [waveform-chart waveform-graph] raw-type [
+                ; waveform: buffer de valores (array vacío inicialmente)
+                copy any [select spec 'default  copy []]
+            ]
+            true [
+                any [select spec 'default  0.0]
+            ]
+        ]
+        value:     none
+        offset:    any [select spec 'offset    0x0]
+    ]
+    item/type: raw-type
+    ; copy para strings y arrays: garantiza que control e indicador son objetos independientes
+    item/value: case [
+        find [str-control str-indicator] raw-type [
+            copy any [select spec 'value  item/default]
+        ]
+        find [arr-control arr-indicator] raw-type [
+            copy any [select spec 'value  item/default]
+        ]
+        find [cluster-control cluster-indicator] raw-type [
+            copy any [select spec 'value  copy item/default]
+        ]
+        find [waveform-chart waveform-graph] raw-type [
+            ; waveform: buffer de valores (array)
+            copy any [select spec 'value  item/default]
+            ; Asegurar que value es un array
+            if none? item/value [item/value: copy []]
+            item/value
+        ]
+        true [
+            any [select spec 'value  item/default]
+        ]
+    ]
+    ; Asegurar que value nunca es none
+    if none? item/value [
+        item/value: either find [waveform-chart waveform-graph] raw-type [copy []] [0.0]
+    ]
+
+    ; Name: usar explícito, o generar automáticamente
+    item/name: any [select spec 'name  rejoin [form item/type "_" item/id]]
+
+    ; Offset: usar explícito o default
+    item/offset: any [select spec 'offset  0x0]
+
+    ; Label: acepta bloque [text: "..." ...] o string
+    ; label/offset = DELTA desde la posición por defecto.
+    ; Por defecto 0x0: label aparece fp-label-above px encima del body.
+    ; La posición real se calcula en render: (item/offset/x + delta/x, item/offset/y - fp-label-above + delta/y)
+    lbl-spec: select spec 'label
+    item/label: case [
+        block? lbl-spec [
+            lbl-spec: copy lbl-spec
+            if none? select lbl-spec 'text [
+                append lbl-spec compose [text: (fp-default-label item/type)]
+            ]
+            if none? select lbl-spec 'visible [
+                append lbl-spec compose [visible: true]
+            ]
+            make object! [
+                text:    any [select lbl-spec 'text    ""]
+                visible: any [select lbl-spec 'visible true]
+                offset:  any [select lbl-spec 'offset  0x0]
+            ]
+        ]
+        string? lbl-spec [
+            make object! [
+                text:    lbl-spec
+                visible: true
+                offset:  0x0
+            ]
+        ]
+        true [
+            make object! [
+                text:    fp-default-label item/type
+                visible: true
+                offset:  0x0
+            ]
+        ]
+    ]
+
+    item
+]
+
+; ══════════════════════════════════════════════════
+; WIRE PROTECTION — QA-018: Prevent multiple wires to same input port
+; ══════════════════════════════════════════════════
+
+wire-port-in-used?: func [
+    "Check if a destination port already has a wire connected to it"
+    wires [block!]
+    to-node-id [integer!]
+    to-port [word! string!]
+    /local w target-port
+][
+    target-port: to-word to-port
+    foreach w wires [
+        if all [
+            w/to-node = to-node-id
+            (to-word w/to-port) = target-port
+        ] [
+            return true
+        ]
+    ]
+    false
+]
 
 #include %blocks.red

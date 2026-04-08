@@ -109,13 +109,12 @@ btn-run: make face! [
                                     foreach item model/front-panel [
                                         if item/name = n/name [
                                             unless none? result-val [
-                                                ; Asegurar que el valor es numérico
-                                                if string? result-val [result-val: to-float result-val]
-                                                ; Waveform Chart: acumular valor en buffer
+                                                ; Waveform Chart: acumular valor en buffer (necesita float)
                                                 if item/type = 'waveform-chart [
-                                                    ; Inicializar buffer si es none
+                                                    wv: either string? result-val [attempt [to-float result-val]] [result-val]
+                                                    if none? wv [wv: 0.0]
                                                     if none? item/value [item/value: copy []]
-                                                    append item/value result-val
+                                                    append item/value wv
                                                     ; Limitar buffer a history-size (default 1024)
                                                     history-size: any [select item/config 'history-size 1024]
                                                     if (length? item/value) > history-size [
@@ -127,7 +126,7 @@ btn-run: make face! [
                                                 if item/type = 'waveform-graph [
                                                     item/value: copy result-val
                                                 ]
-                                                ; Otros indicadores: valor simple
+                                                ; Otros indicadores: valor tal cual (string, number, boolean…)
                                                 if not find [waveform-chart waveform-graph] item/type [
                                                     item/value: result-val
                                                 ]
@@ -143,13 +142,12 @@ btn-run: make face! [
                                     foreach item model/front-panel [
                                         if item/name = n/name [
                                             unless none? result-val [
-                                                ; Asegurar que el valor es numérico
-                                                if string? result-val [result-val: to-float result-val]
-                                                ; Waveform Chart desde estructura
+                                                ; Waveform Chart desde estructura (necesita float)
                                                 if item/type = 'waveform-chart [
-                                                    ; Inicializar buffer si es none
+                                                    wv: either string? result-val [attempt [to-float result-val]] [result-val]
+                                                    if none? wv [wv: 0.0]
                                                     if none? item/value [item/value: copy []]
-                                                    append item/value result-val
+                                                    append item/value wv
                                                     history-size: any [select item/config 'history-size 1024]
                                                     if (length? item/value) > history-size [
                                                         item/value: copy/part skip item/value ((length? item/value) - history-size) history-size

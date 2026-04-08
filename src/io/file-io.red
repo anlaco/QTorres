@@ -644,4 +644,95 @@ load-vi: func [
     d
 ]
 
+; ══════════════════════════════════════════════════════════
+; LOAD-PANEL-FROM-DIAGRAM — Phase 4
+; ══════════════════════════════════════════════════════════
+;
+; Carga front-panel items desde qvi-diagram (formato: qd).
+; Retorna bloque de objetos make-fp-item.
+;
+load-panel-from-diagram: func [qd [block!] /local fp-raw items item kw id type name lbl default config offset item-spec] [
+    fp-raw: select qd to-set-word 'front-panel
+    items: copy []
+    
+    unless block? fp-raw [return items]
+    
+    parse fp-raw [
+        any [
+            set kw word! set item-spec block! (
+                ; Construir spec completo para make-fp-item
+                spec: copy []
+                append spec to-set-word 'id
+                append spec any [select item-spec 'id  0]
+                append spec to-set-word 'type
+                append spec any [select item-spec 'type 'control]
+                append spec to-set-word 'name
+                append spec any [select item-spec 'name ""]
+                
+                ; Normalizar label
+                lbl-block: any [select item-spec 'label [text: ""]]
+                unless block? lbl-block [lbl-block: compose [text: (lbl-block)]]
+                if none? select lbl-block 'text   [append lbl-block compose [text: ""]]
+                if none? select lbl-block 'visible [append lbl-block compose [visible: true]]
+                if none? select lbl-block 'offset  [append lbl-block compose [offset: 0x0]]
+                append spec to-set-word 'label
+                append/only spec lbl-block
+                
+                append spec to-set-word 'default
+                append/only spec any [select item-spec 'default copy []]
+                
+                append spec to-set-word 'config
+                append/only spec any [select item-spec 'config copy []]
+                
+                append spec to-set-word 'offset
+                append spec any [select item-spec 'offset 0x0]
+                
+                item: make-fp-item spec
+                append items item
+            )
+            | skip
+        ]
+    ]
+    
+    items
+]
+
+; ══════════════════════════════════════════════════════════
+; SAVE-PANEL-TO-DIAGRAM (movido desde panel.red — 4A refactor)
+; ══════════════════════════════════════════════════════════
+
+save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
+    items: copy []
+    foreach item front-panel-items [
+        kw: case [
+            item/type = 'control           ['control]
+            item/type = 'bool-control      ['bool-control]
+            item/type = 'bool-indicator    ['bool-indicator]
+            item/type = 'str-control       ['str-control]
+            item/type = 'str-indicator     ['str-indicator]
+            item/type = 'arr-control       ['arr-control]
+            item/type = 'arr-indicator     ['arr-indicator]
+            item/type = 'cluster-control   ['cluster-control]
+            item/type = 'cluster-indicator ['cluster-indicator]
+            item/type = 'waveform-chart    ['waveform-chart]
+            item/type = 'waveform-graph    ['waveform-graph]
+            true                           ['indicator]
+        ]
+        spec: copy []
+        repend spec [to-set-word 'id  item/id  to-set-word 'type  item/type  to-set-word 'name  item/name]
+        append spec to-set-word 'label
+        append/only spec compose/deep [text: (item/label/text) visible: (item/label/visible) offset: (item/label/offset)]
+        append spec to-set-word 'default
+        either block? item/value [append/only spec copy item/value] [append spec item/value]
+        if item/data-type = 'cluster [
+            append spec to-set-word 'config
+            append/only spec copy any [item/config  copy []]
+        ]
+        repend spec [to-set-word 'offset  item/offset]
+        append items kw
+        append/only items spec
+    ]
+    reduce [to-set-word 'front-panel  items]
+]
+
 #include %../ui/diagram/canvas.red

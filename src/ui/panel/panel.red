@@ -4,541 +4,7 @@ Red [
     Needs:   'View
 ]
 
-; ══════════════════════════════════════════════════════════
-; CONSTANTS — visual configuration
-; ══════════════════════════════════════════════════════════
-fp-canvas-color:     225.228.235
-fp-control-color:    50.100.180
-fp-indicator-color:  175.125.20
-fp-text-color:       240.245.250
-fp-selected-color:   0.175.210
-fp-border-color:     30.60.120
-fp-item-width:       120
-fp-item-height:      40
-fp-label-height:     20
-fp-label-above:      18
-fp-run-button-height: 30
-
-; Waveform dimensions (área de trazado)
-fp-chart-width:      200
-fp-chart-height:     160
-
-; GTK-010: en Linux/GTK, Draw text usa baseline como Y en vez de top-left.
-; Compensamos añadiendo fp-text-dy a todas las coordenadas Y de texto.
-fp-text-dy: either system/platform = 'Linux [8] [0]
-
-fp-color?: func [item-type] [
-    either find [control bool-control str-control arr-control cluster-control] item-type [fp-control-color] [fp-indicator-color]
-]
-
-fp-border-color?: func [item-type] [
-    either find [control bool-control str-control arr-control cluster-control] item-type [fp-control-color - 20.20.20] [fp-indicator-color - 20.20.20]
-]
-
-fp-cluster-fields: func [item /local cfg flds] [
-    cfg: any [item/config  copy []]
-    flds: select cfg 'fields
-    either flds [flds] [copy []]
-]
-
-fp-cluster-height: func [item /local n] [
-    n: (length? fp-cluster-fields item) / 2
-    20 + (max 1 n) * 20
-]
-
-fp-type-label?: func [item-type] [
-    case [
-        item-type = 'control        ["DBL"]
-        item-type = 'indicator      ["DBL"]
-        item-type = 'bool-control   ["TF"]
-        item-type = 'bool-indicator ["TF"]
-        item-type = 'str-control    ["STR"]
-        item-type = 'str-indicator  ["STR"]
-        item-type = 'arr-control      ["ARR"]
-        item-type = 'arr-indicator    ["ARR"]
-        item-type = 'cluster-control  ["CLU"]
-        item-type = 'cluster-indicator ["CLU"]
-        item-type = 'waveform-chart   ["CHART"]
-        item-type = 'waveform-graph   ["GRAPH"]
-        true                          [uppercase form item-type]
-    ]
-]
-
-; ══════════════════════════════════════════════════════════
-; FP-ITEM — Constructor following DT-022/023 pattern
-; ══════════════════════════════════════════════════════════
-fp-default-label: func [item-type] [
-    case [
-        item-type = 'bool-control   ["Boolean"]
-        item-type = 'bool-indicator ["Boolean"]
-        item-type = 'str-control    ["String"]
-        item-type = 'str-indicator  ["String"]
-        item-type = 'arr-control      ["Array"]
-        item-type = 'arr-indicator    ["Array"]
-        item-type = 'cluster-control  ["Cluster"]
-        item-type = 'cluster-indicator ["Cluster"]
-        item-type = 'waveform-chart   ["Chart"]
-        item-type = 'waveform-graph   ["Graph"]
-        true                          ["Numeric"]
-    ]
-]
-
-make-fp-item: func [
-    "Crea un item del Front Panel (control o indicator)"
-    spec [block!]
-    /local item lbl-spec raw-type
-][
-    raw-type: any [select spec 'type  'control]
-    item: make object! [
-        id:        any [select spec 'id        0]
-        type:      either find [bool-control bool-indicator] raw-type ['control] [raw-type]
-        data-type: case [
-            find [bool-control bool-indicator]     raw-type ['boolean]
-            find [str-control  str-indicator]      raw-type ['string]
-            find [arr-control  arr-indicator]      raw-type ['array]
-            find [cluster-control cluster-indicator] raw-type ['cluster]
-            find [waveform-chart waveform-graph]   raw-type ['waveform]
-            true                                   ['numeric]
-        ]
-        name:      any [select spec 'name      ""]
-        label:     none
-        config:    copy any [select spec 'config  copy []]
-        default:   case [
-            find [bool-control bool-indicator] raw-type [
-                any [select spec 'default  false]
-            ]
-            find [str-control str-indicator] raw-type [
-                ; copy siempre: las literales "" en Red son constantes compartidas
-                copy any [select spec 'default  ""]
-            ]
-            find [arr-control arr-indicator] raw-type [
-                ; copy siempre: los bloques [] son constantes compartidas en Red
-                copy any [select spec 'default  copy []]
-            ]
-            find [cluster-control cluster-indicator] raw-type [
-                ; block de pares word/valor: [name "" voltage 0.0 active false]
-                copy any [select spec 'default  copy []]
-            ]
-            find [waveform-chart waveform-graph] raw-type [
-                ; waveform: buffer de valores (array vacío inicialmente)
-                copy any [select spec 'default  copy []]
-            ]
-            true [
-                any [select spec 'default  0.0]
-            ]
-        ]
-        value:     none
-        offset:    any [select spec 'offset    0x0]
-    ]
-    item/type: raw-type
-    ; copy para strings y arrays: garantiza que control e indicador son objetos independientes
-    item/value: case [
-        find [str-control str-indicator] raw-type [
-            copy any [select spec 'value  item/default]
-        ]
-        find [arr-control arr-indicator] raw-type [
-            copy any [select spec 'value  item/default]
-        ]
-        find [cluster-control cluster-indicator] raw-type [
-            copy any [select spec 'value  copy item/default]
-        ]
-        find [waveform-chart waveform-graph] raw-type [
-            ; waveform: buffer de valores (array)
-            copy any [select spec 'value  item/default]
-            ; Asegurar que value es un array
-            if none? item/value [item/value: copy []]
-            item/value
-        ]
-        true [
-            any [select spec 'value  item/default]
-        ]
-    ]
-    ; Asegurar que value nunca es none
-    if none? item/value [
-        item/value: either find [waveform-chart waveform-graph] raw-type [copy []] [0.0]
-    ]
-
-    ; Name: usar explícito, o generar automáticamente
-    item/name: any [select spec 'name  rejoin [form item/type "_" item/id]]
-
-    ; Offset: usar explícito o default
-    item/offset: any [select spec 'offset  0x0]
-
-    ; Label: acepta bloque [text: "..." ...] o string
-    ; label/offset = DELTA desde la posición por defecto.
-    ; Por defecto 0x0: label aparece fp-label-above px encima del body.
-    ; La posición real se calcula en render: (item/offset/x + delta/x, item/offset/y - fp-label-above + delta/y)
-    lbl-spec: select spec 'label
-    item/label: case [
-        block? lbl-spec [
-            lbl-spec: copy lbl-spec
-            if none? select lbl-spec 'text [
-                append lbl-spec compose [text: (fp-default-label item/type)]
-            ]
-            if none? select lbl-spec 'visible [
-                append lbl-spec compose [visible: true]
-            ]
-            make object! [
-                text:    any [select lbl-spec 'text    ""]
-                visible: any [select lbl-spec 'visible true]
-                offset:  any [select lbl-spec 'offset  0x0]
-            ]
-        ]
-        string? lbl-spec [
-            make object! [
-                text:    lbl-spec
-                visible: true
-                offset:  0x0
-            ]
-        ]
-        true [
-            make object! [
-                text:    fp-default-label item/type
-                visible: true
-                offset:  0x0
-            ]
-        ]
-    ]
-
-    item
-]
-
-fp-value-text: func [item] [
-    either block? item/value [
-        rejoin ["[" form item/value "]"]
-    ][
-        form item/value
-    ]
-]
-
-; ══════════════════════════════════════════════════════════
-; RENDER DRAW — pure functions, receive model, return Draw block
-; ══════════════════════════════════════════════════════════
-render-fp-grid: func [w h /local cmds gx gy] [
-    cmds: compose [pen 200.203.212  fill-pen 200.203.212  line-width 1]
-    gx: 20
-    while [gx < w] [
-        gy: 20
-        while [gy < h] [
-            append cmds compose [circle (as-pair gx gy) 1]
-            gy: gy + 20
-        ]
-        gx: gx + 20
-    ]
-    cmds
-]
-
-; Genera segmentos de línea discontinua a lo largo de un rectángulo
-dashed-box: func [x1 y1 x2 y2 dash gap /local cmds pos lim step] [
-    cmds: copy []
-    pos: x1  lim: x2
-    while [pos < lim] [
-        step: min dash (lim - pos)
-        append cmds compose [line (as-pair pos y1) (as-pair (pos + step) y1)]
-        pos: pos + dash + gap
-    ]
-    pos: y1  lim: y2
-    while [pos < lim] [
-        step: min dash (lim - pos)
-        append cmds compose [line (as-pair x2 pos) (as-pair x2 (pos + step))]
-        pos: pos + dash + gap
-    ]
-    pos: x2  lim: x1
-    while [pos > lim] [
-        step: min dash (pos - lim)
-        append cmds compose [line (as-pair pos y2) (as-pair (pos - step) y2)]
-        pos: pos - dash - gap
-    ]
-    pos: y2  lim: y1
-    while [pos > lim] [
-        step: min dash (pos - lim)
-        append cmds compose [line (as-pair x1 pos) (as-pair x1 (pos - step))]
-        pos: pos - dash - gap
-    ]
-    cmds
-]
-
-; ══════════════════════════════════════════════════════════
-; RENDER WAVEFORM — Draw signal plot
-; ══════════════════════════════════════════════════════════
-
-render-waveform: func [item selected? /local cmds w h values min-y max-y y-range x-scale y-scale pts i v px py] [
-    ; Dimensiones del área de trazado
-    w: fp-chart-width
-    h: fp-chart-height
-    cmds: copy []
-
-    ; Fondo negro (plot area estilo osciloscopio)
-    append cmds compose [
-        pen 60.60.60  line-width 1  fill-pen 15.15.15
-        box (as-pair item/offset/x item/offset/y)
-           (as-pair (item/offset/x + w) (item/offset/y + h)) 3
-    ]
-
-    ; Grid opcional: líneas grises cada 20% del área
-    append cmds [pen 40.40.40  line-width 1]
-    ; Líneas verticales
-    repeat i 4 [
-        px: item/offset/x + (w * i / 5)
-        append cmds compose [line (as-pair px item/offset/y) (as-pair px (item/offset/y + h))]
-    ]
-    ; Líneas horizontales
-    repeat i 4 [
-        py: item/offset/y + (h * i / 5)
-        append cmds compose [line (as-pair item/offset/x py) (as-pair (item/offset/x + w) py)]
-    ]
-
-    ; Línea de señal (verde estilo osciloscopio)
-    values: any [item/value  copy []]
-    ; Debug: verificar que values es un block
-    unless block? values [values: copy []]
-    ; Filtrar solo valores numéricos
-    values: copy values
-    remove-each v values [not number? v]
-
-    if not empty? values [
-        ; Calcular escala automática
-        ; Compute min and max manually (Red 0.6.6 lacks min-of/max-of)
-        min-y: first values
-        foreach v values [if v < min-y [min-y: v]]
-        max-y: first values
-        foreach v values [if v > max-y [max-y: v]]
-
-        ; Evitar división por cero y dar margen
-        y-range: max-y - min-y
-        if y-range = 0 [y-range: 1]
-        ; Margen 10% arriba y abajo
-        min-y: min-y - (y-range * 0.1)
-        max-y: max-y + (y-range * 0.1)
-        y-range: max-y - min-y
-
-        ; Escalar valores al área (dejando 10px margen)
-        y-scale: (h - 20) / y-range
-        x-scale: either (length? values) > 1 [
-            (w - 20) / ((length? values) - 1)
-        ][
-            w - 20  ; un solo punto: centrar
-        ]
-
-        ; Generar puntos de la línea
-        pts: copy []
-        i: 0
-        foreach v values [
-            px: item/offset/x + 10 + to-integer (i * x-scale)
-            py: item/offset/y + h - 10 - to-integer ((v - min-y) * y-scale)
-            append pts as-pair px py
-            i: i + 1
-        ]
-
-        ; Dibujar línea verde (line necesita >= 2 puntos en Draw)
-        either (length? pts) >= 2 [
-            append cmds [pen 0.200.0  line-width 1]
-            line-cmd: copy [line]
-            append line-cmd pts
-            append cmds line-cmd
-        ][
-            ; Un solo punto: dibujar círculo pequeño
-            append cmds compose [pen 0.200.0  fill-pen 0.200.0  circle (first pts) 2]
-        ]
-    ]
-
-    ; Label del tipo (esquina superior izquierda)
-    type-lbl: fp-type-label? item/type
-    append cmds compose [
-        pen 150.150.150
-        text (as-pair (item/offset/x + 4) (item/offset/y + 4 + fp-text-dy)) (type-lbl)
-    ]
-
-    ; Número de puntos (esquina superior derecha)
-    append cmds compose [
-        pen 150.150.150
-        text (as-pair (item/offset/x + w - 40) (item/offset/y + 4 + fp-text-dy))
-             (rejoin ["n=" length? any [item/value  copy []]])
-    ]
-
-    ; Selección: marco rallado
-    if selected? [
-        append cmds compose [
-            pen (fp-selected-color)
-            line-width 2
-            fill-pen off
-        ]
-        append cmds dashed-box
-            (item/offset/x - 3) (item/offset/y - 3)
-            (item/offset/x + w + 3) (item/offset/y + h + 3)
-            6 4
-        append cmds [line-width 1]
-    ]
-
-    cmds
-]
-
-render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col cx cy field-y field-h lx ly lw bh fy fn ft fval fval-str] [
-    cmds: copy []
-    ; Reset estado Draw — pen 0.0.0 es crítico: evita bleed de color de texto
-    append cmds [pen 0.0.0  fill-pen off  line-width 1]
-
-    ; ── Label encima del body (todos los tipos) ───────────────────────────────────────────
-    if all [item/label  object? item/label  item/label/visible] [
-        lx: item/offset/x
-        ly: item/offset/y - fp-label-above
-        if pair? item/label/offset [
-            lx: lx + item/label/offset/x
-            ly: ly + item/label/offset/y
-        ]
-        append cmds compose [
-            text (as-pair lx (ly + fp-text-dy)) (any [item/label/text ""])
-        ]
-    ]
-
-    ; ── Body ─────────────────────────────────────────────────────────────────────────────
-    case [
-        item/data-type = 'string [
-        ; String: campo blanco a partir de item/offset
-        either item/type = 'str-control [
-            append cmds compose [
-                pen 80.80.80  line-width 1  fill-pen 255.255.255
-                box (as-pair item/offset/x item/offset/y)
-                   (as-pair (item/offset/x + fp-item-width) (item/offset/y + fp-label-height)) 2
-            ]
-        ][
-            append cmds compose [
-                pen 80.80.80  line-width 2  fill-pen 245.245.245
-                box (as-pair item/offset/x item/offset/y)
-                   (as-pair (item/offset/x + fp-item-width) (item/offset/y + fp-label-height)) 2
-            ]
-        ]
-        append cmds compose [
-            pen 20.20.20  fill-pen off
-            text (as-pair (item/offset/x + 4) (item/offset/y + 4 + fp-text-dy)) (fp-value-text item)
-        ]
-    ]
-        item/data-type = 'cluster [
-        ; Cluster: caja marrón con campos internos
-        border-col: 100.50.10
-        col: either item/type = 'cluster-control [159.89.39] [139.69.19]
-        bh: fp-cluster-height item
-        append cmds compose [
-            pen (border-col)  line-width 2  fill-pen (col)
-            box (as-pair item/offset/x item/offset/y)
-               (as-pair (item/offset/x + fp-item-width) (item/offset/y + bh)) 3
-            pen 220.190.160  fill-pen off
-            text (as-pair (item/offset/x + 4) (item/offset/y + 4 + fp-text-dy)) "CLU"
-        ]
-        fy: item/offset/y + 20
-        foreach [fn ft] fp-cluster-fields item [
-            fval: select any [item/value  copy []] fn
-            fval-str: either none? fval [""] [form fval]
-            append cmds compose [
-                pen 240.220.200  fill-pen off
-                text (as-pair (item/offset/x + 4) (fy + fp-text-dy)) (rejoin [form fn ": " fval-str])
-            ]
-            fy: fy + 20
-        ]
-    ]
-        item/data-type = 'array [
-        ; Array: caja de color con borde doble + valor como texto
-        col: fp-color? item/type
-        border-col: fp-border-color? item/type
-        ; Borde exterior
-        append cmds compose [
-            pen (border-col)  line-width 3  fill-pen (col)
-            box (as-pair item/offset/x item/offset/y)
-               (as-pair (item/offset/x + fp-item-width) (item/offset/y + fp-item-height)) 4
-        ]
-        ; Borde interior (doble)
-        append cmds compose [
-            pen (col + 20.20.20)  line-width 1  fill-pen off
-            box (as-pair (item/offset/x + 4) (item/offset/y + 4))
-               (as-pair (item/offset/x + fp-item-width - 4) (item/offset/y + fp-item-height - 4)) 3
-        ]
-        append cmds compose [
-            pen 220.230.240  fill-pen off
-            text (as-pair (item/offset/x + 4) (item/offset/y + 5 + fp-text-dy)) "ARR"
-        ]
-        append cmds compose [
-            pen 255.255.255  fill-pen off
-            text (as-pair (item/offset/x + 4) (item/offset/y + fp-item-height - 14 + fp-text-dy))
-                 (fp-value-text item)
-        ]
-    ]
-        item/data-type = 'waveform [
-        ; Waveform: renderiza gráfico estilo osciloscopio
-        append cmds render-waveform item selected?
-    ]
-        true [
-        ; Numeric / Boolean: caja de color
-        col: fp-color? item/type
-        border-col: fp-border-color? item/type
-        append cmds compose [
-            pen (border-col)  line-width 1  fill-pen (col)
-            box (as-pair item/offset/x item/offset/y)
-               (as-pair (item/offset/x + fp-item-width) (item/offset/y + fp-item-height)) 4
-        ]
-        type-lbl: fp-type-label? item/type
-        append cmds compose [
-            pen 220.230.240  fill-pen off
-            text (as-pair (item/offset/x + 4) (item/offset/y + 5 + fp-text-dy)) (type-lbl)
-        ]
-        either item/data-type = 'boolean [
-            led-col: either item/value [0.180.0] [180.0.0]
-            cx: item/offset/x + fp-item-width - 20
-            cy: item/offset/y + (fp-item-height / 2)
-            append cmds compose [
-                pen (led-col - 40.40.40)  line-width 1  fill-pen (led-col)
-                circle (as-pair cx cy) 10
-            ]
-        ][
-            append cmds compose [
-                pen 255.255.255  fill-pen off
-                text (as-pair (item/offset/x + 4) (item/offset/y + fp-item-height - 14 + fp-text-dy))
-                     (fp-value-text item)
-            ]
-        ]
-    ]
-    ]  ; end case
-
-    ; ── Selección: marcos rallados en body y label ────────────────────────────────────────
-    bh: case [
-        item/data-type = 'string   [fp-label-height]
-        item/data-type = 'cluster  [fp-cluster-height item]
-        item/data-type = 'waveform [fp-chart-height]
-        true                       [fp-item-height]
-    ]
-    if selected? [
-        append cmds compose [pen (fp-selected-color)  line-width 2  fill-pen off]
-        append cmds dashed-box
-            (item/offset/x - 3) (item/offset/y - 3)
-            (item/offset/x + fp-item-width + 3) (item/offset/y + bh + 3)
-            6 4
-        if all [item/label  object? item/label  item/label/visible] [
-            lx: item/offset/x
-            ly: item/offset/y - fp-label-above
-            if pair? item/label/offset [
-                lx: lx + item/label/offset/x
-                ly: ly + item/label/offset/y
-            ]
-            lw: max 30 (7 * length? any [item/label/text ""])
-            append cmds compose [pen (fp-selected-color)  line-width 1  fill-pen off]
-            append cmds dashed-box (lx - 2) (ly - 2) (lx + lw + 2) (ly + 15) 4 3
-        ]
-        append cmds [line-width 1]
-    ]
-    cmds
-]
-
-render-fp-panel: func [model w h /local cmds item selected?] [
-    cmds: copy []
-
-    append cmds render-fp-grid w h
-
-    foreach item model/front-panel [
-        selected?: either model/selected-fp [same? item model/selected-fp] [false]
-        append cmds render-fp-item item selected?
-    ]
-
-    cmds
-]
+#include %panel-render.red
 
 ; ══════════════════════════════════════════════════════════
 ; HIT TESTING — pure functions
@@ -661,17 +127,47 @@ fp-cluster-value-text: func [item /local lines fn ft fval] [
     trim lines
 ]
 
-; Abre diálogo para editar los valores de un cluster-control en el FP.
-open-cluster-fp-edit-dialog: func [item panel-face model /local cur-text] [
-    cur-text: fp-cluster-value-text item
-    view/no-wait compose/deep [
-        title "Editar cluster"
-        text "Campos (campo: valor por línea):" return
-        area 220x120 (cur-text) return
+; Vars de módulo para el diálogo de definición de cluster desde el FP
+cluster-def-item:  none
+cluster-def-panel: none
+cluster-def-model: none
+
+; Abre diálogo para definir los campos de un cluster-control/indicator desde el FP.
+; Edita la definición (nombre:tipo), no los valores.
+; Al confirmar sincroniza el nodo BD correspondiente.
+open-cluster-fp-edit-dialog: func [item panel-face model /local cur-fields cur-text] [
+    cluster-def-item:  item
+    cluster-def-panel: panel-face
+    cluster-def-model: model
+    cur-fields: fp-cluster-fields item
+    cur-text: copy ""
+    foreach [fn ft] cur-fields [
+        append cur-text rejoin [form fn ":" form to-word ft "^/"]
+    ]
+    view/no-wait compose [
+        title "Definir campos del cluster"
+        text "Formato: nombre:tipo (uno por línea)" return
+        text "Tipos: number  boolean  string" return
+        area 260x180 (cur-text) return
         button "OK" [
             foreach pf face/parent/pane [
                 if pf/type = 'area [
-                    fp-cluster-apply-and-refresh (item) copy pf/text (panel-face) (model)
+                    new-fields: parse-cluster-fields-text copy pf/text
+                    set-config cluster-def-item 'fields new-fields
+                    ; Sincronizar nodo BD correspondiente
+                    _cref: select cluster-def-model 'canvas-ref
+                    if _cref [
+                        foreach nd cluster-def-model/nodes [
+                            if nd/name = cluster-def-item/name [
+                                set-config nd 'fields new-fields
+                                break
+                            ]
+                        ]
+                        _cref/draw: render-bd cluster-def-model
+                        show _cref
+                    ]
+                    cluster-def-panel/draw: render-fp-panel cluster-def-model cluster-def-model/size/x cluster-def-model/size/y
+                    show cluster-def-panel
                     break
                 ]
             ]
@@ -737,6 +233,11 @@ open-edit-dialog: func [item panel-face model /local label-text default-text] [
         edit-dialog-fval: field 200 default-text
         return
         button "OK" [
+            ; Guardar label si el usuario lo modificó
+            if all [edit-dialog-item/label  object? edit-dialog-item/label] [
+                edit-dialog-item/label/text: copy flabel/text
+            ]
+            ; Guardar valor numérico
             edit-dialog-item/value: attempt [to-float edit-dialog-fval/text]
             if none? edit-dialog-item/value [edit-dialog-item/value: edit-dialog-item/default]
             edit-dialog-panel/draw: render-fp-panel edit-dialog-model (edit-dialog-model/size/x) (edit-dialog-model/size/y)
@@ -783,12 +284,15 @@ fp-palette-add-item: func [item-type /local new-id item model w h _cref nid bd-y
     _cref: select model 'canvas-ref
     if _cref [
         nid:  gen-node-id model
-        bd-y: 20 + ((length? model/nodes) * 75)
+        bd-y: 20
+        foreach _n model/nodes [
+            if (_n/y + 80) > bd-y [bd-y: _n/y + 80]
+        ]
         append model/nodes make-node compose [
             id:   (nid)
             type: (item-type)
             name: (item/name)
-            x:    20
+            x:    40
             y:    (bd-y)
         ]
         _cref/draw: render-bd model
@@ -916,7 +420,7 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                     all [hit  hit/type = 'arr-control] [
                         open-arr-fp-edit-dialog hit face face/extra
                     ]
-                    all [hit  hit/type = 'cluster-control] [
+                    all [hit  find [cluster-control cluster-indicator] hit/type] [
                         open-cluster-fp-edit-dialog hit face face/extra
                     ]
                     all [hit  hit/type = 'control] [
@@ -937,7 +441,7 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                     ]
                     all [hit  hit/type = 'str-control]     [open-str-fp-edit-dialog hit face face/extra]
                     all [hit  hit/type = 'arr-control]     [open-arr-fp-edit-dialog hit face face/extra]
-                    all [hit  hit/type = 'cluster-control] [open-cluster-fp-edit-dialog hit face face/extra]
+                    all [hit  find [cluster-control cluster-indicator] hit/type] [open-cluster-fp-edit-dialog hit face face/extra]
                     all [hit  hit/type = 'control]          [open-edit-dialog hit face face/extra]
                     ; indicador: no hacer nada
                 ]
@@ -981,191 +485,11 @@ render-panel: func [model panel-width panel-height /local panel-face] [
 ; ══════════════════════════════════════════════════════════
 ; PARSER — load front-panel from qvi-diagram (Phase 3)
 ; ══════════════════════════════════════════════════════════
-load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result item offset-y kw bh-step] [
-    result: copy []
-    fp-block: select diagram-block 'front-panel
+; save/load-panel-to-diagram movidas a file-io.red (4A)
 
-    unless none? fp-block [
-        offset-y: 20
-        parse fp-block [
-            any [
-                set kw ['control | 'indicator | 'bool-control | 'bool-indicator | 'str-control | 'str-indicator | 'arr-control | 'arr-indicator | 'cluster-control | 'cluster-indicator | 'waveform-chart | 'waveform-graph]
-                set fp-item-spec block! (
-                    item: make-fp-item fp-item-spec
-                    item/type:      kw
-                    item/data-type: case [
-                        find [bool-control bool-indicator]       kw ['boolean]
-                        find [str-control  str-indicator]        kw ['string]
-                        find [arr-control  arr-indicator]        kw ['array]
-                        find [cluster-control cluster-indicator] kw ['cluster]
-                        find [waveform-chart waveform-graph]      kw ['waveform]
-                        true                                     ['numeric]
-                    ]
-                    if find [cluster-control cluster-indicator] kw [
-                        item/config: copy any [select fp-item-spec 'config  copy []]
-                    ]
-                    if all [zero? item/offset/x  zero? item/offset/y] [
-                        item/offset: as-pair 20 offset-y
-                        bh-step: either item/data-type = 'cluster [fp-cluster-height item] [fp-item-height]
-                        offset-y: offset-y + bh-step + 10
-                    ]
-                    append result item
-                )
-            ]
-        ]
-    ]
-    result
-]
 
-; ══════════════════════════════════════════════════════════
-; PERSISTENCE — save front-panel to qvi-diagram format (Phase 4)
-; ══════════════════════════════════════════════════════════
-save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
-    ; Todos los items van en UN único bloque: [front-panel: [control [...] indicator [...]]]
-    ; Si se generan bloques separados, select solo devuelve el primero al cargar.
-    items: copy []
-    foreach item front-panel-items [
-        kw:   case [
-            item/type = 'control           ['control]
-            item/type = 'bool-control      ['bool-control]
-            item/type = 'bool-indicator    ['bool-indicator]
-            item/type = 'str-control       ['str-control]
-            item/type = 'str-indicator     ['str-indicator]
-            item/type = 'arr-control       ['arr-control]
-            item/type = 'arr-indicator     ['arr-indicator]
-            item/type = 'cluster-control   ['cluster-control]
-            item/type = 'cluster-indicator ['cluster-indicator]
-            item/type = 'waveform-chart    ['waveform-chart]
-            item/type = 'waveform-graph    ['waveform-graph]
-            true                           ['indicator]
-        ]
-        ; Construir spec con append/only para el default:
-        ; compose/deep aplana block! values (splice) — no es válido para arr-control
-        spec: copy []
-        repend spec [to-set-word 'id  item/id  to-set-word 'type  item/type  to-set-word 'name  item/name]
-        append spec to-set-word 'label
-        append/only spec compose/deep [text: (item/label/text) visible: (item/label/visible) offset: (item/label/offset)]
-        append spec to-set-word 'default
-        either block? item/default [append/only spec copy item/default] [append spec item/default]
-        if item/data-type = 'cluster [
-            append spec to-set-word 'config
-            append/only spec copy any [item/config  copy []]
-        ]
-        repend spec [to-set-word 'offset  item/offset]
-        append items kw
-        append/only items spec
-    ]
-    reduce [to-set-word 'front-panel  items]
-]
-
-; ══════════════════════════════════════════════════════════
-; COMPILE PANEL — generate VID layout for .qvi executable (Phase 5)
-; ══════════════════════════════════════════════════════════
-gen-panel-var-name: func [item /local s fc] [
-    s: copy item/name
-    if not empty? s [
-        fc: uppercase copy/part s 1
-        s: rejoin [fc  skip s 1]
-    ]
-    to-word rejoin ["f" s]
-]
-
-gen-indicator-var-name: func [item /local s fc] [
-    s: copy item/name
-    if not empty? s [
-        fc: uppercase copy/part s 1
-        s: rejoin [fc  skip s 1]
-    ]
-    to-word rejoin ["l" s]
-]
-
-compile-panel: func [model /local cmds item ctrl-field-name ind-var-name fn ft fval fld-name] [
-    cmds: copy []
-
-    foreach item model/front-panel [
-        case [
-            find [control str-control] item/type [
-                ctrl-field-name: gen-panel-var-name item
-                append cmds compose [
-                    label (item/label/text)
-                    (to-set-word ctrl-field-name) field 120 (form item/default)
-                    return
-                ]
-            ]
-            item/type = 'bool-control [
-                ctrl-field-name: gen-panel-var-name item
-                append cmds compose [
-                    label (item/label/text)
-                    (to-set-word ctrl-field-name) check (item/label/text) (item/default)
-                    return
-                ]
-            ]
-            item/type = 'arr-control [
-                ; Array control: valor fijo en el .qvi (no hay field editable — DT-028)
-                ind-var-name: gen-indicator-var-name item
-                append cmds compose [
-                    label (item/label/text)
-                    (to-set-word ind-var-name) text 120 (rejoin ["[" form item/default "]"])
-                    return
-                ]
-            ]
-            item/type = 'cluster-control [
-                ; Cluster control: un widget por cada campo
-                foreach [fn ft] fp-cluster-fields item [
-                    fld-name: to-word rejoin [form item/name "_" form fn]
-                    fval: select any [item/default  copy []] fn
-                    append cmds compose [label (rejoin [item/label/text " — " form fn])]
-                    case [
-                        ft = 'boolean [
-                            append cmds compose [
-                                (to-set-word fld-name) check (form fn) (any [fval false])
-                                return
-                            ]
-                        ]
-                        true [
-                            append cmds compose [
-                                (to-set-word fld-name) field 120 (form any [fval ""])
-                                return
-                            ]
-                        ]
-                    ]
-                ]
-            ]
-            item/type = 'cluster-indicator [
-                ; Cluster indicator: un text por cada campo
-                foreach [fn ft] fp-cluster-fields item [
-                    fld-name: to-word rejoin [form item/name "_" form fn]
-                    fval: select any [item/default  copy []] fn
-                    append cmds compose [
-                        label (rejoin [item/label/text " — " form fn])
-                        (to-set-word fld-name) text 120 (form any [fval ""])
-                        return
-                    ]
-                ]
-            ]
-            find [waveform-chart waveform-graph] item/type [
-                ; Waveform: base face con Draw
-                ind-var-name: gen-indicator-var-name item
-                append cmds compose [
-                    label (item/label/text)
-                    (to-set-word ind-var-name) base (as-pair fp-chart-width fp-chart-height) draw []
-                    return
-                ]
-            ]
-            true [  ; indicator, bool-indicator, str-indicator, arr-indicator
-                ind-var-name: gen-indicator-var-name item
-                append cmds compose [
-                    label (item/label/text)
-                    (to-set-word ind-var-name) text 120 (form item/default)
-                    return
-                ]
-            ]
-        ]
-    ]
-
-    append cmds compose [button "Run" []]
-    cmds
-]
+; save-panel-to-diagram → file-io.red (4A)
+; gen-panel-var-name, gen-indicator-var-name, compile-panel → compiler.red (4A)
 
 ; ══════════════════════════════════════════════════════════
 ; DEMO — standalone test
@@ -1206,16 +530,7 @@ add-demo-items: func [model /local ctrl1 ctrl2 ind1] [
     model
 ]
 
-gen-standalone-code: func [model /local vid-code] [
-    vid-code: compile-panel model
-    rejoin [
-        "Red [title: {QTorres Panel Demo} Needs: 'View]" newline
-        "qvi-diagram: []" newline
-        "view layout [" newline
-        "    " mold vid-code newline
-        "]"
-    ]
-]
+; gen-standalone-code → compiler.red (4A)
 
 if find form system/options/script "panel.red" [
     ; Use same pattern as canvas.red for demo execution

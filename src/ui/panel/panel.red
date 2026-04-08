@@ -916,7 +916,7 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                     all [hit  hit/type = 'arr-control] [
                         open-arr-fp-edit-dialog hit face face/extra
                     ]
-                    all [hit  hit/type = 'cluster-control] [
+                    all [hit  find [cluster-control cluster-indicator] hit/type] [
                         open-cluster-fp-edit-dialog hit face face/extra
                     ]
                     all [hit  hit/type = 'control] [
@@ -937,7 +937,7 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                     ]
                     all [hit  hit/type = 'str-control]     [open-str-fp-edit-dialog hit face face/extra]
                     all [hit  hit/type = 'arr-control]     [open-arr-fp-edit-dialog hit face face/extra]
-                    all [hit  hit/type = 'cluster-control] [open-cluster-fp-edit-dialog hit face face/extra]
+                    all [hit  find [cluster-control cluster-indicator] hit/type] [open-cluster-fp-edit-dialog hit face face/extra]
                     all [hit  hit/type = 'control]          [open-edit-dialog hit face face/extra]
                     ; indicador: no hacer nada
                 ]
@@ -981,45 +981,13 @@ render-panel: func [model panel-width panel-height /local panel-face] [
 ; ══════════════════════════════════════════════════════════
 ; PARSER — load front-panel from qvi-diagram (Phase 3)
 ; ══════════════════════════════════════════════════════════
-load-panel-from-diagram: func [diagram-block /local fp-block fp-item-spec result item offset-y kw bh-step] [
-    result: copy []
-    fp-block: select diagram-block 'front-panel
+; save/load-panel-to-diagram movidas a file-io.red (4A)
 
-    unless none? fp-block [
-        offset-y: 20
-        parse fp-block [
-            any [
-                set kw ['control | 'indicator | 'bool-control | 'bool-indicator | 'str-control | 'str-indicator | 'arr-control | 'arr-indicator | 'cluster-control | 'cluster-indicator | 'waveform-chart | 'waveform-graph]
-                set fp-item-spec block! (
-                    item: make-fp-item fp-item-spec
-                    item/type:      kw
-                    item/data-type: case [
-                        find [bool-control bool-indicator]       kw ['boolean]
-                        find [str-control  str-indicator]        kw ['string]
-                        find [arr-control  arr-indicator]        kw ['array]
-                        find [cluster-control cluster-indicator] kw ['cluster]
-                        find [waveform-chart waveform-graph]      kw ['waveform]
-                        true                                     ['numeric]
-                    ]
-                    if find [cluster-control cluster-indicator] kw [
-                        item/config: copy any [select fp-item-spec 'config  copy []]
-                    ]
-                    if all [zero? item/offset/x  zero? item/offset/y] [
-                        item/offset: as-pair 20 offset-y
-                        bh-step: either item/data-type = 'cluster [fp-cluster-height item] [fp-item-height]
-                        offset-y: offset-y + bh-step + 10
-                    ]
-                    append result item
-                )
-            ]
-        ]
-    ]
-    result
-]
 
 ; ══════════════════════════════════════════════════════════
 ; PERSISTENCE — save front-panel to qvi-diagram format (Phase 4)
 ; ══════════════════════════════════════════════════════════
+; save/load-panel-to-diagram movidas a file-io.red (4A)
 save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
     ; Todos los items van en UN único bloque: [front-panel: [control [...] indicator [...]]]
     ; Si se generan bloques separados, select solo devuelve el primero al cargar.
@@ -1046,7 +1014,7 @@ save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
         append spec to-set-word 'label
         append/only spec compose/deep [text: (item/label/text) visible: (item/label/visible) offset: (item/label/offset)]
         append spec to-set-word 'default
-        either block? item/default [append/only spec copy item/default] [append spec item/default]
+        either block? item/value [append/only spec copy item/value] [append spec item/value]
         if item/data-type = 'cluster [
             append spec to-set-word 'config
             append/only spec copy any [item/config  copy []]

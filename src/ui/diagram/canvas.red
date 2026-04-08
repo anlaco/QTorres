@@ -200,33 +200,7 @@ node-height: func [node /local n-in n-out] [
 ; ══════════════════════════════════════════════════════════
 ; MODELO — todo el estado mutable vive aquí
 ; ══════════════════════════════════════════════════════════
-make-diagram-model: func [] [
-    make object! [
-        nodes:          copy []
-        wires:          copy []
-        structures:     copy []
-        front-panel:    copy []
-        next-id:        1
-        selected-node:  none
-        selected-wire:  none
-        selected-fp:    none
-        selected-struct: none
-        drag-node:      none
-        drag-fp:        none
-        drag-struct:    none
-        drag-struct-off: none
-        resize-struct:  none
-        drag-off:       none
-        drag-is-label:  false
-        wire-src:        none
-        wire-port:       none
-        wire-src-struct: none   ; estructura que contiene el terminal [i] o SR activo
-        wire-src-sr:     none   ; SR object si wire-src es un terminal SR (▲ o ▼)
-        selected-sr:     none   ; [struct sr] cuando un terminal SR está seleccionado
-        mouse-pos:       none
-        broken-wire:     none
-    ]
-]
+; make-diagram-model movida a model.red (4A refactor)
 
 gen-node-id: func [model /local next-id] [
     next-id: model/next-id
@@ -1294,13 +1268,9 @@ hit-wire: func [model mouse-x mouse-y /local w st frame] [
 
 ; Alterna el valor booleano de un nodo bool-const.
 ; node/config es un bloque de pares [clave valor ...].
-toggle-bool-const: func [node /local cur pos] [
+toggle-bool-const: func [node /local cur] [
     cur: any [select node/config 'default  false]
-    either pos: find node/config 'default [
-        pos/2: not cur
-    ][
-        append node/config reduce ['default  not cur]
-    ]
+    set-config node 'default not cur
 ]
 
 ; Abre diálogo para editar el valor de una constante numérica.
@@ -1330,14 +1300,10 @@ open-const-edit-dialog: func [node canvas-face /local cur-val] [
 ]
 
 ; Actualiza node/config 'default con el nuevo valor numérico.
-apply-const-value: func [node new-text /local val pos] [
+apply-const-value: func [node new-text /local val] [
     val: attempt [to-float new-text]
     if none? val [exit]
-    either pos: find node/config 'default [
-        pos/2: val
-    ][
-        append node/config reduce ['default val]
-    ]
+    set-config node 'default val
 ]
 
 ; Aplica valor string a un nodo y refresca el canvas.
@@ -1377,17 +1343,13 @@ open-str-edit-dialog: func [node canvas-face /local cur-val] [
 ]
 
 ; Actualiza node/config 'default con el nuevo valor string.
-apply-str-value: func [node new-text /local pos] [
-    either pos: find node/config 'default [
-        pos/2: new-text
-    ][
-        append node/config reduce ['default new-text]
-    ]
+apply-str-value: func [node new-text] [
+    set-config node 'default new-text
 ]
 
 ; Actualiza node/config 'default con un block! de valores numéricos parseados desde texto.
 ; El usuario introduce valores separados por espacios, ej: "1.0 2.0 3.0"
-apply-arr-value: func [node new-text /local pos vals tok parsed-block] [
+apply-arr-value: func [node new-text /local vals tok parsed-block] [
     parsed-block: copy []
     vals: split trim new-text " "
     foreach tok vals [
@@ -1396,11 +1358,7 @@ apply-arr-value: func [node new-text /local pos vals tok parsed-block] [
             append parsed-block any [attempt [to-float tok]  attempt [to-integer tok]  0.0]
         ]
     ]
-    either pos: find node/config 'default [
-        pos/2: parsed-block
-    ][
-        append node/config reduce ['default parsed-block]
-    ]
+    set-config node 'default parsed-block
 ]
 
 arr-apply-and-refresh: func [nd txt cnv] [
@@ -1453,12 +1411,8 @@ apply-rename-label: func [node new-text] [
 ; ── Cluster edit dialog ──────────────────────────────────────────────────
 
 ; Guarda la lista de campos en node/config/fields.
-apply-cluster-fields: func [node fields-block /local pos] [
-    either pos: find node/config 'fields [
-        pos/2: fields-block
-    ][
-        append node/config reduce ['fields  fields-block]
-    ]
+apply-cluster-fields: func [node fields-block] [
+    set-config node 'fields fields-block
 ]
 
 ; Parsea el texto del área de edición ("nombre:tipo" por línea) a [nombre 'tipo ...].
@@ -1953,6 +1907,8 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                                     _out-t: port-out-type model/wire-src model/wire-port
                                     either _out-t = _sr/data-type [
                                         model/broken-wire: none
+                                        ; QA-018: Prevent multiple wires to same input port
+                                        if wire-port-in-used? model/wires _st/id (to-word _sr/name) [exit]
                                         append model/wires make-wire compose [
                                             from: (model/wire-src/id)  from-port: (model/wire-port)
                                             to: (_st/id)  to-port: (to-word _sr/name)
@@ -1973,6 +1929,8 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                                     _out-t: port-out-type model/wire-src model/wire-port
                                     either _out-t = _sr/data-type [
                                         model/broken-wire: none
+                                        ; QA-018: Prevent multiple wires to same input port
+                                        if wire-port-in-used? _st/wires -2 (to-word _sr/name) [exit]
                                         append _st/wires make-wire compose [
                                             from: (model/wire-src/id)  from-port: (model/wire-port)
                                             to: -2  to-port: (to-word _sr/name)
@@ -2347,6 +2305,8 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                                     actual-from-node: model/wire-src-struct/id
                                 ]
                             ]
+                            ; QA-018: Prevent multiple wires to same input port
+                            if wire-port-in-used? wire-list hit-result/1/id hit-result/2 [exit]
                             append wire-list make-wire compose [
                                 from: (actual-from-node)
                                 from-port: (actual-from-port)
@@ -2394,7 +2354,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     if node/type = 'const [open-const-edit-dialog node face  exit]
                     if find [str-const str-control] node/type [open-str-edit-dialog node face  exit]
                     if find [arr-const arr-control] node/type [open-arr-edit-dialog node face  exit]
-                    if find [bundle unbundle] node/type [open-cluster-edit-dialog node face  exit]
+                    if find [bundle unbundle cluster-control cluster-indicator] node/type [open-cluster-edit-dialog node face  exit]
                     rename-dialog-node:   node
                     rename-dialog-canvas: face
                     rename-dialog-field:  none
@@ -2436,7 +2396,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                         open-arr-edit-dialog node face
                         exit
                     ]
-                    if find [bundle unbundle] node/type [
+                    if find [bundle unbundle cluster-control cluster-indicator] node/type [
                         open-cluster-edit-dialog node face
                         exit
                     ]

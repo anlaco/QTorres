@@ -233,6 +233,17 @@ make-wire: func [
     w
 ]
 
+wire-port-in-used?: func [
+    "Devuelve true si algún wire ya conecta al puerto 'in' to-node/to-port (QA-018)"
+    wires-block [block!] to-node [integer!] to-port [word!]
+    /local w
+][
+    foreach w wires-block [
+        if all [w/to-node = to-node  w/to-port = to-port] [return true]
+    ]
+    false
+]
+
 make-shift-register: func [
     "Crea un shift register (par de terminales ▲/▼) para un while-loop"
     spec [block!]
@@ -360,12 +371,12 @@ cluster-fields: func [
 ]
 
 cluster-in-ports: func [
-    "Devuelve los nombres de puertos de entrada dinámicos de un bundle (uno por campo)"
-    "Para unbundle u otros tipos devuelve [] — sus entradas son estáticas"
+    "Devuelve los nombres de puertos de entrada dinámicos de bundle y cluster-indicator (uno por campo)"
+    "Para otros tipos devuelve [] — sus entradas son estáticas"
     node [object!]
     /local result
 ][
-    if node/type <> 'bundle [return copy []]
+    unless find [bundle cluster-indicator] node/type [return copy []]
     result: copy []
     foreach [field-name field-type] cluster-fields node [
         append result field-name
@@ -374,12 +385,12 @@ cluster-in-ports: func [
 ]
 
 cluster-out-ports: func [
-    "Devuelve los nombres de puertos de salida dinámicos de un unbundle (uno por campo)"
-    "Para bundle u otros tipos devuelve [] — sus salidas son estáticas"
+    "Devuelve los nombres de puertos de salida dinámicos de unbundle y cluster-control (uno por campo)"
+    "Para otros tipos devuelve [] — sus salidas son estáticas"
     node [object!]
     /local result
 ][
-    if node/type <> 'unbundle [return copy []]
+    unless find [unbundle cluster-control] node/type [return copy []]
     result: copy []
     foreach [field-name field-type] cluster-fields node [
         append result field-name
@@ -412,7 +423,66 @@ find-node-by-id: func [nodes id /local node] [
     none
 ]
 
+; Actualiza o añade una clave en node/config (4B — evita duplicar el patrón either/find).
+set-config: func [node key value /local pos] [
+    either pos: find node/config key [pos/2: value][append node/config reduce [key value]]
+]
+
+; Crea el modelo de datos del diagrama (movido de canvas.red — 4A).
+make-diagram-model: func [] [
+    make object! [
+        nodes:          copy []
+        wires:          copy []
+        structures:     copy []
+        front-panel:    copy []
+        next-id:        1
+        selected-node:  none
+        selected-wire:  none
+        selected-fp:    none
+        selected-struct: none
+        drag-node:      none
+        drag-fp:        none
+        drag-struct:    none
+        drag-struct-off: none
+        resize-struct:  none
+        drag-off:       none
+        drag-is-label:  false
+        wire-src:        none
+        wire-port:       none
+        wire-src-struct: none
+        wire-src-sr:     none
+        selected-sr:     none
+        mouse-pos:       none
+        broken-wire:     none
+        canvas-ref:      none
+        size:            0x0
+    ]
+]
+
 ; make-fp-item y fp-value-text viven en src/ui/panel/panel.red (canónico).
 ; model.red no duplica lógica de Front Panel.
+
+; ══════════════════════════════════════════════════
+; WIRE PROTECTION — QA-018: Prevent multiple wires to same input port
+; ══════════════════════════════════════════════════
+
+wire-port-in-used?: func [
+    "Check if a destination port already has a wire connected to it"
+    wires [block!]
+    to-node-id [integer!]
+    to-port [word! string!]
+    /local w target-port
+][
+    target-port: to-word to-port
+    foreach w wires [
+        if all [
+            w/to-node = to-node-id
+            (to-word w/to-port) = target-port
+        ] [
+            return true
+        ]
+    ]
+    false
+]
 
 #include %blocks.red

@@ -287,15 +287,45 @@ assert "cluster-field-type voltaje → number"   ('number  = cluster-field-type 
 assert "cluster-field-type activo → boolean"   ('boolean = cluster-field-type cn-t 'activo)
 assert "cluster-field-type campo inexistente → number (default)" ('number = cluster-field-type cn-t 'noexiste)
 
-suite "cluster-helpers — gen-name"
+suite "cluster-helpers — cluster-control con campos (fix #54)"
 
 reset-name-counters
-nb1: make-node [type: 'bundle]
-nb2: make-node [type: 'bundle]
-nu1: make-node [type: 'unbundle]
+cn-ctrl: make-node [
+    type: 'cluster-control
+    config: [fields [x 'number  y 'number  label 'string]]
+]
 
-assert "bundle gen-name bundle_1"    (nb1/name = "bundle_1")
-assert "bundle gen-name bundle_2"    (nb2/name = "bundle_2")
-assert "unbundle gen-name unbundle_1" (nu1/name = "unbundle_1")
+assert "cluster-out-ports cluster-control devuelve 3 puertos"    (3 = length? cluster-out-ports cn-ctrl)
+assert "cluster-out-ports cluster-control incluye 'x"            (not none? find cluster-out-ports cn-ctrl 'x)
+assert "cluster-out-ports cluster-control incluye 'y"            (not none? find cluster-out-ports cn-ctrl 'y)
+assert "cluster-out-ports cluster-control incluye 'label"        (not none? find cluster-out-ports cn-ctrl 'label)
+assert "cluster-in-ports cluster-control devuelve [] (no entradas)\" ([] = cluster-in-ports cn-ctrl)
+
+suite "cluster-helpers — cluster-indicator con campos (fix #54)"
+
+reset-name-counters
+cn-ind: make-node [
+    type: 'cluster-indicator
+    config: [fields [voltaje 'number  corriente 'number]]
+]
+
+assert "cluster-in-ports cluster-indicator devuelve 2 puertos"    (2 = length? cluster-in-ports cn-ind)
+assert "cluster-in-ports cluster-indicator incluye 'voltaje"      (not none? find cluster-in-ports cn-ind 'voltaje)
+assert "cluster-in-ports cluster-indicator incluye 'corriente"    (not none? find cluster-in-ports cn-ind 'corriente)
+assert "cluster-out-ports cluster-indicator devuelve [] (no salidas)\" ([] = cluster-out-ports cn-ind)
+
+suite "wire-port-in-used? — protección QA-018"
+
+reset-name-counters
+qa-wires: reduce [
+    make-wire [from: 1  from-port: 'out  to: 2  to-port: 'a]
+    make-wire [from: 3  from-port: 'out  to: 4  to-port: 'b]
+]
+
+assert "wire-port-in-used? detecta puerto ocupado"               (true  = wire-port-in-used? qa-wires 2 'a)
+assert "wire-port-in-used? detecta otro puerto ocupado"          (true  = wire-port-in-used? qa-wires 4 'b)
+assert "wire-port-in-used? puerto libre devuelve false"          (false = wire-port-in-used? qa-wires 2 'b)
+assert "wire-port-in-used? nodo distinto mismo puerto → false"   (false = wire-port-in-used? qa-wires 5 'a)
+assert "wire-port-in-used? lista vacía siempre false"            (false = wire-port-in-used? [] 2 'a)
 
 print "--- tests finalizados ---"

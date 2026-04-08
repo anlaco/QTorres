@@ -644,4 +644,57 @@ load-vi: func [
     d
 ]
 
+; ══════════════════════════════════════════════════════════
+; LOAD-PANEL-FROM-DIAGRAM — Phase 4
+; ══════════════════════════════════════════════════════════
+;
+; Carga front-panel items desde qvi-diagram (formato: qd).
+; Retorna bloque de objetos make-fp-item.
+;
+load-panel-from-diagram: func [qd [block!] /local fp-raw items item kw id type name lbl default config offset item-spec] [
+    fp-raw: select qd to-set-word 'front-panel
+    items: copy []
+    
+    unless block? fp-raw [return items]
+    
+    parse fp-raw [
+        any [
+            set kw word! set item-spec block! (
+                ; Construir spec completo para make-fp-item
+                spec: copy []
+                append spec to-set-word 'id
+                append spec any [select item-spec 'id  0]
+                append spec to-set-word 'type
+                append spec any [select item-spec 'type 'control]
+                append spec to-set-word 'name
+                append spec any [select item-spec 'name ""]
+                
+                ; Normalizar label
+                lbl-block: any [select item-spec 'label [text: ""]]
+                unless block? lbl-block [lbl-block: compose [text: (lbl-block)]]
+                if none? select lbl-block 'text   [append lbl-block compose [text: ""]]
+                if none? select lbl-block 'visible [append lbl-block compose [visible: true]]
+                if none? select lbl-block 'offset  [append lbl-block compose [offset: 0x0]]
+                append spec to-set-word 'label
+                append/only spec lbl-block
+                
+                append spec to-set-word 'default
+                append/only spec any [select item-spec 'default copy []]
+                
+                append spec to-set-word 'config
+                append/only spec any [select item-spec 'config copy []]
+                
+                append spec to-set-word 'offset
+                append spec any [select item-spec 'offset 0x0]
+                
+                item: make-fp-item spec
+                append items item
+            )
+            | skip
+        ]
+    ]
+    
+    items
+]
+
 #include %../ui/diagram/canvas.red

@@ -959,4 +959,34 @@ assert "FP load: config/fields preservado"              (not none? rt-flds-l)
 assert "FP load: 6 elementos en fields"                 (6 = length? rt-flds-l)
 assert "FP load: primer campo 'nombre"                  (rt-flds-l/1 = 'nombre)
 
+; ══════════════════════════════════════════════════════════════════════
+; QA-029 — save-panel-to-diagram guarda item/value no item/default
+; ══════════════════════════════════════════════════════════════════════
+
+suite "QA-029 — save-panel-to-diagram guarda item/value"
+
+qa029-spec: compose [
+    id: 99  type: 'cluster-control  name: "qa029_ctrl"
+    label: [text: "Test" visible: true]
+    default: [x 0.0 y 0.0]
+    config: [fields [x 'number y 'number]]
+    offset: 10x10
+]
+qa029-item: make-fp-item qa029-spec
+qa029-item/value: [x 3.14 y 2.71]
+
+qa029-serialized: save-panel-to-diagram reduce [qa029-item]
+qa029-fp-block: select qa029-serialized to-set-word 'front-panel
+qa029-item-spec: qa029-fp-block/2
+
+qa029-saved-default: select qa029-item-spec 'default
+assert "QA-029: save guarda value, no default (x = 3.14)"   (3.14 = select qa029-saved-default 'x)
+assert "QA-029: save guarda value, no default (y = 2.71)"   (2.71 = select qa029-saved-default 'y)
+
+qa029-qd: reduce [to-set-word 'front-panel  qa029-fp-block]
+qa029-loaded: load-panel-from-diagram qa029-qd
+qa029-l: qa029-loaded/1
+assert "QA-029: round-trip preserva value x"   (3.14 = select qa029-l/value 'x)
+assert "QA-029: round-trip preserva value y"   (2.71 = select qa029-l/value 'y)
+
 print "--- tests de Serialización (Phase 6) completados ---"

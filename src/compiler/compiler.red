@@ -720,6 +720,27 @@ compile-body: func [
             ]
         ]
     ]
+
+    ; Prints para modo headless — un print por indicador conectado
+    foreach item sorted [
+        bdef: find-block item/type
+        if none? bdef [continue]
+        if bdef/category = 'output [
+            if all [in diagram 'wires  block? diagram/wires] [
+                foreach w diagram/wires [
+                    if w/to-node = item/id [
+                        src: find-node-by-id diagram/nodes w/from-node
+                        if src [
+                            src-var: port-var src to-word w/from-port
+                            lbl: either all [item/label  object? item/label] [item/label/text] [any [item/name ""]]
+                            append code compose [print rejoin [(lbl) ": " form (src-var)]]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ]
+
     code
 ]
 

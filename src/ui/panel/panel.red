@@ -783,12 +783,15 @@ fp-palette-add-item: func [item-type /local new-id item model w h _cref nid bd-y
     _cref: select model 'canvas-ref
     if _cref [
         nid:  gen-node-id model
-        bd-y: 20 + ((length? model/nodes) * 75)
+        bd-y: 20
+        foreach _n model/nodes [
+            if (_n/y + 80) > bd-y [bd-y: _n/y + 80]
+        ]
         append model/nodes make-node compose [
             id:   (nid)
             type: (item-type)
             name: (item/name)
-            x:    20
+            x:    40
             y:    (bd-y)
         ]
         _cref/draw: render-bd model

@@ -60,8 +60,9 @@ block-color: func [node-type /local cat] [
 ; Para el resto: consulta el block-registry.
 in-ports: func [node] [
     case [
-        node/type = 'bundle [cluster-in-ports node]
-        true                [any [block-in-ports to-word node/type  []]]
+        node/type = 'bundle             [cluster-in-ports node]
+        node/type = 'cluster-indicator  [cluster-in-ports node]
+        true                            [any [block-in-ports to-word node/type  []]]
     ]
 ]
 
@@ -70,8 +71,9 @@ in-ports: func [node] [
 ; Para el resto: consulta el block-registry.
 out-ports: func [node] [
     case [
-        node/type = 'unbundle [cluster-out-ports node]
-        true                   [any [block-out-ports to-word node/type  []]]
+        node/type = 'unbundle           [cluster-out-ports node]
+        node/type = 'cluster-control    [cluster-out-ports node]
+        true                            [any [block-out-ports to-word node/type  []]]
     ]
 ]
 
@@ -184,11 +186,11 @@ port-xy: func [node port-name direction /local ports port-index found] [
 ]
 
 ; Devuelve la altura visual de un nodo.
-; bundle/unbundle: variable según número de campos.
+; bundle/unbundle/cluster-control/cluster-indicator: variable según número de campos.
 ; Resto: block-height fijo.
 node-height: func [node /local n-in n-out] [
     case [
-        any [node/type = 'bundle  node/type = 'unbundle] [
+        find [bundle unbundle cluster-control cluster-indicator] node/type [
             n-in:  length? in-ports node
             n-out: length? out-ports node
             max block-height (12 + (max n-in n-out) * 20 + 10)
@@ -278,8 +280,8 @@ render-node-list: func [
 ][
     cmds: copy []
     foreach node nodes [
-        ; bundle/unbundle tienen render propio (altura variable, puertos dinámicos)
-        if any [node/type = 'bundle  node/type = 'unbundle] [
+        ; bundle/unbundle/cluster-control/cluster-indicator tienen render propio (altura variable, puertos dinámicos)
+        if find [bundle unbundle cluster-control cluster-indicator] node/type [
             append cmds render-cluster-node node selected-node
             continue
         ]
@@ -400,7 +402,12 @@ render-cluster-node: func [
     ]
 
     ; Etiqueta de tipo centrada verticalmente
-    type-label: either node/type = 'bundle ["BUNDLE"] ["UNBUNDLE"]
+    type-label: case [
+        node/type = 'bundle            ["BUNDLE"]
+        node/type = 'unbundle          ["UNBUNDLE"]
+        node/type = 'cluster-control   ["CLU-CTRL"]
+        true                           ["CLU-IND"]
+    ]
     append cmds compose [
         fill-pen col-text
         text (as-pair (node/x + 8) (node/y + 14 + text-dy)) (type-label)

@@ -1,5 +1,33 @@
 # Progress Log — Transición Fase 2
 
+## Session 2026-04-08 — Cierre de Fase 2 (continuación)
+
+### Cluster model refactor + compilador ✅
+
+- Refactor arquitectónico: cluster-control/indicator ahora tienen 1 cable tipo 'cluster
+  (puerto estático), no N puertos dinámicos por campo. bundle/unbundle siguen con puertos dinámicos.
+- compiler.red: añadido emit-cluster-control/indicator (UI + headless), casos en compile-body
+  y compile-diagram run-body.
+- model.red: cluster-in/out-ports limitados a bundle/unbundle respectivamente.
+- canvas-render.red: in-ports/out-ports/render actualizados al nuevo modelo.
+- Tests: 462/462 PASS.
+
+### Issues cerrados
+- #54 Cluster persistencia y puertos ✅
+- #48 Bundle/Unbundle altura excesiva ✅
+- #50 Headless no imprime indicadores ✅
+- #51 Nodos del FP se apilan ✅
+- #12 Cluster completo ✅
+- #13 Waveform ✅
+- #16 Case Structure ✅
+
+### Estado actual
+- 7 commits en refactor/fase4-estructural listos para merge en PR #60
+- 462 tests PASS
+- Fase 2 COMPLETADA — pendiente aprobación usuario para merge y tag v0.2
+
+---
+
 ## Session 2026-04-07 — Cierre de Fase 2
 
 ### Fase 0 — Sincronización ✅

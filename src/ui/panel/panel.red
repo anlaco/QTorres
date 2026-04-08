@@ -79,7 +79,7 @@ fp-default-label: func [item-type] [
         item-type = 'cluster-indicator ["Cluster"]
         item-type = 'waveform-chart   ["Chart"]
         item-type = 'waveform-graph   ["Graph"]
-        true                          ["Numeric"]
+        true                          ["Numeric"]  ; QA-024: fallback para tipos no contemplados
     ]
 ]
 
@@ -783,13 +783,17 @@ fp-palette-add-item: func [item-type /local new-id item model w h _cref nid bd-y
     _cref: select model 'canvas-ref
     if _cref [
         nid:  gen-node-id model
-        bd-y: 20 + ((length? model/nodes) * 75)
+        ; Calcular posición libre: encontrar max-y y colocar debajo
+        max-y: 40
+        foreach nd model/nodes [
+            if nd/y > max-y [max-y: nd/y]
+        ]
         append model/nodes make-node compose [
             id:   (nid)
             type: (item-type)
             name: (item/name)
-            x:    20
-            y:    (bd-y)
+            x:    40
+            y:    (max-y + 60)
         ]
         _cref/draw: render-bd model
         show _cref
@@ -1046,7 +1050,7 @@ save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
         append spec to-set-word 'label
         append/only spec compose/deep [text: (item/label/text) visible: (item/label/visible) offset: (item/label/offset)]
         append spec to-set-word 'default
-        either block? item/default [append/only spec copy item/default] [append spec item/default]
+        either block? item/value [append/only spec copy item/value] [append spec item/value]  ; QA-029: guardar value (valor actual) no default (valor inicial)
         if item/data-type = 'cluster [
             append spec to-set-word 'config
             append/only spec copy any [item/config  copy []]

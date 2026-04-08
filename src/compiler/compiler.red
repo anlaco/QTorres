@@ -738,9 +738,45 @@ compile-body: func [
 compile-diagram: func [
     diagram [object!]
     /local sorted headless run-body ui-layout item node bdef face-n cfg-val w src src-var bindings
+            ind-label ind-var
 ][
     sorted:   build-sorted-items diagram
     headless: compile-body diagram
+
+    ; ── Añadir prints para indicadores en modo headless (bug #50) ──
+    ; Al final del bloque headless, imprimir valores de todos los indicators
+    foreach item sorted [
+        if in item 'shift-regs [continue]  ; saltar estructuras
+        node: item
+        bdef: find-block node/type
+        if all [bdef  bdef/category = 'output] [
+            ; Buscar si hay wire conectado a este indicador
+            foreach w diagram/wires [
+                if w/to-node = node/id [
+                    ; Encontrar la fuente del valor
+                    src: find-node-by-id diagram/nodes w/from-node
+                    if src [
+                        src-var: port-var src to-word w/from-port
+                        ind-label: either all [node/label  object? node/label] [node/label/text] [node/name]
+                        ind-var: port-var node 'result
+                        ; Generar: print "Label: valor"
+                        append headless compose [print rejoin [(ind-label) ": " form (src-var)]]
+                    ]
+                    ; Fuente: estructura (SR-right → indicador externo)
+                    if all [in diagram 'structures  block? diagram/structures] [
+                        foreach st diagram/structures [
+                            if st/id = w/from-node [
+                                src-var: to-word rejoin ["_" form w/from-port]
+                                ind-label: either all [node/label  object? node/label] [node/label/text] [node/name]
+                                ; Generar: print "Label: valor"
+                                append headless compose [print rejoin [(ind-label) ": " form (src-var)]]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ]
 
     ; ── Cuerpo del botón Run (modo UI) ────────────────────────
     run-body: copy []

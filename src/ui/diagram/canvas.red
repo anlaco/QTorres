@@ -191,7 +191,11 @@ node-height: func [node /local n-in n-out] [
         any [node/type = 'bundle  node/type = 'unbundle] [
             n-in:  length? in-ports node
             n-out: length? out-ports node
-            max block-height (12 + (max n-in n-out) * 20 + 10)
+            either (n-in = 0) and (n-out = 0) [
+                40
+            ][
+                max block-height (12 + (max n-in n-out) * 20 + 10)
+            ]
         ]
         true [block-height]
     ]

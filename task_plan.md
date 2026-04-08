@@ -117,6 +117,24 @@ Delegación habilitada a través de MCP configurado en el proyecto. El contexto 
 - [x] **4E.4** Tests 465/465 PASS ✅ (2026-04-08)
 - [ ] **4E.5** PR "refactor: split conservador panel.red" (incluye en PR #60 o nuevo)
 
+### Fase 4F — Bugs cluster post-revisión manual ✅ COMPLETADA
+
+- [x] **4F.1** Colores de puertos: resuelto — block-color 'cluster → col-wire-cluster ya implementado
+- [x] **4F.2** Editar desde FP: open-cluster-fp-edit-dialog en panel.red, doble-clic FP → edita + sync BD
+- [x] **4F.3** Sincronización BD→FP: cluster-apply-and-refresh en canvas-dialogs.red
+- [x] **4F.4** Tests 462/462 PASS ✅ (commit 8d84635)
+
+### Sesión pendiente Fase 3 — Labels FP/BD
+
+> Decisión 2026-04-08: Los labels tienen comportamientos complejos (compartidos entre
+> control/indicador del mismo tipo, desconectados de labels del BD). Se deja para sesión
+> dedicada en Fase 3 donde se definirán comportamientos y aspecto.
+
+- Definir: ¿labels FP e BD sincronizados (LabVIEW) o independientes?
+- Definir: ¿un control y su indicador comparten label o son independientes?
+- Definir: ¿dónde se edita el label — FP, BD, ambos?
+- Fix: objeto label usa `copy` del string por defecto para evitar literales compartidos
+
 ### Fase 5 — Decisión #28 y limpieza final
 
 - [ ] **5.1** Preguntar: ¿#28 Front Panel standalone entra en Fase 2 o posponer?

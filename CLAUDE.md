@@ -60,24 +60,24 @@ QTorres/
 │   ├── qtorres.red         # Punto de entrada + toolbar + ventana principal
 │   ├── graph/
 │   │   ├── model.red       # Modelo: make-label, make-node, make-wire, make-fp-item, set-config, find-node-by-id (635 líneas)
-│   │   └── blocks.red      # Registro de bloques + dialecto block-def — 34 bloques
+│   │   └── blocks.red      # Registro de bloques + dialecto block-def — 40 bloques
 │   ├── compiler/
-│   │   └── compiler.red    # Compilador: topo-sort, bind-emit, compile-body/diagram/panel (1029 líneas)
+│   │   └── compiler.red    # Compilador: topo-sort, bind-emit, compile-body/diagram/panel (1165 líneas)
 │   ├── runner/
 │   │   └── runner.red      # Runner: ejecución en memoria con do
 │   ├── io/
 │   │   └── file-io.red     # File I/O: serialize, format, save/load .qvi, save/load-panel (738 líneas)
 │   └── ui/
 │       ├── diagram/
-│       │   ├── canvas.red          # BD canvas: hit-test, CRUD, actor render-diagram (1226 líneas)
-│       │   ├── canvas-render.red   # Render puro BD: constantes, geometría, Draw (932 líneas)
-│       │   └── canvas-dialogs.red  # Diálogos edición, paleta, SR helpers (397 líneas)
+│       │   ├── canvas.red          # BD canvas: hit-test, CRUD, actor render-diagram (1233 líneas)
+│       │   ├── canvas-render.red   # Render puro BD: constantes, geometría, Draw (934 líneas)
+│       │   └── canvas-dialogs.red  # Diálogos edición, paleta, SR helpers (413 líneas)
 │       └── panel/
-│           ├── panel.red           # FP: hit-test, diálogos, paleta, actor render-panel (535 líneas)
+│           ├── panel.red           # FP: hit-test, diálogos, paleta, actor render-panel (570 líneas)
 │           └── panel-render.red    # Render puro FP: constantes, Draw, waveform (411 líneas)
 ├── tests/
 │   ├── run-all.red         # Runner de tests automatizados
-│   ├── test-blocks.red     # Tests del registro de bloques (34 bloques, puertos, emit)
+│   ├── test-blocks.red     # Tests del registro de bloques (40 bloques, puertos, emit)
 │   ├── test-topo.red       # Tests de topological sort (lineal, diamante, vacío, ciclos)
 │   ├── test-model.red      # Tests del modelo (make-node, make-wire, make-frame, make-structure)
 │   └── test-compiler.red   # Tests del compilador (bind-emit, compile-body, round-trip, estructuras)
@@ -101,7 +101,7 @@ QTorres/
 
 **Fase 1 ✅ COMPLETADA.** Pipeline end-to-end funcional:
 - Modelo de datos con composición (DT-022/023/024)
-- 34 bloques registrados (math, I/O, boolean, compare, string, array, estructuras)
+- 40 bloques registrados (math, I/O, boolean, compare, string, array, cluster, estructuras, waveform)
 - Compilador con topo-sort (Kahn) y generación Red/View
 - Runner en memoria, File I/O con round-trip, Front Panel con Draw
 - Tests automatizados + CI en GitHub Actions
@@ -118,7 +118,7 @@ QTorres/
 - ~~#54 Cluster persiste campos~~ ✅  ~~#48/#50/#51 bugs menores~~ ✅
 - QA-018/029: protecciones de integridad ✅
 - Refactor 4A-4E: responsabilidades reorganizadas, ficheros grandes divididos ✅
-- 465 tests PASS
+- 462 tests PASS
 
 **Próximo paso:** Fase 3 — #17 Sub-VI con connector pane.
 
@@ -258,8 +258,8 @@ Trabajar siempre en orden de Fase. No empezar una fase sin completar la anterior
 5. ~~#11 Array 1D~~ ✅
 6. ~~#16 Case Structure~~ ✅ (PR#46 pendiente merge)
 7. ~~#12 Cluster~~ ✅ (PR pendiente de merge)
-8. #13 Waveform chart y graph
-9. #28 Front Panel standalone (puede esperar)
+8. ~~#13 Waveform chart y graph~~ ✅
+9. #28 Front Panel standalone (pospuesto a Fase 3)
 
 **Bugs detectados en pruebas (Fase 2):**
 - #48 Bundle/Unbundle vacíos tienen altura excesiva (`canvas.red`)

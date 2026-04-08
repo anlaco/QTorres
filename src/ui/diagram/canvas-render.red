@@ -62,10 +62,10 @@ block-color: func [node-type /local cat] [
 ; Para bundle: puertos dinámicos desde config/fields.
 ; Para el resto: consulta el block-registry.
 in-ports: func [node] [
-    case [
-        node/type = 'bundle             [cluster-in-ports node]
-        node/type = 'cluster-indicator  [cluster-in-ports node]
-        true                            [any [block-in-ports to-word node/type  []]]
+    either node/type = 'bundle [
+        cluster-in-ports node
+    ][
+        any [block-in-ports to-word node/type  []]
     ]
 ]
 
@@ -73,19 +73,17 @@ in-ports: func [node] [
 ; Para unbundle: puertos dinámicos desde config/fields.
 ; Para el resto: consulta el block-registry.
 out-ports: func [node] [
-    case [
-        node/type = 'unbundle           [cluster-out-ports node]
-        node/type = 'cluster-control    [cluster-out-ports node]
-        true                            [any [block-out-ports to-word node/type  []]]
+    either node/type = 'unbundle [
+        cluster-out-ports node
+    ][
+        any [block-out-ports to-word node/type  []]
     ]
 ]
 
 ; Devuelve el tipo de dato de un puerto de salida ('number por defecto).
-; Para unbundle/cluster-control: los puertos son campos dinámicos del cluster.
+; Para unbundle: los puertos de salida son campos dinámicos del cluster.
 port-out-type: func [node port-name /local bdef p] [
-    if find [unbundle cluster-control] node/type [
-        return cluster-field-type node to-word port-name
-    ]
+    if node/type = 'unbundle [return cluster-field-type node to-word port-name]
     bdef: find-block to-word node/type
     if none? bdef [return 'number]
     foreach p bdef/outputs [
@@ -95,11 +93,9 @@ port-out-type: func [node port-name /local bdef p] [
 ]
 
 ; Devuelve el tipo de dato de un puerto de entrada ('number por defecto).
-; Para bundle/cluster-indicator: los puertos son campos dinámicos del cluster.
+; Para bundle: los puertos de entrada son campos dinámicos del cluster.
 port-in-type: func [node port-name /local bdef p] [
-    if find [bundle cluster-indicator] node/type [
-        return cluster-field-type node to-word port-name
-    ]
+    if node/type = 'bundle [return cluster-field-type node to-word port-name]
     bdef: find-block to-word node/type
     if none? bdef [return 'number]
     foreach p bdef/inputs [
@@ -287,8 +283,8 @@ render-node-list: func [
 ][
     cmds: copy []
     foreach node nodes [
-        ; bundle/unbundle/cluster-control/cluster-indicator tienen render propio (altura variable, puertos dinámicos)
-        if find [bundle unbundle cluster-control cluster-indicator] node/type [
+        ; bundle/unbundle tienen render propio (altura variable, puertos dinámicos)
+        if find [bundle unbundle] node/type [
             append cmds render-cluster-node node selected-node
             continue
         ]
@@ -327,8 +323,10 @@ render-node-list: func [
             str-length     ["LEN"]
             to-string      ["→STR"]
             arr-const      [rejoin ["[" form any [select node/config 'default  copy []] "]"]]
-            arr-control    ["ARR"]
-            arr-indicator  ["ARR"]
+            arr-control       ["ARR"]
+            arr-indicator     ["ARR"]
+            cluster-control   ["CLU"]
+            cluster-indicator ["CLU"]
             build-array    ["BUILD[]"]
             index-array    ["IDX[]"]
             array-size     ["SIZE[]"]

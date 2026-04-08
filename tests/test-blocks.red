@@ -4,7 +4,7 @@ do %../src/graph/model.red  ; model.red incluye blocks.red y ahora también make
 
 suite "blocks — registro"
 
-assert "registra 38 bloques (34 anteriores + bundle + unbundle + waveform-chart + waveform-graph)" (38 = length? block-registry)
+assert "registra 40 bloques (34 + bundle + unbundle + cluster-control + cluster-indicator + waveform-chart + waveform-graph)" (40 = length? block-registry)
 assert "const está en el registro"     (not none? find-block 'const)
 assert "add está en el registro"       (not none? find-block 'add)
 assert "find-block devuelve none para bloques inexistentes" (none? find-block 'nonexistent)
@@ -114,7 +114,7 @@ assert "to-string emit es [result: form a]"                ([result: form a]    
 
 suite "blocks — cluster: registro"
 
-assert "registra 38 bloques (34 anteriores + bundle + unbundle + waveform-chart + waveform-graph)" (38 = length? block-registry)
+assert "registra 40 bloques (34 + bundle + unbundle + cluster-control + cluster-indicator + waveform-chart + waveform-graph)" (40 = length? block-registry)
 assert "bundle está en el registro"   (not none? find-block 'bundle)
 assert "unbundle está en el registro" (not none? find-block 'unbundle)
 

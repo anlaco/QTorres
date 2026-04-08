@@ -692,12 +692,144 @@ emit-unbundle: func [
     code
 ]
 
+; Genera código para un nodo cluster-control:
+;   ctrl_1_out: make object! [campo1: to-float ctrl_1_campo1_fld/text  ...]
+; Los nombres de las faces del FP siguen el patrón: rejoin [node/name "_" fn "_fld"]
+emit-cluster-control: func [
+    node    [object!]
+    diagram [object!]
+    /local out-var fp-item fields fn ft fld-name obj-body code
+][
+    out-var: port-var node 'out
+    ; Buscar el item FP correspondiente para obtener los campos
+    fp-item: none
+    foreach it diagram/front-panel [
+        if it/name = node/name [fp-item: it  break]
+    ]
+    fields: either fp-item [fp-cluster-fields fp-item] [copy []]
+    obj-body: copy []
+    foreach [fn ft] fields [
+        fld-name: to-word rejoin [form node/name "_" form fn "_fld"]
+        append obj-body to-set-word fn
+        append obj-body compose [
+            (switch ft [
+                boolean [compose [any [attempt [to-logic (to-path reduce [fld-name 'data])]  false]]]
+                string  [to-path reduce [fld-name 'text]]
+            ])
+        ]
+        if not find [boolean string] ft [
+            ; numeric por defecto
+            clear back tail obj-body
+            append/only obj-body to-path reduce [fld-name 'text]
+            ; wrap con to-float
+            last-val: last obj-body
+            remove back tail obj-body
+            append obj-body 'to-float
+            append obj-body last-val
+        ]
+    ]
+    code: copy []
+    append code to-set-word out-var
+    append code 'make
+    append code object!
+    append/only code obj-body
+    code
+]
+
+; Genera código para un nodo cluster-indicator:
+;   Para cada campo, actualiza el text face del FP con el valor del campo del cluster.
+emit-cluster-indicator: func [
+    node    [object!]
+    diagram [object!]
+    /local fields in-var w src-nd fp-item fn ft fld-name code
+][
+    ; Encontrar el wire de entrada (puerto 'in)
+    in-var: none
+    foreach w diagram/wires [
+        if all [w/to-node = node/id  (to-word w/to-port) = 'in] [
+            src-nd: find-node-by-id diagram/nodes w/from-node
+            if src-nd [in-var: port-var src-nd to-word w/from-port]
+        ]
+    ]
+    if none? in-var [return copy []]
+    ; Buscar item FP para obtener campos
+    fp-item: none
+    foreach it diagram/front-panel [
+        if it/name = node/name [fp-item: it  break]
+    ]
+    fields: either fp-item [fp-cluster-fields fp-item] [copy []]
+    code: copy []
+    foreach [fn ft] fields [
+        fld-name: to-word rejoin [form node/name "_" form fn "_ind"]
+        ; fld-name/text: form in-var/fn
+        append code to-set-path reduce [fld-name 'text]
+        append/only code to-path reduce [in-var fn]
+    ]
+    code
+]
+
 ; ══════════════════════════════════════════════════
 ; COMPILE-BODY
 ; ══════════════════════════════════════════════════
 ;
 ; Genera el bloque de cómputo headless listo para ejecutar con do.
 ; Incluye todos los nodos normales y las estructuras.
+
+; Versión headless de emit-cluster-control: usa config 'default en lugar de faces del FP.
+emit-cluster-control-headless: func [
+    node    [object!]
+    diagram [object!]
+    /local out-var fp-item fields defaults fn ft fval obj-body code
+][
+    out-var: port-var node 'out
+    fp-item: none
+    foreach it diagram/front-panel [if it/name = node/name [fp-item: it  break]]
+    fields:   either fp-item [fp-cluster-fields fp-item] [copy []]
+    defaults: either fp-item [select fp-item/config 'default] [none]
+    obj-body: copy []
+    foreach [fn ft] fields [
+        fval: either defaults [select defaults fn] [none]
+        append obj-body to-set-word fn
+        case [
+            ft = 'boolean [append obj-body any [all [logic? fval fval]  false]]
+            ft = 'string  [append obj-body any [all [string? fval fval] ""]]
+            true          [append obj-body any [fval 0.0]]
+        ]
+    ]
+    code: copy []
+    append code to-set-word out-var
+    append code 'make
+    append code object!
+    append/only code obj-body
+    code
+]
+
+; Versión headless de emit-cluster-indicator: imprime cada campo del cluster.
+emit-cluster-indicator-headless: func [
+    node    [object!]
+    diagram [object!]
+    /local fp-item fields in-var w src-nd fn ft lbl code
+][
+    in-var: none
+    foreach w diagram/wires [
+        if all [w/to-node = node/id  (to-word w/to-port) = 'in] [
+            src-nd: find-node-by-id diagram/nodes w/from-node
+            if src-nd [in-var: port-var src-nd to-word w/from-port]
+        ]
+    ]
+    if none? in-var [return copy []]
+    fp-item: none
+    foreach it diagram/front-panel [if it/name = node/name [fp-item: it  break]]
+    fields: either fp-item [fp-cluster-fields fp-item] [copy []]
+    lbl: either all [node/label  object? node/label] [node/label/text] [any [node/name ""]]
+    code: copy []
+    foreach [fn ft] fields [
+        append code compose [
+            print rejoin [(rejoin [lbl " — " form fn]) ": " form (to-path reduce [in-var fn])]
+        ]
+    ]
+    code
+]
 
 compile-body: func [
     diagram [object!]
@@ -710,8 +842,10 @@ compile-body: func [
             find [while-loop for-loop case-structure] item/type [
                 append code compile-structure/no-gui item diagram
             ]
-            item/type = 'bundle   [append code emit-bundle   item diagram]
-            item/type = 'unbundle [append code emit-unbundle item diagram]
+            item/type = 'bundle              [append code emit-bundle                   item diagram]
+            item/type = 'unbundle            [append code emit-unbundle                 item diagram]
+            item/type = 'cluster-control     [append code emit-cluster-control-headless item diagram]
+            item/type = 'cluster-indicator   [append code emit-cluster-indicator-headless item diagram]
             true [
                 bdef: find-block item/type
                 if all [bdef  bdef/emit] [
@@ -773,8 +907,10 @@ compile-diagram: func [
             item/type = 'case-structure [
                 append run-body compile-case-structure/no-gui item diagram
             ]
-            item/type = 'bundle   [append run-body emit-bundle   item diagram]
-            item/type = 'unbundle [append run-body emit-unbundle item diagram]
+            item/type = 'bundle            [append run-body emit-bundle            item diagram]
+            item/type = 'unbundle          [append run-body emit-unbundle          item diagram]
+            item/type = 'cluster-control   [append run-body emit-cluster-control   item diagram]
+            item/type = 'cluster-indicator [append run-body emit-cluster-indicator item diagram]
             true [
                 node: item
                 bdef: find-block node/type

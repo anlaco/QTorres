@@ -323,8 +323,7 @@ block 'array-subset 'array [
 
 ; ── Cluster ────────────────────────────────────────────────
 ; bundle/unbundle tienen puertos dinámicos según node/config/fields.
-; Solo se registran los puertos fijos; los dinámicos los resuelven
-; cluster-in-ports / cluster-out-ports en model.red.
+; cluster-control/indicator tienen 1 solo puerto estático de tipo 'cluster.
 
 block 'bundle 'cluster [
     ; Entradas dinámicas: una por campo (ver cluster-in-ports)
@@ -336,6 +335,18 @@ block 'unbundle 'cluster [
     in cluster-in 'cluster
     ; Salidas dinámicas: una por campo (ver cluster-out-ports)
     emit []  ; generado dinámicamente por emit-unbundle en compiler.red
+]
+
+block 'cluster-control 'cluster [
+    ; 1 solo wire de salida: el cluster completo
+    out out 'cluster
+    emit []  ; generado dinámicamente por emit-cluster-control en compiler.red
+]
+
+block 'cluster-indicator 'cluster [
+    ; 1 solo wire de entrada: el cluster completo
+    in in 'cluster
+    emit []  ; generado dinámicamente por emit-cluster-indicator en compiler.red
 ]
 
 ; ── Waveform ─────────────────────────────────────────────────────────────────

@@ -287,7 +287,9 @@ assert "cluster-field-type voltaje → number"   ('number  = cluster-field-type 
 assert "cluster-field-type activo → boolean"   ('boolean = cluster-field-type cn-t 'activo)
 assert "cluster-field-type campo inexistente → number (default)" ('number = cluster-field-type cn-t 'noexiste)
 
-suite "cluster-helpers — cluster-control con campos (fix #54)"
+suite "cluster-helpers — cluster-control: 1 puerto estático tipo 'cluster (nuevo modelo)"
+; cluster-control/indicator tienen 1 solo cable tipo 'cluster (no puertos dinámicos por campo).
+; cluster-in-ports / cluster-out-ports son helpers solo para bundle/unbundle.
 
 reset-name-counters
 cn-ctrl: make-node [
@@ -295,13 +297,12 @@ cn-ctrl: make-node [
     config: [fields [x 'number  y 'number  label 'string]]
 ]
 
-assert "cluster-out-ports cluster-control devuelve 3 puertos"    (3 = length? cluster-out-ports cn-ctrl)
-assert "cluster-out-ports cluster-control incluye 'x"            (not none? find cluster-out-ports cn-ctrl 'x)
-assert "cluster-out-ports cluster-control incluye 'y"            (not none? find cluster-out-ports cn-ctrl 'y)
-assert "cluster-out-ports cluster-control incluye 'label"        (not none? find cluster-out-ports cn-ctrl 'label)
-assert "cluster-in-ports cluster-control devuelve [] (no entradas)\" ([] = cluster-in-ports cn-ctrl)
+assert "cluster-out-ports cluster-control devuelve [] (puerto estático, no dinámico)" ([] = cluster-out-ports cn-ctrl)
+assert "cluster-in-ports cluster-control devuelve []"                                  ([] = cluster-in-ports cn-ctrl)
+; El puerto estático 'out (tipo 'cluster) viene de block-out-ports
+assert "block-out-ports cluster-control devuelve [out]"    ([out] = block-out-ports 'cluster-control)
 
-suite "cluster-helpers — cluster-indicator con campos (fix #54)"
+suite "cluster-helpers — cluster-indicator: 1 puerto estático tipo 'cluster (nuevo modelo)"
 
 reset-name-counters
 cn-ind: make-node [
@@ -309,10 +310,10 @@ cn-ind: make-node [
     config: [fields [voltaje 'number  corriente 'number]]
 ]
 
-assert "cluster-in-ports cluster-indicator devuelve 2 puertos"    (2 = length? cluster-in-ports cn-ind)
-assert "cluster-in-ports cluster-indicator incluye 'voltaje"      (not none? find cluster-in-ports cn-ind 'voltaje)
-assert "cluster-in-ports cluster-indicator incluye 'corriente"    (not none? find cluster-in-ports cn-ind 'corriente)
-assert "cluster-out-ports cluster-indicator devuelve [] (no salidas)\" ([] = cluster-out-ports cn-ind)
+assert "cluster-in-ports cluster-indicator devuelve [] (puerto estático, no dinámico)" ([] = cluster-in-ports cn-ind)
+assert "cluster-out-ports cluster-indicator devuelve []"                                ([] = cluster-out-ports cn-ind)
+; El puerto estático 'in (tipo 'cluster) viene de block-in-ports
+assert "block-in-ports cluster-indicator devuelve [in]"    ([in] = block-in-ports 'cluster-indicator)
 
 suite "wire-port-in-used? — protección QA-018"
 

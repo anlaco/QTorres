@@ -371,12 +371,12 @@ cluster-fields: func [
 ]
 
 cluster-in-ports: func [
-    "Devuelve los nombres de puertos de entrada dinámicos de bundle y cluster-indicator (uno por campo)"
+    "Devuelve los nombres de puertos de entrada dinámicos de bundle (uno por campo)"
     "Para otros tipos devuelve [] — sus entradas son estáticas"
     node [object!]
     /local result
 ][
-    unless find [bundle cluster-indicator] node/type [return copy []]
+    unless node/type = 'bundle [return copy []]
     result: copy []
     foreach [field-name field-type] cluster-fields node [
         append result field-name
@@ -385,12 +385,12 @@ cluster-in-ports: func [
 ]
 
 cluster-out-ports: func [
-    "Devuelve los nombres de puertos de salida dinámicos de unbundle y cluster-control (uno por campo)"
+    "Devuelve los nombres de puertos de salida dinámicos de unbundle (uno por campo)"
     "Para otros tipos devuelve [] — sus salidas son estáticas"
     node [object!]
     /local result
 ][
-    unless find [unbundle cluster-control] node/type [return copy []]
+    unless node/type = 'unbundle [return copy []]
     result: copy []
     foreach [field-name field-type] cluster-fields node [
         append result field-name

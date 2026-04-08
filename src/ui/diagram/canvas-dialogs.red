@@ -179,8 +179,24 @@ parse-cluster-fields-text: func [text /local result lines parts fname ftype] [
 ]
 
 ; Aplica campos parseados y refresca el canvas.
-cluster-apply-and-refresh: func [nd txt cnv] [
-    apply-cluster-fields nd parse-cluster-fields-text txt
+; Para cluster-control/cluster-indicator: también sincroniza el item FP correspondiente.
+cluster-apply-and-refresh: func [nd txt cnv /local new-fields model _pref fp-item] [
+    new-fields: parse-cluster-fields-text txt
+    apply-cluster-fields nd new-fields
+    if find [cluster-control cluster-indicator] nd/type [
+        model: cnv/extra
+        _pref: select model 'panel-ref
+        if _pref [
+            foreach fp-item model/front-panel [
+                if fp-item/name = nd/name [
+                    set-config fp-item 'fields new-fields
+                    break
+                ]
+            ]
+            _pref/draw: render-fp-panel model model/size/x model/size/y
+            show _pref
+        ]
+    ]
     cnv/draw: render-bd cnv/extra
     show cnv
 ]

@@ -81,9 +81,11 @@ out-ports: func [node] [
 ]
 
 ; Devuelve el tipo de dato de un puerto de salida ('number por defecto).
-; Para unbundle: los puertos de salida son campos dinámicos del cluster.
+; Para unbundle/cluster-control: los puertos son campos dinámicos del cluster.
 port-out-type: func [node port-name /local bdef p] [
-    if node/type = 'unbundle [return cluster-field-type node to-word port-name]
+    if find [unbundle cluster-control] node/type [
+        return cluster-field-type node to-word port-name
+    ]
     bdef: find-block to-word node/type
     if none? bdef [return 'number]
     foreach p bdef/outputs [
@@ -93,9 +95,11 @@ port-out-type: func [node port-name /local bdef p] [
 ]
 
 ; Devuelve el tipo de dato de un puerto de entrada ('number por defecto).
-; Para bundle: los puertos de entrada son campos dinámicos del cluster.
+; Para bundle/cluster-indicator: los puertos son campos dinámicos del cluster.
 port-in-type: func [node port-name /local bdef p] [
-    if node/type = 'bundle [return cluster-field-type node to-word port-name]
+    if find [bundle cluster-indicator] node/type [
+        return cluster-field-type node to-word port-name
+    ]
     bdef: find-block to-word node/type
     if none? bdef [return 'number]
     foreach p bdef/inputs [

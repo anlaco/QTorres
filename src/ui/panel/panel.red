@@ -127,17 +127,47 @@ fp-cluster-value-text: func [item /local lines fn ft fval] [
     trim lines
 ]
 
-; Abre diálogo para editar los valores de un cluster-control en el FP.
-open-cluster-fp-edit-dialog: func [item panel-face model /local cur-text] [
-    cur-text: fp-cluster-value-text item
-    view/no-wait compose/deep [
-        title "Editar cluster"
-        text "Campos (campo: valor por línea):" return
-        area 220x120 (cur-text) return
+; Vars de módulo para el diálogo de definición de cluster desde el FP
+cluster-def-item:  none
+cluster-def-panel: none
+cluster-def-model: none
+
+; Abre diálogo para definir los campos de un cluster-control/indicator desde el FP.
+; Edita la definición (nombre:tipo), no los valores.
+; Al confirmar sincroniza el nodo BD correspondiente.
+open-cluster-fp-edit-dialog: func [item panel-face model /local cur-fields cur-text] [
+    cluster-def-item:  item
+    cluster-def-panel: panel-face
+    cluster-def-model: model
+    cur-fields: fp-cluster-fields item
+    cur-text: copy ""
+    foreach [fn ft] cur-fields [
+        append cur-text rejoin [form fn ":" form to-word ft "^/"]
+    ]
+    view/no-wait compose [
+        title "Definir campos del cluster"
+        text "Formato: nombre:tipo (uno por línea)" return
+        text "Tipos: number  boolean  string" return
+        area 260x180 (cur-text) return
         button "OK" [
             foreach pf face/parent/pane [
                 if pf/type = 'area [
-                    fp-cluster-apply-and-refresh (item) copy pf/text (panel-face) (model)
+                    new-fields: parse-cluster-fields-text copy pf/text
+                    set-config cluster-def-item 'fields new-fields
+                    ; Sincronizar nodo BD correspondiente
+                    _cref: select cluster-def-model 'canvas-ref
+                    if _cref [
+                        foreach nd cluster-def-model/nodes [
+                            if nd/name = cluster-def-item/name [
+                                set-config nd 'fields new-fields
+                                break
+                            ]
+                        ]
+                        _cref/draw: render-bd cluster-def-model
+                        show _cref
+                    ]
+                    cluster-def-panel/draw: render-fp-panel cluster-def-model cluster-def-model/size/x cluster-def-model/size/y
+                    show cluster-def-panel
                     break
                 ]
             ]

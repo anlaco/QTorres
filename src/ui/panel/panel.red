@@ -35,11 +35,7 @@ fp-border-color?: func [item-type] [
     either find [control bool-control str-control arr-control cluster-control] item-type [fp-control-color - 20.20.20] [fp-indicator-color - 20.20.20]
 ]
 
-fp-cluster-fields: func [item /local cfg flds] [
-    cfg: any [item/config  copy []]
-    flds: select cfg 'fields
-    either flds [flds] [copy []]
-]
+; fp-cluster-fields → model.red (4A)
 
 fp-cluster-height: func [item /local n] [
     n: (length? fp-cluster-fields item) / 2
@@ -67,141 +63,9 @@ fp-type-label?: func [item-type] [
 ; ══════════════════════════════════════════════════════════
 ; FP-ITEM — Constructor following DT-022/023 pattern
 ; ══════════════════════════════════════════════════════════
-fp-default-label: func [item-type] [
-    case [
-        item-type = 'bool-control   ["Boolean"]
-        item-type = 'bool-indicator ["Boolean"]
-        item-type = 'str-control    ["String"]
-        item-type = 'str-indicator  ["String"]
-        item-type = 'arr-control      ["Array"]
-        item-type = 'arr-indicator    ["Array"]
-        item-type = 'cluster-control  ["Cluster"]
-        item-type = 'cluster-indicator ["Cluster"]
-        item-type = 'waveform-chart   ["Chart"]
-        item-type = 'waveform-graph   ["Graph"]
-        true                          ["Numeric"]
-    ]
-]
+; fp-default-label → model.red (4A)
 
-make-fp-item: func [
-    "Crea un item del Front Panel (control o indicator)"
-    spec [block!]
-    /local item lbl-spec raw-type
-][
-    raw-type: any [select spec 'type  'control]
-    item: make object! [
-        id:        any [select spec 'id        0]
-        type:      either find [bool-control bool-indicator] raw-type ['control] [raw-type]
-        data-type: case [
-            find [bool-control bool-indicator]     raw-type ['boolean]
-            find [str-control  str-indicator]      raw-type ['string]
-            find [arr-control  arr-indicator]      raw-type ['array]
-            find [cluster-control cluster-indicator] raw-type ['cluster]
-            find [waveform-chart waveform-graph]   raw-type ['waveform]
-            true                                   ['numeric]
-        ]
-        name:      any [select spec 'name      ""]
-        label:     none
-        config:    copy any [select spec 'config  copy []]
-        default:   case [
-            find [bool-control bool-indicator] raw-type [
-                any [select spec 'default  false]
-            ]
-            find [str-control str-indicator] raw-type [
-                ; copy siempre: las literales "" en Red son constantes compartidas
-                copy any [select spec 'default  ""]
-            ]
-            find [arr-control arr-indicator] raw-type [
-                ; copy siempre: los bloques [] son constantes compartidas en Red
-                copy any [select spec 'default  copy []]
-            ]
-            find [cluster-control cluster-indicator] raw-type [
-                ; block de pares word/valor: [name "" voltage 0.0 active false]
-                copy any [select spec 'default  copy []]
-            ]
-            find [waveform-chart waveform-graph] raw-type [
-                ; waveform: buffer de valores (array vacío inicialmente)
-                copy any [select spec 'default  copy []]
-            ]
-            true [
-                any [select spec 'default  0.0]
-            ]
-        ]
-        value:     none
-        offset:    any [select spec 'offset    0x0]
-    ]
-    item/type: raw-type
-    ; copy para strings y arrays: garantiza que control e indicador son objetos independientes
-    item/value: case [
-        find [str-control str-indicator] raw-type [
-            copy any [select spec 'value  item/default]
-        ]
-        find [arr-control arr-indicator] raw-type [
-            copy any [select spec 'value  item/default]
-        ]
-        find [cluster-control cluster-indicator] raw-type [
-            copy any [select spec 'value  copy item/default]
-        ]
-        find [waveform-chart waveform-graph] raw-type [
-            ; waveform: buffer de valores (array)
-            copy any [select spec 'value  item/default]
-            ; Asegurar que value es un array
-            if none? item/value [item/value: copy []]
-            item/value
-        ]
-        true [
-            any [select spec 'value  item/default]
-        ]
-    ]
-    ; Asegurar que value nunca es none
-    if none? item/value [
-        item/value: either find [waveform-chart waveform-graph] raw-type [copy []] [0.0]
-    ]
-
-    ; Name: usar explícito, o generar automáticamente
-    item/name: any [select spec 'name  rejoin [form item/type "_" item/id]]
-
-    ; Offset: usar explícito o default
-    item/offset: any [select spec 'offset  0x0]
-
-    ; Label: acepta bloque [text: "..." ...] o string
-    ; label/offset = DELTA desde la posición por defecto.
-    ; Por defecto 0x0: label aparece fp-label-above px encima del body.
-    ; La posición real se calcula en render: (item/offset/x + delta/x, item/offset/y - fp-label-above + delta/y)
-    lbl-spec: select spec 'label
-    item/label: case [
-        block? lbl-spec [
-            lbl-spec: copy lbl-spec
-            if none? select lbl-spec 'text [
-                append lbl-spec compose [text: (fp-default-label item/type)]
-            ]
-            if none? select lbl-spec 'visible [
-                append lbl-spec compose [visible: true]
-            ]
-            make object! [
-                text:    any [select lbl-spec 'text    ""]
-                visible: any [select lbl-spec 'visible true]
-                offset:  any [select lbl-spec 'offset  0x0]
-            ]
-        ]
-        string? lbl-spec [
-            make object! [
-                text:    lbl-spec
-                visible: true
-                offset:  0x0
-            ]
-        ]
-        true [
-            make object! [
-                text:    fp-default-label item/type
-                visible: true
-                offset:  0x0
-            ]
-        ]
-    ]
-
-    item
-]
+; make-fp-item → model.red (4A)
 
 fp-value-text: func [item] [
     either block? item/value [
@@ -987,156 +851,8 @@ render-panel: func [model panel-width panel-height /local panel-face] [
 ; save/load-panel-to-diagram movidas a file-io.red (4A)
 
 
-; ══════════════════════════════════════════════════════════
-; PERSISTENCE — save front-panel to qvi-diagram format (Phase 4)
-; ══════════════════════════════════════════════════════════
-; save/load-panel-to-diagram movidas a file-io.red (4A)
-save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
-    ; Todos los items van en UN único bloque: [front-panel: [control [...] indicator [...]]]
-    ; Si se generan bloques separados, select solo devuelve el primero al cargar.
-    items: copy []
-    foreach item front-panel-items [
-        kw:   case [
-            item/type = 'control           ['control]
-            item/type = 'bool-control      ['bool-control]
-            item/type = 'bool-indicator    ['bool-indicator]
-            item/type = 'str-control       ['str-control]
-            item/type = 'str-indicator     ['str-indicator]
-            item/type = 'arr-control       ['arr-control]
-            item/type = 'arr-indicator     ['arr-indicator]
-            item/type = 'cluster-control   ['cluster-control]
-            item/type = 'cluster-indicator ['cluster-indicator]
-            item/type = 'waveform-chart    ['waveform-chart]
-            item/type = 'waveform-graph    ['waveform-graph]
-            true                           ['indicator]
-        ]
-        ; Construir spec con append/only para el default:
-        ; compose/deep aplana block! values (splice) — no es válido para arr-control
-        spec: copy []
-        repend spec [to-set-word 'id  item/id  to-set-word 'type  item/type  to-set-word 'name  item/name]
-        append spec to-set-word 'label
-        append/only spec compose/deep [text: (item/label/text) visible: (item/label/visible) offset: (item/label/offset)]
-        append spec to-set-word 'default
-        either block? item/value [append/only spec copy item/value] [append spec item/value]
-        if item/data-type = 'cluster [
-            append spec to-set-word 'config
-            append/only spec copy any [item/config  copy []]
-        ]
-        repend spec [to-set-word 'offset  item/offset]
-        append items kw
-        append/only items spec
-    ]
-    reduce [to-set-word 'front-panel  items]
-]
-
-; ══════════════════════════════════════════════════════════
-; COMPILE PANEL — generate VID layout for .qvi executable (Phase 5)
-; ══════════════════════════════════════════════════════════
-gen-panel-var-name: func [item /local s fc] [
-    s: copy item/name
-    if not empty? s [
-        fc: uppercase copy/part s 1
-        s: rejoin [fc  skip s 1]
-    ]
-    to-word rejoin ["f" s]
-]
-
-gen-indicator-var-name: func [item /local s fc] [
-    s: copy item/name
-    if not empty? s [
-        fc: uppercase copy/part s 1
-        s: rejoin [fc  skip s 1]
-    ]
-    to-word rejoin ["l" s]
-]
-
-compile-panel: func [model /local cmds item ctrl-field-name ind-var-name fn ft fval fld-name] [
-    cmds: copy []
-
-    foreach item model/front-panel [
-        case [
-            find [control str-control] item/type [
-                ctrl-field-name: gen-panel-var-name item
-                append cmds compose [
-                    label (item/label/text)
-                    (to-set-word ctrl-field-name) field 120 (form item/default)
-                    return
-                ]
-            ]
-            item/type = 'bool-control [
-                ctrl-field-name: gen-panel-var-name item
-                append cmds compose [
-                    label (item/label/text)
-                    (to-set-word ctrl-field-name) check (item/label/text) (item/default)
-                    return
-                ]
-            ]
-            item/type = 'arr-control [
-                ; Array control: valor fijo en el .qvi (no hay field editable — DT-028)
-                ind-var-name: gen-indicator-var-name item
-                append cmds compose [
-                    label (item/label/text)
-                    (to-set-word ind-var-name) text 120 (rejoin ["[" form item/default "]"])
-                    return
-                ]
-            ]
-            item/type = 'cluster-control [
-                ; Cluster control: un widget por cada campo
-                foreach [fn ft] fp-cluster-fields item [
-                    fld-name: to-word rejoin [form item/name "_" form fn]
-                    fval: select any [item/default  copy []] fn
-                    append cmds compose [label (rejoin [item/label/text " — " form fn])]
-                    case [
-                        ft = 'boolean [
-                            append cmds compose [
-                                (to-set-word fld-name) check (form fn) (any [fval false])
-                                return
-                            ]
-                        ]
-                        true [
-                            append cmds compose [
-                                (to-set-word fld-name) field 120 (form any [fval ""])
-                                return
-                            ]
-                        ]
-                    ]
-                ]
-            ]
-            item/type = 'cluster-indicator [
-                ; Cluster indicator: un text por cada campo
-                foreach [fn ft] fp-cluster-fields item [
-                    fld-name: to-word rejoin [form item/name "_" form fn]
-                    fval: select any [item/default  copy []] fn
-                    append cmds compose [
-                        label (rejoin [item/label/text " — " form fn])
-                        (to-set-word fld-name) text 120 (form any [fval ""])
-                        return
-                    ]
-                ]
-            ]
-            find [waveform-chart waveform-graph] item/type [
-                ; Waveform: base face con Draw
-                ind-var-name: gen-indicator-var-name item
-                append cmds compose [
-                    label (item/label/text)
-                    (to-set-word ind-var-name) base (as-pair fp-chart-width fp-chart-height) draw []
-                    return
-                ]
-            ]
-            true [  ; indicator, bool-indicator, str-indicator, arr-indicator
-                ind-var-name: gen-indicator-var-name item
-                append cmds compose [
-                    label (item/label/text)
-                    (to-set-word ind-var-name) text 120 (form item/default)
-                    return
-                ]
-            ]
-        ]
-    ]
-
-    append cmds compose [button "Run" []]
-    cmds
-]
+; save-panel-to-diagram → file-io.red (4A)
+; gen-panel-var-name, gen-indicator-var-name, compile-panel → compiler.red (4A)
 
 ; ══════════════════════════════════════════════════════════
 ; DEMO — standalone test
@@ -1177,16 +893,7 @@ add-demo-items: func [model /local ctrl1 ctrl2 ind1] [
     model
 ]
 
-gen-standalone-code: func [model /local vid-code] [
-    vid-code: compile-panel model
-    rejoin [
-        "Red [title: {QTorres Panel Demo} Needs: 'View]" newline
-        "qvi-diagram: []" newline
-        "view layout [" newline
-        "    " mold vid-code newline
-        "]"
-    ]
-]
+; gen-standalone-code → compiler.red (4A)
 
 if find form system/options/script "panel.red" [
     ; Use same pattern as canvas.red for demo execution

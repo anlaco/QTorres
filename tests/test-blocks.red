@@ -1,6 +1,6 @@
 Red [Title: "QTorres — Tests blocks"]
 
-do %../src/graph/blocks.red
+do %../src/graph/model.red  ; model.red incluye blocks.red y ahora también make-fp-item (4A)
 
 suite "blocks — registro"
 
@@ -172,8 +172,8 @@ assert "waveform-graph no tiene emit (se maneja en compile-panel)" (none? b-grap
 
 suite "blocks — waveform: FP item"
 
-; Cargar panel.red para make-fp-item
-do %../src/ui/panel/panel.red
+; make-fp-item movida a model.red (4A) — ya cargado al inicio del test
+; (antes: do %../src/ui/panel/panel.red)
 
 wc: make-fp-item [id: 100  type: 'waveform-chart  name: "chart_1"  label: [text: "Señal" visible: true]  offset: 50x50]
 wg: make-fp-item [id: 101  type: 'waveform-graph  name: "graph_1"  label: [text: "Array" visible: true]  offset: 50x250]

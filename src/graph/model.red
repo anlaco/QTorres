@@ -459,8 +459,155 @@ make-diagram-model: func [] [
     ]
 ]
 
-; make-fp-item y fp-value-text viven en src/ui/panel/panel.red (canónico).
-; model.red no duplica lógica de Front Panel.
+; ══════════════════════════════════════════════════
+; FP-ITEM MODEL (movido desde panel.red — 4A refactor)
+; ══════════════════════════════════════════════════
+
+fp-cluster-fields: func [
+    "Devuelve la lista de campos del cluster FP item [nombre tipo ...]"
+    item [object!]
+    /local cfg flds
+][
+    cfg: any [item/config  copy []]
+    flds: select cfg 'fields
+    either flds [flds] [copy []]
+]
+
+fp-default-label: func [item-type] [
+    case [
+        item-type = 'bool-control   ["Boolean"]
+        item-type = 'bool-indicator ["Boolean"]
+        item-type = 'str-control    ["String"]
+        item-type = 'str-indicator  ["String"]
+        item-type = 'arr-control      ["Array"]
+        item-type = 'arr-indicator    ["Array"]
+        item-type = 'cluster-control  ["Cluster"]
+        item-type = 'cluster-indicator ["Cluster"]
+        item-type = 'waveform-chart   ["Chart"]
+        item-type = 'waveform-graph   ["Graph"]
+        true                          ["Numeric"]
+    ]
+]
+
+make-fp-item: func [
+    "Crea un item del Front Panel (control o indicator)"
+    spec [block!]
+    /local item lbl-spec raw-type
+][
+    raw-type: any [select spec 'type  'control]
+    item: make object! [
+        id:        any [select spec 'id        0]
+        type:      either find [bool-control bool-indicator] raw-type ['control] [raw-type]
+        data-type: case [
+            find [bool-control bool-indicator]     raw-type ['boolean]
+            find [str-control  str-indicator]      raw-type ['string]
+            find [arr-control  arr-indicator]      raw-type ['array]
+            find [cluster-control cluster-indicator] raw-type ['cluster]
+            find [waveform-chart waveform-graph]   raw-type ['waveform]
+            true                                   ['numeric]
+        ]
+        name:      any [select spec 'name      ""]
+        label:     none
+        config:    copy any [select spec 'config  copy []]
+        default:   case [
+            find [bool-control bool-indicator] raw-type [
+                any [select spec 'default  false]
+            ]
+            find [str-control str-indicator] raw-type [
+                ; copy siempre: las literales "" en Red son constantes compartidas
+                copy any [select spec 'default  ""]
+            ]
+            find [arr-control arr-indicator] raw-type [
+                ; copy siempre: los bloques [] son constantes compartidas en Red
+                copy any [select spec 'default  copy []]
+            ]
+            find [cluster-control cluster-indicator] raw-type [
+                ; block de pares word/valor: [name "" voltage 0.0 active false]
+                copy any [select spec 'default  copy []]
+            ]
+            find [waveform-chart waveform-graph] raw-type [
+                ; waveform: buffer de valores (array vacío inicialmente)
+                copy any [select spec 'default  copy []]
+            ]
+            true [
+                any [select spec 'default  0.0]
+            ]
+        ]
+        value:     none
+        offset:    any [select spec 'offset    0x0]
+    ]
+    item/type: raw-type
+    ; copy para strings y arrays: garantiza que control e indicador son objetos independientes
+    item/value: case [
+        find [str-control str-indicator] raw-type [
+            copy any [select spec 'value  item/default]
+        ]
+        find [arr-control arr-indicator] raw-type [
+            copy any [select spec 'value  item/default]
+        ]
+        find [cluster-control cluster-indicator] raw-type [
+            copy any [select spec 'value  copy item/default]
+        ]
+        find [waveform-chart waveform-graph] raw-type [
+            ; waveform: buffer de valores (array)
+            copy any [select spec 'value  item/default]
+            ; Asegurar que value es un array
+            if none? item/value [item/value: copy []]
+            item/value
+        ]
+        true [
+            any [select spec 'value  item/default]
+        ]
+    ]
+    ; Asegurar que value nunca es none
+    if none? item/value [
+        item/value: either find [waveform-chart waveform-graph] raw-type [copy []] [0.0]
+    ]
+
+    ; Name: usar explícito, o generar automáticamente
+    item/name: any [select spec 'name  rejoin [form item/type "_" item/id]]
+
+    ; Offset: usar explícito o default
+    item/offset: any [select spec 'offset  0x0]
+
+    ; Label: acepta bloque [text: "..." ...] o string
+    ; label/offset = DELTA desde la posición por defecto.
+    ; Por defecto 0x0: label aparece fp-label-above px encima del body.
+    ; La posición real se calcula en render: (item/offset/x + delta/x, item/offset/y - fp-label-above + delta/y)
+    lbl-spec: select spec 'label
+    item/label: case [
+        block? lbl-spec [
+            lbl-spec: copy lbl-spec
+            if none? select lbl-spec 'text [
+                append lbl-spec compose [text: (fp-default-label item/type)]
+            ]
+            if none? select lbl-spec 'visible [
+                append lbl-spec compose [visible: true]
+            ]
+            make object! [
+                text:    any [select lbl-spec 'text    ""]
+                visible: any [select lbl-spec 'visible true]
+                offset:  any [select lbl-spec 'offset  0x0]
+            ]
+        ]
+        string? lbl-spec [
+            make object! [
+                text:    lbl-spec
+                visible: true
+                offset:  0x0
+            ]
+        ]
+        true [
+            make object! [
+                text:    fp-default-label item/type
+                visible: true
+                offset:  0x0
+            ]
+        ]
+    ]
+
+    item
+]
 
 ; ══════════════════════════════════════════════════
 ; WIRE PROTECTION — QA-018: Prevent multiple wires to same input port

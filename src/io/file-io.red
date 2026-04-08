@@ -697,4 +697,42 @@ load-panel-from-diagram: func [qd [block!] /local fp-raw items item kw id type n
     items
 ]
 
+; ══════════════════════════════════════════════════════════
+; SAVE-PANEL-TO-DIAGRAM (movido desde panel.red — 4A refactor)
+; ══════════════════════════════════════════════════════════
+
+save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
+    items: copy []
+    foreach item front-panel-items [
+        kw: case [
+            item/type = 'control           ['control]
+            item/type = 'bool-control      ['bool-control]
+            item/type = 'bool-indicator    ['bool-indicator]
+            item/type = 'str-control       ['str-control]
+            item/type = 'str-indicator     ['str-indicator]
+            item/type = 'arr-control       ['arr-control]
+            item/type = 'arr-indicator     ['arr-indicator]
+            item/type = 'cluster-control   ['cluster-control]
+            item/type = 'cluster-indicator ['cluster-indicator]
+            item/type = 'waveform-chart    ['waveform-chart]
+            item/type = 'waveform-graph    ['waveform-graph]
+            true                           ['indicator]
+        ]
+        spec: copy []
+        repend spec [to-set-word 'id  item/id  to-set-word 'type  item/type  to-set-word 'name  item/name]
+        append spec to-set-word 'label
+        append/only spec compose/deep [text: (item/label/text) visible: (item/label/visible) offset: (item/label/offset)]
+        append spec to-set-word 'default
+        either block? item/value [append/only spec copy item/value] [append spec item/value]
+        if item/data-type = 'cluster [
+            append spec to-set-word 'config
+            append/only spec copy any [item/config  copy []]
+        ]
+        repend spec [to-set-word 'offset  item/offset]
+        append items kw
+        append/only items spec
+    ]
+    reduce [to-set-word 'front-panel  items]
+]
+
 #include %../ui/diagram/canvas.red

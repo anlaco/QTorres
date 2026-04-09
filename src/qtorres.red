@@ -1,7 +1,7 @@
 Red [
     Title:   "QTorres"
     Author:  "QTorres contributors"
-    Version: 0.0.1
+    Version: 0.2.0
     Purpose: "Entorno de programación visual tipo LabVIEW sobre Red-Lang"
     Needs:   'View
 ]

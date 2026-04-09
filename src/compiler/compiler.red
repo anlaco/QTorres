@@ -875,7 +875,8 @@ compile-subvi-call: func [
         if not found [append arg-vars 0.0]
     ]
 
-    ; Generar llamada: resultado: func arg1 arg2 ...
+    ; Generar llamada: resultado: func-name/exec arg1 arg2 ...
+    ; El sub-VI define: func-name: context [exec: func [...] [...]]
     ; Por simplicidad, asumimos una sola salida (la primera)
     ; TODO: manejar múltiples salidas
     if not empty? outputs [
@@ -884,8 +885,8 @@ compile-subvi-call: func [
         append code to-set-word out-var
     ]
 
-    ; Añadir la llamada a la función
-    append code to-word func-name
+    ; Añadir la llamada a la función: func-name/exec
+    append code to-path reduce [to-word func-name 'exec]
     foreach arg arg-vars [append code arg]
 
     code
@@ -1104,9 +1105,30 @@ compile-diagram: func [
         ]
     ]
 
+    ; ── Recopilar sub-VIs referenciados para #include (Fase 3) ────────────
+    subvi-files: copy []
+    subvi-names: copy []
+    foreach item sorted [
+        if item/type = 'subvi [
+            if all [in item 'file  file? item/file] [
+                ; Evitar duplicados
+                if not find subvi-files item/file [
+                    append subvi-files item/file
+                    ; Recopilar nombre de función para validación
+                    func-nm: select item/config 'func-name
+                    if func-nm [
+                        append subvi-names func-nm
+                    ]
+                ]
+            ]
+        ]
+    ]
+
     result-map: make map! []
     result-map/headless:  headless
     result-map/ui-layout: ui-layout
+    result-map/subvi-files: subvi-files
+    result-map/subvi-names: subvi-names
     result-map
 ]
 

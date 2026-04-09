@@ -1,5 +1,7 @@
 # QTorres
 
+> **v0.2.0** — Fase 2 completada (tipos, estructuras de control, waveform)
+
 **LabVIEW open source construido sobre Red-Lang.**  
 Si sabes programar en LabVIEW, sabes programar en QTorres.
 
@@ -52,7 +54,11 @@ La estructura de ficheros replica las convenciones de LabVIEW. Donde LabVIEW gua
 
 ## Estado
 
-**En desarrollo inicial.** El proyecto está en fase de diseño y prototipado.
+**v0.2.0** — Alpha en desarrollo activo.
+
+- Fase 0 (spike) y Fase 1 (pipeline end-to-end): completadas
+- Fase 2 (tipos de datos y estructuras de control): completada — 40 bloques, 462 tests
+- Fase 3 (Sub-VIs y extensibilidad): próxima
 
 ## Estructura del proyecto
 

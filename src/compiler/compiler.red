@@ -831,6 +831,66 @@ emit-cluster-indicator-headless: func [
     code
 ]
 
+; ══════════════════════════════════════════════════
+; SUBVI COMPILATION (Fase 3)
+; ══════════════════════════════════════════════════
+
+; Genera código para llamar a un sub-VI.
+; La función del sub-VI viene de node/config/func-name.
+; Los argumentos vienen de los wires conectados a los puertos de entrada del connector.
+; Los resultados se asignan a variables de los puertos de salida.
+compile-subvi-call: func [
+    node    [object!]
+    diagram [object!]
+    /local func-name connector inputs outputs code arg-vars out-var w src
+][
+    code: copy []
+
+    ; Obtener función y connector del config
+    func-name: select node/config 'func-name
+    connector: select node/config 'connector
+    if any [none? func-name  none? connector] [return code]
+
+    inputs: any [select connector 'inputs  copy []]
+    outputs: any [select connector 'outputs  copy []]
+
+    ; Recolectar argumentos de los wires conectados a cada puerto de entrada
+    arg-vars: copy []
+    repeat i (length? inputs / 3) [  ; cada input es [id name label]
+        input-name: inputs/(i * 3 - 1)  ; índice 2, 5, 8... (el name)
+        found: false
+        foreach w diagram/wires [
+            if all [
+                w/to-node = node/id
+                (to-word w/to-port) = (to-word input-name)
+            ][
+                src: find-node-by-id diagram/nodes w/from-node
+                if src [
+                    append arg-vars port-var src to-word w/from-port
+                    found: true
+                ]
+            ]
+        ]
+        ; Si no hay wire, usar valor por defecto 0.0
+        if not found [append arg-vars 0.0]
+    ]
+
+    ; Generar llamada: resultado: func arg1 arg2 ...
+    ; Por simplicidad, asumimos una sola salida (la primera)
+    ; TODO: manejar múltiples salidas
+    if not empty? outputs [
+        out-name: outputs/2  ; name de la primera salida
+        out-var: port-var node to-word out-name
+        append code to-set-word out-var
+    ]
+
+    ; Añadir la llamada a la función
+    append code to-word func-name
+    foreach arg arg-vars [append code arg]
+
+    code
+]
+
 compile-body: func [
     diagram  [object!]
     /with-prints  ; añade print por indicador — solo para ejecución standalone (red-cli .qvi)
@@ -847,6 +907,7 @@ compile-body: func [
             item/type = 'unbundle            [append code emit-unbundle                 item diagram]
             item/type = 'cluster-control     [append code emit-cluster-control-headless item diagram]
             item/type = 'cluster-indicator   [append code emit-cluster-indicator-headless item diagram]
+            item/type = 'subvi               [append code compile-subvi-call            item diagram]
             true [
                 bdef: find-block item/type
                 if all [bdef  bdef/emit] [
@@ -914,6 +975,7 @@ compile-diagram: func [
             item/type = 'unbundle          [append run-body emit-unbundle          item diagram]
             item/type = 'cluster-control   [append run-body emit-cluster-control   item diagram]
             item/type = 'cluster-indicator [append run-body emit-cluster-indicator item diagram]
+            item/type = 'subvi             [append run-body compile-subvi-call     item diagram]
             true [
                 node: item
                 bdef: find-block node/type

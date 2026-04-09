@@ -1,182 +1,224 @@
-# Plan — Transición limpia a Fase 3
+# Plan — Fase 3: Sub-VI con connector pane (#17)
 
-**Creado:** 2026-04-07
-**Objetivo:** Cerrar Fase 2 con calidad para abrir Fase 3 (#17 Sub-VIs) sin arrastrar deuda bloqueante.
+**Creado:** 2026-04-09
+**Objetivo:** Permitir que un VI con `connector` se use como bloque dentro de otro VI, con puertos dinamicos, compilacion a `func` Red, y round-trip completo.
 
-## Fuentes
-
-- `docs/auditoria-fase-2.md` (2026-04-03, qwen3-coder:480b) — veredicto 🟢 verde con refactor 🟡 bloqueante
-- `CLAUDE.md` sección "Problemas conocidos de arquitectura"
-- Issues abiertos: #28, #48, #49, #50, #51, #54 + QA-018/024/029
+**Linea base:** 462 tests PASS, v0.2.0, main limpia.
 
 ## Reglas absolutas (recordatorio)
 
-- Todo en Red-Lang. Sin crear módulos nuevos sin aprobación.
-- `./red-cli tests/run-all.red` debe pasar tras cada cambio (línea base: 450/450).
-- NUNCA empezar una fase sin completar la anterior.
-- NUNCA mergear PRs sin aprobación del usuario.
+- Todo en Red-Lang. Sin crear modulos nuevos sin aprobacion.
+- `./red-cli tests/run-all.red` debe pasar tras cada cambio.
 - Consultar `skills/red-lang/SKILL.md` antes de tocar Draw/View.
+- NUNCA `do` dinamico, `load` strings, ni `compose` runtime en .qvi generado (DT-028).
+- Los puertos del subvi vienen del connector del .qvi cargado, no de blocks.red.
 
-## Estrategia de delegación a Ollama
+## Decisiones de diseno
 
-Delegación habilitada a través de MCP configurado en el proyecto. El contexto (CLAUDE.md + skill Red-Lang) se carga automáticamente.
+### D1: Puertos dinamicos vs registro en blocks.red
 
-| Tarea | Herramienta recomendada | Razón |
-|-------|-------------------------|-------|
-| Lectura masiva de canvas.red/panel.red | Task tool con agent explore | Contexto largo, análisis de codebase |
-| Búsqueda de patrones específicos | Grep/Glob directos | Más rápido que delegar |
-| Generación de tests Red | Decisión case-by-case | Según complejidad |
-| Decisiones arquitectónicas | Claude (NO delegar) | Ollama no razona bien trade-offs |
-| Escritura de ficheros | Claude (NO delegar) | Requiere revisión manual |
+**Decision:** Los puertos del nodo subvi se almacenan en `node/config` como `[connector [...]]` al momento de insertar el nodo. `in-ports`/`out-ports` en canvas-render.red consultan esta config cuando `node/type = 'subvi`. blocks.red tiene un entry minimo (categoria, sin puertos fijos).
 
-## Hitos del plan
+**Razon:** Cada subvi tiene puertos distintos segun su connector. No se puede registrar en blocks.red con puertos fijos.
 
-### Fase 0 — Sincronización ✅ COMPLETADA
+### D2: Campo `file` en el nodo
 
-- [x] **0.1** Informar de divergencia local vs origin/main
-- [x] **0.2** Reset a origin/main (commit 8dc1610)
-- [x] **0.3** Verificar línea base: **450 tests PASS**
-- [x] **0.4** Contar líneas actuales: canvas.red (2557), panel.red (1255), compiler.red (891), file-io.red (647)
-- [ ] **0.5** Revisar si QA-018/024/029 ya se aplicaron — grep/diff
+**Decision:** Anadir campo `file: none` al prototipo de nodo en `make-node`. Solo se puebla para nodos `'subvi`. Se serializa/carga en file-io.red.
 
-### Fase 1 — Bug bloqueante #54 Cluster (CRÍTICO)
+### D3: Nombre del context = titulo del VI (unicidad obligatoria)
 
-> Regresión funcional detectada en QA. No se puede abrir Fase 3 con Cluster roto.
+**Decision:** El nombre del context viene del `title` del header Red del .qvi cargado. Se almacena en `node/config` como `[func-name "suma"]`. El compilador valida que no haya dos sub-VIs con el mismo titulo — si colisionan, error de compilacion.
 
-**Síntomas (Issue #54):**
-1. Puertos no aparecen al añadir campos al cluster-control
-2. Config/fields no persiste al cerrar y reabrir el editor
-3. Cluster-indicator no permite añadir ningún elemento
+**Razon:** Igual que LabVIEW, donde los nombres de VI deben ser unicos dentro del proyecto. El context da namespace natural (`suma/exec`).
 
-**Plan:**
-- [x] **1.1** Usar Task tool (explore agent) para localizar en canvas.red + panel.red el flujo cluster dbl-click → editor → persistencia
-- [x] **1.2** Claude: leer fragmentos identificados, diagnosticar causa raíz
-- [x] **1.3** Aplicar fixes
-- [x] **1.4** Añadir tests de regresión (persistencia config + round-trip cluster con N campos)
-- [x] **1.5** Prueba manual: crear cluster-ctrl, añadir 3 campos, cerrar, reabrir, verificar
-- [x] **1.6** Tests pasan (450+). Crear PR (sin mergear — esperar aprobación)
+### D4: `#include` + context (validado con tests)
 
-### Fase 2 — Protecciones de auditoría (🔴 ROJO)
+**Decision:** El codigo generado usa `#include %subvi.qvi` con cada sub-VI envuelto en un `context` con nombre. Validado experimentalmente con 3 niveles de anidamiento.
 
-- [x] **2.1** QA-018: proteger `make-wire` para no permitir 2 wires al mismo puerto entrada (Regla absoluta #6)
-- [x] **2.2** QA-024: fix `fp-default-label` + asignación label en `open-edit-dialog`
-- [x] **2.3** QA-029: `save-panel-to-diagram` debe guardar `item/value`, no `item/default`
-- [x] **2.4** Tests de regresión para las 3 protecciones
-- [x] **2.5** PR de safety fixes
+**Patron del sub-VI (.qvi con connector):**
+```red
+Red [title: "suma" Needs: 'View]
+qvi-diagram: [...]
 
-### Fase 3 — Bugs Fase 2 menores
+suma: context [
+    exec: func [A [float!] B [float!] /local Resultado] [
+        Resultado: A + B
+        Resultado
+    ]
+]
 
-- [x] **3.1** #48 Bundle/Unbundle vacíos con altura excesiva (`canvas.red`)
-- [x] **3.2** #49 Control string auto-actualiza sin Run (`panel.red`)
-- [x] **3.3** #50 Modo headless no imprime valores desde UI-generated VIs
-- [x] **3.4** #51 Nodos creados desde FP se apilan — calcular offset libre
-- [x] **3.5** Cada fix → test → commit agrupado por fichero
-- [x] **3.6** PR de bug batch
+if not value? 'qtorres-runtime [
+    context [view layout [...]]
+]
+```
 
-### Fase 4 — Refactor estructural (🟡 BLOQUEANTE PARA #17)
+**Patron del sub-VI que usa otros sub-VIs:**
+```red
+Red [title: "filtro" Needs: 'View]
+qvi-diagram: [...]
 
-> Auditoría marca panel.red y ciclo canvas↔panel como bloqueantes para Sub-VIs.
+_qt-imported: value? 'qtorres-runtime
+qtorres-runtime: true
+#include %suma.qvi
+if not _qt-imported [unset 'qtorres-runtime]
 
-#### 4A — Mover responsabilidades mal ubicadas
+filtro: context [
+    exec: func [X [float!]] [suma/exec X 0.5]
+]
 
-- [x] **4A.1** Grep para listar todas las llamadas a funciones mal ubicadas
-- [x] **4A.2** Mover `compile-panel` + helpers → `compiler.red`
-- [x] **4A.3** Mover `save/load-panel-*` → `file-io.red`
-- [x] **4A.4** Mover `make-fp-item` → `model.red`
-- [x] **4A.5** Mover `make-diagram-model` → `model.red`
-- [x] **4A.6** Chain loading verificado: model→blocks→compiler→runner→file-io→canvas→panel ✅
-- [x] **4A.7** Tests 465/465 PASS ✅ (2026-04-08)
-- [x] **4A.8** PR #60 abierto (actualización body bloqueada por bug gh Projects classic)
+if not value? 'qtorres-runtime [
+    context [view layout [...]]
+]
+```
 
-#### 4B — Abstracción `set-config`
+**Patron del VI caller (programa principal):**
+```red
+Red [title: "main" Needs: 'View]
+qvi-diagram: [...]
 
-- [ ] **4B.1** Grep patrón `either pos: find node/config` en src/
-- [x] **4B.2** Añadir `set-config` a `model.red`
-- [x] **4B.3** Aplicar helper en todas las ocurrencias (parcial: canvas.red ✅, panel.red pendiente)
-- [ ] **4B.4** Tests → PR
+qtorres-runtime: true
+#include %filtro.qvi
 
+context [
+    view layout [
+        button "Run" [l_ind_1/text: form filtro/exec to-float f_ctrl_1/text]
+    ]
+]
+```
 
-#### 4D — Split conservador de canvas.red ✅ COMPLETADA
+**Comportamiento verificado:**
+- `red suma.qvi` → standalone, muestra panel ✓
+- `red filtro.qvi` → standalone, muestra panel (suma NO ejecuta standalone) ✓
+- `red main.qvi` → solo main, ni filtro ni suma ejecutan standalone ✓
+- `red -c main.qvi` → compilable, #include es compile-time ✓
 
-> Prerrequisito: 4A completada. (4C eliminada — acoplamiento canvas↔panel es correcto por diseño del dominio)
+**Ventajas sobre inlining:**
+- Cada VI es 100% independiente — ejecutable por si solo
+- El compilador de QTorres solo emite #include + llamadas, NO necesita compilar recursivamente sub-VIs
+- Los namespaces (context) evitan colisiones de forma natural
+- El .qvi del sub-VI es la fuente de verdad — si cambia, el caller lo ve al recompilar
 
-- [x] **4D.1** Inventario exhaustivo de canvas.red por categoría (2526 líneas → 3 secciones)
-- [x] **4D.2** Agrupación: render puro / hit-test+CRUD+actor / diálogos+paleta+SR
-- [x] **4D.3** Creado `canvas-render.red` (932 líneas): constantes + geometría + render Draw
-- [x] **4D.4** Creado `canvas-dialogs.red` (397 líneas): diálogos + paleta + SR helpers
-- [x] **4D.5** canvas.red queda con: hit-test + CRUD + actor + demo (1226 líneas)
-- [x] **4D.6** Chain loading correcto: canvas.red include canvas-render.red, luego canvas-dialogs.red
-- [x] **4D.7** Tests 465/465 PASS ✅ (2026-04-08)
-- [ ] **4D.8** PR "refactor: split conservador canvas.red"
+**Razon:** `#include` es compile-time (cumple DT-028). El context con nombre da namespace. El patron save/restore de `qtorres-runtime` permite que cada VI funcione standalone Y como sub-VI sin conflictos.
 
-#### 4E — Split conservador panel.red ✅ COMPLETADA
+### D5: `context` con `exec` para sub-VIs
 
-- [x] **4E.1** Medido: 933 líneas post-4A → > 900, split necesario
-- [x] **4E.2** Creado `panel-render.red` (411 líneas): constantes + render puro
-- [x] **4E.3** panel.red queda con: hit-test + diálogos + paleta + actor (535 líneas)
-- [x] **4E.4** Tests 465/465 PASS ✅ (2026-04-08)
-- [ ] **4E.5** PR "refactor: split conservador panel.red" (incluye en PR #60 o nuevo)
+**Decision:** El codigo generado sigue esta estructura:
+- **VI con connector:** `nombre: context [exec: func [...] [...]]` + standalone guard
+- **VI sin connector (solo standalone):** `context [view layout [...]]`
+- **VI que usa sub-VIs:** save/restore flag + `#include`s + su propio context (si tiene connector) o standalone
 
-### Fase 4F — Bugs cluster post-revisión manual ✅ COMPLETADA
+**Convencion de llamada:** `suma/exec arg1 arg2` — el context es el namespace, `exec` es la funcion.
 
-- [x] **4F.1** Colores de puertos: resuelto — block-color 'cluster → col-wire-cluster ya implementado
-- [x] **4F.2** Editar desde FP: open-cluster-fp-edit-dialog en panel.red, doble-clic FP → edita + sync BD
-- [x] **4F.3** Sincronización BD→FP: cluster-apply-and-refresh en canvas-dialogs.red
-- [x] **4F.4** Tests 462/462 PASS ✅ (commit 8d84635)
+**Razon:** No hay diferencia entre "VI principal" y "sub-VI" — un VI con connector siempre genera context + standalone guard, independientemente de como se use (DT-017). El caller decide si lo incluye.
 
-### Sesión pendiente Fase 3 — Labels FP/BD
+### D6: Connector se edita manualmente (por ahora)
 
-> Decisión 2026-04-08: Los labels tienen comportamientos complejos (compartidos entre
-> control/indicador del mismo tipo, desconectados de labels del BD). Se deja para sesión
-> dedicada en Fase 3 donde se definirán comportamientos y aspecto.
+**Decision:** Un VI que quiera ser usable como sub-VI necesita una seccion `connector:` en su `qvi-diagram`. En esta fase, el connector se edita manualmente en el .qvi. El editor visual de connector pane es fase posterior.
 
-- Definir: ¿labels FP e BD sincronizados (LabVIEW) o independientes?
-- Definir: ¿un control y su indicador comparten label o son independientes?
-- Definir: ¿dónde se edita el label — FP, BD, ambos?
-- Fix: objeto label usa `copy` del string por defecto para evitar literales compartidos
+### D7: Error handling (DT-029 nivel 1)
 
-### Fase 5 — Decisión #28 y limpieza final
+**Decision:** Cada llamada a sub-VI se envuelve en `try`: `result: try [subvi-name/exec arg1 arg2]`. Si falla, se propaga el error nativo de Red.
 
-- [ ] **5.1** Preguntar: ¿#28 Front Panel standalone entra en Fase 2 o posponer?
-- [ ] **5.2** Limpiar ficheros sueltos (con aprobación)
-- [ ] **5.3** Actualizar CLAUDE.md (líneas reales, bugs cerrados, estado Fase 2 COMPLETADA)
-- [ ] **5.4** Tag `v0.2-fase2-complete` tras aprobación
-- [ ] **5.5** Abrir Fase 3: plan para #17 Sub-VI
+### D8: Vision a largo plazo — sin deuda tecnica
 
-## Criterios de "Fase 2 cerrada"
+El modelo de dos caminos (runner vs .qvi generado) permite:
+- **Runner (IDE):** abrir multiples VIs, sub-VI mostrando su panel, valores en vivo — todo posible via `do` en memoria + `view/no-wait`
+- **Compilado (.qvi):** binario autocontenido via `#include`. Sub-VIs son context con `exec` (sin panel) en Fase 3.
 
-- 450+ tests pasando
-- Issues #48-#51, #54 cerrados
-- QA-018/024/029 protegidos con tests
-- panel.red < 800 líneas
-- canvas.red core < 1500 líneas
-- canvas-render.red y canvas-dialogs.red existen
+**Evolucion futura sin romper arquitectura:**
+- Sub-VIs con panel en compilado: anadir func `panel` al context → `suma/panel`. Cambio aditivo, no rompe `exec`.
+- Multiples VIs abiertos: cada context es independiente, no comparten estado.
+- Clases (.qclass): futuro, modelo diferente.
+- El unico riesgo conocido es `app-model` unico (un VI en memoria), que se abordara con .qproj.
 
-- CLAUDE.md refleja estructura real
-- Todos los ejemplos headless pasan
-- red-view src/qtorres.red funciona
+Las decisiones de esta fase no bloquean ninguna de estas evoluciones.
+
+## Fases de implementacion
+
+### Fase 1 — Modelo y serializacion ✅ COMPLETADA
+
+> Cimientos: que el formato se cargue, persista y haga round-trip.
+
+- [x] **1.1** `model.red`: campo `file: none` en `make-node`
+- [x] **1.2** `model.red`: helper `load-subvi-connector`
+- [x] **1.3** `model.red`: helper `make-subvi-node`
+- [x] **1.4** `file-io.red`: `serialize-nodes` emite `file:`
+- [x] **1.5** `file-io.red`: `load-node-list` lee `file:`
+- [x] **1.6** `file-io.red`: `serialize-diagram` emite `connector:`
+- [x] **1.7** `file-io.red`: `load-vi` parsea `connector:`
+- [x] **1.8** Tests round-trip
+- [x] **1.9** 462 tests PASS
+
+### Fase 2 — Compilador ⬜
+
+> Que el codigo generado sea correcto para caller y callee.
+
+- [x] **2.1** `blocks.red`: registrar `'subvi` con block-def minimo (category: 'function, sin puertos, sin emit)
+- [x] **2.2** `compiler.red`: funcion `compile-subvi-call` que genera la llamada `nombre/exec arg1 arg2`
+- [x] **2.3** `compiler.red`: en `compile-body`, caso `item/type = 'subvi` → `compile-subvi-call`
+- [x] **2.4** `compiler.red`: en `compile-diagram` run-body, caso `'subvi` para modo UI
+- [ ] **2.5** `compiler.red`: emitir `#include %subvi.qvi` + save/restore `qtorres-runtime` al inicio del codigo generado. Recopilar ficheros unicos (sin duplicados).
+- [ ] **2.6** `compiler.red`: para VIs con connector propio, generar `nombre: context [exec: func [...] [...]]` + standalone guard con save/restore
+- [ ] **2.7** `compiler.red`: validar unicidad de func-name entre todos los sub-VIs referenciados — error si colision
+- [ ] **2.8** Actualizar `compile-subvi-call` para usar convencion `nombre/exec` en vez de func directa
+- [ ] **2.9** Tests: compile-body con nodo subvi, codigo generado correcto, round-trip compile
+- [ ] **2.10** Tests pasan. Commit.
+
+### Fase 3 — Renderizado y UI ⬜
+
+> Que el subvi se vea y se pueda anadir desde el editor.
+
+- [ ] **3.1** `canvas-render.red`: `in-ports` / `out-ports` — si `node/type = 'subvi`, leer puertos de `node/config` en vez de blocks registry
+- [ ] **3.2** `canvas-render.red`: renderizar nodo subvi con icono (si tiene) o caja generica con label = func-name
+- [ ] **3.3** `canvas-render.red`: colores de puertos segun tipo del connector (number/string/boolean/etc)
+- [ ] **3.4** `canvas-dialogs.red`: boton "Sub-VI" en paleta → file picker (`request-file`) → `make-subvi-node` → anadir al diagrama
+- [ ] **3.5** `canvas.red`: hit-test de puertos del subvi (misma logica que otros nodos, pero puertos dinamicos)
+- [ ] **3.6** Test manual: crear diagrama con subvi, conectar wires, verificar render
+- [ ] **3.7** Commit.
+
+### Fase 4 — Ejemplo funcional end-to-end ⬜
+
+> Que suma-subvi.qvi + programa-con-subvi.qvi funcionen de verdad.
+
+- [ ] **4.1** Actualizar `examples/suma-subvi.qvi`: qvi-diagram con connector + codigo generado (context + standalone guard)
+- [ ] **4.2** Actualizar `examples/programa-con-subvi.qvi`: qvi-diagram con nodo subvi + codigo generado (#include + context)
+- [ ] **4.3** Verificar: `./red-cli examples/programa-con-subvi.qvi` produce resultado correcto
+- [ ] **4.4** Verificar: cargar en QTorres, editar, guardar, volver a cargar → round-trip OK
+- [ ] **4.5** Test automatizado: headless round-trip del ejemplo
+- [ ] **4.6** Commit + PR.
+
+### Fase 5 — Cierre ⬜
+
+- [ ] **5.1** Actualizar CLAUDE.md (estado Fase 3, nuevos ficheros/funciones, D4 como nueva DT)
+- [ ] **5.2** Cerrar Issue #17
+- [ ] **5.3** Actualizar version a 0.3.0 y tag
+
+## Criterios de exito
+
+- `./red-cli tests/run-all.red` → todos pasan
+- `./red-cli examples/suma-subvi.qvi` → standalone funciona
+- `./red-cli examples/programa-con-subvi.qvi` → output correcto (headless, usa sub-VI)
+- Round-trip: cargar .qvi con subvi → guardar → cargar → mismos datos
+- Un VI con connector genera `nombre: context [exec: func [...]]` + standalone guard
+- Un VI caller genera `#include` + llamada `nombre/exec` correcta
+- Compilador detecta colision de nombres entre sub-VIs
+- Nodo subvi se renderiza con puertos del connector en el canvas
 
 ## Riesgos
 
-| Riesgo | Mitigación |
+| Riesgo | Mitigacion |
 |--------|-----------|
-| Refactor 4A rompe chain loading | Probar red-cli y red-view tras cada mover |
-| #54 tiene causa profunda config-driven | Tiempo adicional en investigación |
-| Task tool devuelve resultados inexactos | Verificar con Grep/Read antes de actuar |
-| Split 4D parte acoplamientos ocultos | Inventario previo + tests tras cada sub-paso |
+| `#include` de .qvi con header Red | Verificado: Red strip header de ficheros incluidos ✓ |
+| `qvi-diagram` sobreescrito por includes | Caller define su qvi-diagram DESPUES de includes → ultima asignacion gana ✓ |
+| Standalone guard en sub-VIs anidados | Patron save/restore validado con 3 niveles ✓ |
+| Connector con tipos no-number (string, bool, cluster) | Fase 1 solo number, extender despues |
+| Fichero .qvi referenciado no existe | Error amigable en `load-subvi-connector`, no crash |
+| Puertos dinamicos rompen hit-test en canvas | Reusar misma logica de port positioning pero con lista dinamica |
+| Cambio en connector del subvi invalida el caller | Detectar en load, warning al usuario — fase posterior |
+| Dos sub-VIs con mismo titulo | Compilador valida y da error (D3) |
 
 ## Log de errores
 
-| Error | Intento | Resolución |
+| Error | Intento | Resolucion |
 |-------|---------|------------|
-| _(se rellenará durante ejecución)_ | | |
-
-## Lección aprendida — opencode
-
-El incidente con compiler.red (qwen3-coder-next reemplazó compile-diagram en lugar de solo añadir al final) fue probablemente un problema de selección de modelo, no una limitación de opencode.
-
-Para refactors que implican añadir código a ficheros grandes con funciones críticas:
-- Usar modelos con mejor comprensión de contexto largo: kimi-k2:1t, deepseek-v3.1:671b, mistral-large-3:675b
-- qwen3-coder-next: bueno para tests y fixes quirúrgicos en ficheros pequeños
-- glm-5 / gpt-oss:120b: fiables para ediciones mecánicas
-- Verificar siempre con git diff antes de ejecutar tests cuando el agente toca ficheros críticos
+| _(se rellenara durante ejecucion)_ | | |

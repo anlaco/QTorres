@@ -38,6 +38,11 @@ serialize-nodes: func [
             append node-spec-blk 'config
             append/only node-spec-blk copy n/config
         ]
+        ; Incluir file para nodos subvi (Fase 3)
+        if all [in n 'file  n/file] [
+            append node-spec-blk 'file
+            append/only node-spec-blk n/file
+        ]
         append nodes-block 'node
         append/only nodes-block node-spec-blk
     ]
@@ -150,6 +155,18 @@ serialize-diagram: func [
         ]
     ]
 
+    ; ── Connector (solo si el VI se usa como sub-VI, Fase 3) ──────────────
+    connector-block: copy []
+    if all [in diagram 'connector  block? diagram/connector  not empty? diagram/connector] [
+        foreach conn-item diagram/connector [
+            ; conn-item: [type id name label] donde type es 'input o 'output
+            append connector-block conn-item/1
+            append/only connector-block compose/only [
+                id: (conn-item/2)  name: (conn-item/3)  label: (conn-item/4)
+            ]
+        ]
+    ]
+
     compose/only [
         meta:         [description: "" version: 1 author: "" tags: []]
         icon:         []
@@ -158,6 +175,7 @@ serialize-diagram: func [
             wires: (wires-block)
             structures: (structs-block)
         ])
+        connector: (connector-block)
     ]
 ]
 
@@ -625,6 +643,33 @@ load-vi: func [
                     ]
                     if st/name [append names st/name]
                     append d/structures st
+                )
+                | skip
+            ]
+        ]
+    ]
+
+    ; ── Cargar connector (Fase 3: Sub-VI) ────────────────────────────────
+    conn-data: select qd 'connector
+    if all [conn-data  block? conn-data  not empty? conn-data] [
+        d/connector: copy []
+        parse conn-data [
+            any [
+                'input set conn-spec block! (
+                    append d/connector reduce [
+                        'input
+                        any [select conn-spec 'id 0]
+                        any [select conn-spec 'name ""]
+                        any [select conn-spec 'label []]
+                    ]
+                )
+                | 'output set conn-spec block! (
+                    append d/connector reduce [
+                        'output
+                        any [select conn-spec 'id 0]
+                        any [select conn-spec 'name ""]
+                        any [select conn-spec 'label []]
+                    ]
                 )
                 | skip
             ]

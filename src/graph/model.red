@@ -160,6 +160,7 @@ make-node: func [
         type:   any [select spec 'type  'add]
         ports:  copy []
         config: copy []
+        file:   none
     ]
     n/id: any [select spec 'id  0]
     n/x:  any [select spec 'x   0]
@@ -170,6 +171,9 @@ make-node: func [
 
     ; Config: cargar desde spec si está presente (permite round-trip de valores)
     if select spec 'config [n/config: copy select spec 'config]
+
+    ; File: cargar desde spec si está presente (para nodos subvi, Fase 3)
+    if select spec 'file [n/file: select spec 'file]
 
     ; Label: acepta bloque [text: "..." ...] o string (retrocompatibilidad)
     lbl-spec: select spec 'label
@@ -410,6 +414,105 @@ cluster-field-type: func [
         i: i + 2
     ]
     'number
+]
+
+; ══════════════════════════════════════════════════
+; SUBVI HELPERS
+; ══════════════════════════════════════════════════
+; Para nodos 'subvi: cargan su connector desde el fichero .qvi referenciado.
+
+load-subvi-connector: func [
+    "Carga el connector de un .qvi y devuelve bloque con inputs, outputs y func-name"
+    path [file!]
+    /local src qd conn inputs outputs func-name title-meta pos blk
+][
+    if not exists? path [
+        return reduce ['inputs copy [] 'outputs copy [] 'func-name ""]
+    ]
+
+    src: load path
+    pos: find src to-set-word 'qvi-diagram
+    if none? pos [
+        return reduce ['inputs copy [] 'outputs copy [] 'func-name ""]
+    ]
+
+    qd: norm-spec pos/2
+    conn: select qd 'connector
+
+    inputs: copy []
+    outputs: copy []
+    func-name: ""
+
+    if block? conn [
+        parse conn [
+            any [
+                'input set blk block! (
+                    append inputs reduce [
+                        any [select blk 'id 0]
+                        any [select blk 'name ""]
+                        any [select blk 'label []]
+                    ]
+                )
+                | 'output set blk block! (
+                    append outputs reduce [
+                        any [select blk 'id 0]
+                        any [select blk 'name ""]
+                        any [select blk 'label []]
+                    ]
+                )
+                | skip
+            ]
+        ]
+    ]
+
+    title-meta: select qd 'meta
+    if block? title-meta [
+        func-name: any [select title-meta 'title ""]
+    ]
+
+    ; Si no hay title en meta, usar el nombre del fichero sin extension
+    if empty? func-name [
+        func-name: to-string first split last split-path path "."
+    ]
+
+    reduce ['inputs inputs 'outputs outputs 'func-name func-name]
+]
+
+make-subvi-node: func [
+    "Crea un nodo subvi cargando su connector desde el fichero referenciado"
+    spec [block!]
+    /local n conn-data file-path
+][
+    n: make-node spec
+
+    file-path: select spec 'file
+    if file? file-path [
+        n/file: file-path
+        conn-data: load-subvi-connector file-path
+
+        ; Almacenar connector y func-name en config
+        set-config n 'connector reduce [
+            'inputs conn-data/inputs
+            'outputs conn-data/outputs
+        ]
+        set-config n 'func-name conn-data/func-name
+    ]
+
+    n
+]
+
+; Convierte set-words a words en un bloque (recursivo para sub-bloques).
+; Usado para normalizar especificaciones de qvi-diagram.
+norm-spec: func [spec [block!] /local result item] [
+    result: copy []
+    foreach item spec [
+        case [
+            set-word? item [append result to-word item]
+            block?    item [append/only result norm-spec item]
+            true           [append result item]
+        ]
+    ]
+    result
 ]
 
 ; ══════════════════════════════════════════════════

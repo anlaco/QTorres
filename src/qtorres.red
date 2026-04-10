@@ -6,6 +6,12 @@ Red [
     Needs:   'View
 ]
 
+; ── Directorio raíz del proyecto ─────────────────────────────────
+; Red cambia what-dir al directorio del script al cargarlo (src/).
+; Capturamos la raíz del proyecto (un nivel arriba de src/) antes
+; de cualquier #include para que la paleta encuentre los .qlib.
+_qtorres-project-dir: clean-path to-file rejoin [form what-dir "../"]
+
 ; ── Módulos internos — se empaquetan con redc -e ─────────────────
 ; Chain loading (DT-025): cada módulo incluye al siguiente al final.
 ; Paths relativos al propio módulo → funciona con red-cli y redc -e.

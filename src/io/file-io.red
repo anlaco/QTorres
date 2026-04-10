@@ -38,6 +38,11 @@ serialize-nodes: func [
             append node-spec-blk 'config
             append/only node-spec-blk copy n/config
         ]
+        ; Incluir file para nodos subvi (Fase 3)
+        if all [in n 'file  n/file] [
+            append node-spec-blk 'file
+            append/only node-spec-blk n/file
+        ]
         append nodes-block 'node
         append/only nodes-block node-spec-blk
     ]
@@ -150,6 +155,18 @@ serialize-diagram: func [
         ]
     ]
 
+    ; ── Connector (solo si el VI se usa como sub-VI, Fase 3) ──────────────
+    connector-block: copy []
+    if all [in diagram 'connector  block? diagram/connector  not empty? diagram/connector] [
+        foreach conn-item diagram/connector [
+            ; conn-item: [type pin label id] donde type es 'input o 'output
+            append connector-block conn-item/1
+            append/only connector-block compose/only [
+                pin: (conn-item/2)  label: (conn-item/3)  id: (conn-item/4)
+            ]
+        ]
+    ]
+
     compose/only [
         meta:         [description: "" version: 1 author: "" tags: []]
         icon:         []
@@ -158,6 +175,7 @@ serialize-diagram: func [
             wires: (wires-block)
             structures: (structs-block)
         ])
+        connector: (connector-block)
     ]
 ]
 
@@ -172,12 +190,16 @@ format-qvi: func [
     diagram-name [string!]
     qd           [block!]   ; resultado de serialize-diagram (set-words como claves)
     compiled     [map!]     ; resultado de compile-diagram
+    /subvi      ; si true, genera context [exec: func [...]] en lugar de either
     /local meta-raw bd-raw nodes-raw wires-raw structs-raw fp-raw
            nodes-str wires-str structs-str layout-str fp-str
            node-block wire-block struct-block sr-block fp-kw fp-spec i item kind-pos
            st-nodes-raw st-wires-raw st-srs-raw st-nodes-str st-wires-str st-srs-str
            fr-block fr-nodes-raw fr-wires-raw fr-nodes-str fr-wires-str frames-raw frames-str
+           has-connector
 ][
+    ; Detectar si el diagrama tiene connector (para modo sub-VI)
+    has-connector: any [subvi  false]
     ; Navegar qd con to-set-word (claves son set-words)
     meta-raw:    any [select qd to-set-word 'meta   [description: "" version: 1 author: "" tags: []]]
     bd-raw:      select qd to-set-word 'block-diagram
@@ -362,6 +384,67 @@ format-qvi: func [
         ]
     ]
 
+    ; ── Generar includes para sub-VIs (Fase 3) ─────────────────────────────
+    includes-str: copy ""
+    svf-list: select compiled 'subvi-files
+    if all [block? svf-list  not empty? svf-list] [
+        ; Guardar valor actual de qtorres-runtime
+        append includes-str "_saved-qtorres-runtime: value? 'qtorres-runtime^/"
+        append includes-str "qtorres-runtime: true^/"
+        foreach svf svf-list [
+            append includes-str rejoin ["#include " mold svf "^/"]
+        ]
+        ; Restore se hace al final del código generado
+    ]
+
+    ; ── Generar código según modo: VI normal o Sub-VI (Fase 3) ─────────────
+    either has-connector [
+        ; Modo Sub-VI: generar context [exec: func [...] [...]]
+        ; El standalone guard se incluye automáticamente
+        ; TODO: extraer parámetros del connector para el func
+        func-name: to-word diagram-name
+        generated-code: rejoin [
+            either empty? includes-str [""] [rejoin [
+                includes-str
+                "; --- Restaurar qtorres-runtime si estaba definido ---^/"
+                "if not _saved-qtorres-runtime [unset 'qtorres-runtime]^/^/"
+            ]]
+            "; --- Helpers de runtime ---^/"
+            "arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]^/^/"
+            "; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---^/"
+            func-name ": context [^/"
+            "    exec: func [] [^/"  ; TODO: extraer parámetros del connector
+            "        " mold/only compiled/headless "^/"
+            "    ]^/"
+            "]^/^/"
+            "; --- Standalone guard ---^/"
+            "if not value? 'qtorres-runtime [^/"
+            "    view layout [^/"
+            layout-str
+            "    ]^/"
+            "]^/"
+        ]
+    ][
+        ; Modo VI normal: either UI/headless
+        generated-code: rejoin [
+            either empty? includes-str [""] [rejoin [
+                includes-str
+                "; --- Restaurar qtorres-runtime si estaba definido ---^/"
+                "if not _saved-qtorres-runtime [unset 'qtorres-runtime]^/^/"
+            ]]
+            "; --- Helpers de runtime ---^/"
+            "arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]^/^/"
+            "; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---^/"
+            "either empty? system/options/args [^/"
+            "    view layout [^/"
+            layout-str
+            "    ]^/"
+            "][^/"
+            "    " mold/only compiled/headless "^/"
+            "]^/"
+        ]
+    ]
+
     rejoin [
         "Red [Title: " mold diagram-name " Needs: 'View]^/^/"
         "qvi-diagram: [^/"
@@ -382,16 +465,7 @@ format-qvi: func [
         "    ]^/"
         either empty? fp-str [""] [rejoin ["    front-panel: [^/" fp-str "    ]^/"]]
         "]^/^/"
-        "; --- Helpers de runtime ---^/"
-        "arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]^/^/"
-        "; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---^/"
-        "either empty? system/options/args [^/"
-        "    view layout [^/"
-        layout-str
-        "    ]^/"
-        "][^/"
-        "    " mold/only compiled/headless "^/"
-        "]^/"
+        generated-code
     ]
 ]
 
@@ -422,7 +496,12 @@ save-vi: func [
     ][
         append qd save-panel-to-diagram fp-items
     ]
-    content: format-qvi diagram/name qd compiled
+    ; Detectar si es un Sub-VI (tiene connector definido)
+    either all [in diagram 'connector  block? diagram/connector  not empty? diagram/connector] [
+        content: format-qvi/subvi diagram/name qd compiled
+    ][
+        content: format-qvi diagram/name qd compiled
+    ]
     write path content
     path
 ]
@@ -469,7 +548,12 @@ load-node-list: func [
                         if pos: find node-spec 'x [pos/2: nx + abs-x]
                         if pos: find node-spec 'y [pos/2: ny + abs-y]
                     ]
-                    n: make-node node-spec
+                    ; Subvi: cargar connector desde el fichero referenciado
+                    n: either (select node-spec 'type) = 'subvi [
+                        make-subvi-node node-spec
+                    ][
+                        make-node node-spec
+                    ]
                     if select node-spec 'name [append names select node-spec 'name]
                     keep n
                 )
@@ -625,6 +709,33 @@ load-vi: func [
                     ]
                     if st/name [append names st/name]
                     append d/structures st
+                )
+                | skip
+            ]
+        ]
+    ]
+
+    ; ── Cargar connector (Fase 3: Sub-VI) ────────────────────────────────
+    conn-data: select qd 'connector
+    if all [conn-data  block? conn-data  not empty? conn-data] [
+        d/connector: copy []
+        parse conn-data [
+            any [
+                'input set conn-spec block! (
+                    append d/connector reduce [
+                        'input
+                        any [select conn-spec 'pin 0]
+                        any [select conn-spec 'label ""]
+                        any [select conn-spec 'id 0]
+                    ]
+                )
+                | 'output set conn-spec block! (
+                    append d/connector reduce [
+                        'output
+                        any [select conn-spec 'pin 0]
+                        any [select conn-spec 'label ""]
+                        any [select conn-spec 'id 0]
+                    ]
                 )
                 | skip
             ]

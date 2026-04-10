@@ -86,11 +86,21 @@ btn-run: make face! [
                 ]
             ]
 
-            ; 2. Compilar código headless
+            ; 2. Cargar contextos de sub-VIs referenciados
+            foreach n model/nodes [
+                if all [n/type = 'subvi  file? n/file  exists? n/file] [
+                    _pref: value? 'qtorres-runtime
+                    qtorres-runtime: true
+                    attempt [do n/file]
+                    if not _pref [unset 'qtorres-runtime]
+                ]
+            ]
+
+            ; 3. Compilar código headless
             code: attempt [compile-body model]
             unless block? code [exit]
 
-            ; 3. Ejecutar código headless
+            ; 4. Ejecutar código headless
             attempt [do code]
 
             ; 4. Leer resultados → actualizar indicadores FP

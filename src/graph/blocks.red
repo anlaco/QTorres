@@ -370,4 +370,13 @@ block 'waveform-graph 'output [
     ; El emit se maneja en compile-panel
 ]
 
+; ── Sub-VI (Fase 3) ─────────────────────────────────────────────────────────
+; Los puertos son dinámicos según el connector del .qvi referenciado.
+; No tiene emit fijo — el compilador genera la llamada dinámicamente.
+
+block 'subvi 'function [
+    ; Entradas/salidas dinámicas según node/config/connector
+    ; El emit se maneja en compile-subvi-call en compiler.red
+]
+
 #include %../compiler/compiler.red

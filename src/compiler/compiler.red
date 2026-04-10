@@ -831,6 +831,67 @@ emit-cluster-indicator-headless: func [
     code
 ]
 
+; ══════════════════════════════════════════════════
+; SUBVI COMPILATION (Fase 3)
+; ══════════════════════════════════════════════════
+
+; Genera código para llamar a un sub-VI.
+; La función del sub-VI viene de node/config/func-name.
+; Los argumentos vienen de los wires conectados a los puertos de entrada del connector.
+; Los resultados se asignan a variables de los puertos de salida.
+compile-subvi-call: func [
+    node    [object!]
+    diagram [object!]
+    /local func-name connector inputs outputs code arg-vars out-var w src pin-word
+][
+    code: copy []
+
+    ; Obtener función y connector del config
+    func-name: select node/config 'func-name
+    connector: select node/config 'connector
+    if any [none? func-name  none? connector] [return code]
+
+    inputs: any [select connector 'inputs  copy []]
+    outputs: any [select connector 'outputs  copy []]
+
+    ; Recolectar argumentos de los wires conectados a cada puerto de entrada
+    ; inputs es [pin label id  pin label id ...]
+    arg-vars: copy []
+    repeat i ((length? inputs) / 3) [
+        pin-word: to-word rejoin ["p" inputs/(i * 3 - 2)]  ; pin → 'p1, 'p2...
+        found: false
+        foreach w diagram/wires [
+            if all [
+                w/to-node = node/id
+                (to-word w/to-port) = pin-word
+            ][
+                src: find-node-by-id diagram/nodes w/from-node
+                if src [
+                    append arg-vars port-var src to-word w/from-port
+                    found: true
+                ]
+            ]
+        ]
+        ; Si no hay wire, usar valor por defecto 0.0
+        if not found [append arg-vars 0.0]
+    ]
+
+    ; Generar llamada: resultado: func-name/exec arg1 arg2 ...
+    ; outputs es [pin label id  pin label id ...]
+    ; Por simplicidad, asumimos una sola salida (la primera)
+    if not empty? outputs [
+        out-pin: to-word rejoin ["p" outputs/1]  ; pin del primer output
+        out-var: port-var node out-pin
+        append code to-set-word out-var
+    ]
+
+    ; Añadir la llamada a la función: func-name/exec (append/only para no extender el path)
+    append/only code to-path reduce [to-word func-name 'exec]
+    foreach arg arg-vars [append code arg]
+
+    code
+]
+
 compile-body: func [
     diagram  [object!]
     /with-prints  ; añade print por indicador — solo para ejecución standalone (red-cli .qvi)
@@ -847,6 +908,7 @@ compile-body: func [
             item/type = 'unbundle            [append code emit-unbundle                 item diagram]
             item/type = 'cluster-control     [append code emit-cluster-control-headless item diagram]
             item/type = 'cluster-indicator   [append code emit-cluster-indicator-headless item diagram]
+            item/type = 'subvi               [append code compile-subvi-call            item diagram]
             true [
                 bdef: find-block item/type
                 if all [bdef  bdef/emit] [
@@ -869,7 +931,10 @@ compile-body: func [
                             if src [
                                 src-var: port-var src to-word w/from-port
                                 lbl: either all [item/label  object? item/label] [item/label/text] [any [item/name ""]]
-                                append code compose [print rejoin [(lbl) ": " form (src-var)]]
+                                ; Construir [print rejoin ["label" ": " form var-word]] sin compose
+                                append code 'print
+                                append code 'rejoin
+                                append/only code reduce [copy lbl ": " 'form to-word src-var]
                             ]
                         ]
                     ]
@@ -914,6 +979,7 @@ compile-diagram: func [
             item/type = 'unbundle          [append run-body emit-unbundle          item diagram]
             item/type = 'cluster-control   [append run-body emit-cluster-control   item diagram]
             item/type = 'cluster-indicator [append run-body emit-cluster-indicator item diagram]
+            item/type = 'subvi             [append run-body compile-subvi-call     item diagram]
             true [
                 node: item
                 bdef: find-block node/type
@@ -1042,9 +1108,30 @@ compile-diagram: func [
         ]
     ]
 
+    ; ── Recopilar sub-VIs referenciados para #include (Fase 3) ────────────
+    subvi-files: copy []
+    subvi-names: copy []
+    foreach item sorted [
+        if item/type = 'subvi [
+            if all [in item 'file  file? item/file] [
+                ; Evitar duplicados
+                if not find subvi-files item/file [
+                    append subvi-files item/file
+                    ; Recopilar nombre de función para validación
+                    func-nm: select item/config 'func-name
+                    if func-nm [
+                        append subvi-names func-nm
+                    ]
+                ]
+            ]
+        ]
+    ]
+
     result-map: make map! []
     result-map/headless:  headless
     result-map/ui-layout: ui-layout
+    result-map/subvi-files: subvi-files
+    result-map/subvi-names: subvi-names
     result-map
 ]
 

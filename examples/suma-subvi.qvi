@@ -4,14 +4,14 @@ Red [title: "suma"]
 
 qvi-diagram: [
     connector: [
-        input  [id: 1  name: "ctrl_1"  label: [text: "A"]]
-        input  [id: 2  name: "ctrl_2"  label: [text: "B"]]
-        output [id: 4  name: "ind_1"   label: [text: "Resultado"]]
+        input  [pin: 1  label: "A"           id: 1]
+        input  [pin: 2  label: "B"           id: 2]
+        output [pin: 3  label: "Resultado"   id: 4]
     ]
     front-panel: [
-        control   [id: 1  type: 'numeric  name: "ctrl_1"  label: [text: "A"]         default: 0.0]
-        control   [id: 2  type: 'numeric  name: "ctrl_2"  label: [text: "B"]         default: 0.0]
-        indicator [id: 4  type: 'numeric  name: "ind_1"   label: [text: "Resultado"]]
+        control   [id: 1  type: 'control    name: "ctrl_1"  label: [text: "A"]         default: 0.0]
+        control   [id: 2  type: 'control    name: "ctrl_2"  label: [text: "B"]         default: 0.0]
+        indicator [id: 4  type: 'indicator  name: "ind_1"   label: [text: "Resultado"]]
     ]
     block-diagram: [
         nodes: [
@@ -28,16 +28,32 @@ qvi-diagram: [
     ]
 ]
 
-; ── CÓDIGO GENERADO ──────────────────────────────
-; Connector pane → el código se envuelve en una función Red.
-; Los parámetros de la función usan label/text del connector (nombres legibles).
+; --- Helpers de runtime ---
+arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]
 
-suma: func [A [float!] B [float!]] [
-    Resultado: A + B
-    Resultado
+; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
+suma: context [
+    exec: func [A B] [
+        ctrl_1: A
+        ctrl_2: B
+        add_1: ctrl_1 + ctrl_2
+        ind_1: add_1
+        ind_1
+    ]
 ]
 
-; Ejecución standalone — solo cuando se ejecuta directamente con Red
+; --- Standalone guard ---
 if not value? 'qtorres-runtime [
-    print suma 5.0 3.0
+    view layout [
+        text "A" f_1: field "0.0"
+        text "B" f_2: field "0.0"
+        button "Run" [
+            ctrl_1: to-float f_1/text
+            ctrl_2: to-float f_2/text
+            add_1: ctrl_1 + ctrl_2
+            ind_1: add_1
+            l_ind_1/text: form ind_1
+        ]
+        text "Resultado:" l_ind_1: text "---"
+    ]
 ]

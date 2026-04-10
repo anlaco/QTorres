@@ -120,7 +120,11 @@ QTorres/
 - Refactor 4A-4E: responsabilidades reorganizadas, ficheros grandes divididos ✅
 - 462 tests PASS
 
-**Próximo paso:** Fase 3 — #17 Sub-VI con connector pane.
+**Fase 3 — Sub-VIs y extensibilidad (en curso):**
+- ~~#17 Sub-VI con connector pane~~ ✅ (pin-based connector, compile-subvi-call, runner carga contextos, btn-run sincronizado)
+- #18 Librería .qlib
+
+**Próximo paso:** #18 Librería .qlib
 
 ## Decisiones técnicas clave
 

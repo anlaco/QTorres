@@ -4,9 +4,9 @@ Red [title: "Programa con sub-VI"]
 
 qvi-diagram: [
     front-panel: [
-        control   [id: 1  type: 'numeric  name: "ctrl_1"  label: [text: "X"]       default: 10.0]
-        control   [id: 2  type: 'numeric  name: "ctrl_2"  label: [text: "Y"]       default: 4.0]
-        indicator [id: 3  type: 'numeric  name: "ind_1"   label: [text: "Total"]]
+        control   [id: 1  type: 'control    name: "ctrl_1"  label: [text: "X"]       default: 10.0]
+        control   [id: 2  type: 'control    name: "ctrl_2"  label: [text: "Y"]       default: 4.0]
+        indicator [id: 3  type: 'indicator  name: "ind_1"   label: [text: "Total"]]
     ]
     block-diagram: [
         nodes: [
@@ -16,18 +16,44 @@ qvi-diagram: [
             node [id: 3   type: 'indicator  x: 360  y: 120  name: "ind_1"    label: [text: "Total" visible: true]]
         ]
         wires: [
-            wire [from: 1   port: 'out        to: 10  port: 'A]
-            wire [from: 2   port: 'out        to: 10  port: 'B]
-            wire [from: 10  port: 'Resultado  to: 3   port: 'in]
+            wire [from: 1   port: 'out  to: 10  port: 'p1]
+            wire [from: 2   port: 'out  to: 10  port: 'p2]
+            wire [from: 10  port: 'p3   to: 3   port: 'in]
         ]
     ]
 ]
 
-; ── CÓDIGO GENERADO ──────────────────────────────
+; --- Helpers de runtime ---
+arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]
 
-do %suma-subvi.qvi          ; carga y define la función `suma`
+; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
+_saved-qtorres-runtime: value? 'qtorres-runtime
+qtorres-runtime: true
+#include %suma-subvi.qvi
+; --- Restaurar qtorres-runtime si estaba definido ---
+if not _saved-qtorres-runtime [unset 'qtorres-runtime]
 
-ctrl_1: 10.0
-ctrl_2: 4.0
-ind_1: suma ctrl_1 ctrl_2
-print ind_1
+either empty? system/options/args [
+    view layout [
+        text "X" f_1: field "10.0"
+        text "Y" f_2: field "4.0"
+        button "Run" [
+            ctrl_1: to-float f_1/text
+            ctrl_2: to-float f_2/text
+            subvi_1_p1: ctrl_1
+            subvi_1_p2: ctrl_2
+            subvi_1_p3: suma/exec subvi_1_p1 subvi_1_p2
+            ind_1: subvi_1_p3
+            l_ind_1/text: form ind_1
+        ]
+        text "Total:" l_ind_1: text "---"
+    ]
+][
+    ctrl_1: to-float any [system/options/args/1 10.0]
+    ctrl_2: to-float any [system/options/args/2 4.0]
+    subvi_1_p1: ctrl_1
+    subvi_1_p2: ctrl_2
+    subvi_1_p3: suma/exec subvi_1_p1 subvi_1_p2
+    ind_1: subvi_1_p3
+    print ind_1
+]

@@ -1,0 +1,76 @@
+Red [title: "Usa libreria math"]
+
+qvi-diagram: [
+    front-panel: [
+        control   [id: 1  type: 'control    name: "ctrl_1"  label: [text: "X"]       default: 10.0]
+        control   [id: 2  type: 'control    name: "ctrl_2"  label: [text: "Y"]       default: 4.0]
+        indicator [id: 3  type: 'indicator  name: "ind_1"   label: [text: "Suma"]]
+        indicator [id: 4  type: 'indicator  name: "ind_2"   label: [text: "Resta"]]
+    ]
+    block-diagram: [
+        nodes: [
+            node [id: 1   type: 'control    x: 40   y: 80   name: "ctrl_1"   label: [text: "X" visible: true]]
+            node [id: 2   type: 'control    x: 40   y: 180  name: "ctrl_2"   label: [text: "Y" visible: true]]
+            node [id: 10  type: 'subvi      x: 220  y: 80   name: "subvi_1"
+                  file: %math.qlib/add.qvi
+                  label: [text: "math/add"]]
+            node [id: 11  type: 'subvi      x: 220  y: 180  name: "subvi_2"
+                  file: %math.qlib/subtract.qvi
+                  label: [text: "math/subtract"]]
+            node [id: 3   type: 'indicator  x: 400  y: 80   name: "ind_1"    label: [text: "Suma" visible: true]]
+            node [id: 4   type: 'indicator  x: 400  y: 180  name: "ind_2"    label: [text: "Resta" visible: true]]
+        ]
+        wires: [
+            wire [from: 1   port: 'out  to: 10  port: 'p1]
+            wire [from: 2   port: 'out  to: 10  port: 'p2]
+            wire [from: 10  port: 'p3   to: 3   port: 'in]
+            wire [from: 1   port: 'out  to: 11  port: 'p1]
+            wire [from: 2   port: 'out  to: 11  port: 'p2]
+            wire [from: 11  port: 'p3   to: 4   port: 'in]
+        ]
+    ]
+]
+
+; --- CÓDIGO GENERADO ---
+arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]
+
+_saved-qtorres-runtime: value? 'qtorres-runtime
+qtorres-runtime: true
+#include %math.qlib/add.qvi
+#include %math.qlib/subtract.qvi
+if not _saved-qtorres-runtime [unset 'qtorres-runtime]
+
+either empty? system/options/args [
+    view layout [
+        text "X" f_1: field "10.0"
+        text "Y" f_2: field "4.0"
+        button "Run" [
+            ctrl_1: to-float f_1/text
+            ctrl_2: to-float f_2/text
+            subvi_1_p1: ctrl_1
+            subvi_1_p2: ctrl_2
+            subvi_1_p3: add/exec subvi_1_p1 subvi_1_p2
+            ind_1: subvi_1_p3
+            l_ind_1/text: form ind_1
+            subvi_2_p1: ctrl_1
+            subvi_2_p2: ctrl_2
+            subvi_2_p3: subtract/exec subvi_2_p1 subvi_2_p2
+            ind_2: subvi_2_p3
+            l_ind_2/text: form ind_2
+        ]
+        text "Suma:"  l_ind_1: text "---"
+        text "Resta:" l_ind_2: text "---"
+    ]
+][
+    ctrl_1: to-float any [system/options/args/1 10.0]
+    ctrl_2: to-float any [system/options/args/2 4.0]
+    subvi_1_p1: ctrl_1
+    subvi_1_p2: ctrl_2
+    subvi_1_p3: add/exec subvi_1_p1 subvi_1_p2
+    ind_1: subvi_1_p3
+    subvi_2_p1: ctrl_1
+    subvi_2_p2: ctrl_2
+    subvi_2_p3: subtract/exec subvi_2_p1 subvi_2_p2
+    ind_2: subvi_2_p3
+    print rejoin ["Suma: " ind_1 "  Resta: " ind_2]
+]

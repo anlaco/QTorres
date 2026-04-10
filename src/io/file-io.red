@@ -846,4 +846,85 @@ save-panel-to-diagram: func [front-panel-items /local items item kw spec] [
     reduce [to-set-word 'front-panel  items]
 ]
 
+; ══════════════════════════════════════════════════════════
+; QLIB — Librería de VIs con namespacing
+; ══════════════════════════════════════════════════════════
+;
+; Una .qlib es un directorio con un manifiesto qlib.red + .qvi miembros.
+;
+; Formato de qlib.red:
+;   qlib [
+;       name:        "math"
+;       version:     1
+;       description: "Operaciones matemáticas"
+;       members:     [%add.qvi %subtract.qvi]
+;   ]
+
+; Carga un directorio .qlib y devuelve un objeto con:
+;   name, version, description, dir, members (bloque de file! absolutos)
+; Devuelve none si el directorio no es un .qlib válido.
+load-qlib: func [
+    "Carga el manifiesto de un directorio .qlib"
+    qlib-dir [file!]
+    /local manifest raw qd name version desc members-raw members m abs-path
+][
+    if not dir? qlib-dir [return none]
+    manifest: to-file rejoin [form qlib-dir "qlib.red"]
+    if not exists? manifest [return none]
+    raw: attempt [load manifest]
+    if not block? raw [return none]
+    if any [empty? raw  raw/1 <> 'qlib] [return none]
+    qd: raw/2
+    if not block? qd [return none]
+
+    name:        any [select qd 'name        ""]
+    version:     any [select qd 'version     1]
+    desc:        any [select qd 'description ""]
+    members-raw: any [select qd 'members     copy []]
+
+    ; Resolver rutas de miembros relativas al directorio de la librería
+    members: copy []
+    foreach m members-raw [
+        if file? m [
+            abs-path: to-file rejoin [form qlib-dir form m]
+            if exists? abs-path [append members abs-path]
+        ]
+    ]
+
+    make object! compose/only [
+        name:        (name)
+        version:     (version)
+        description: (desc)
+        dir:         (qlib-dir)
+        members:     (members)
+    ]
+]
+
+; Busca directorios .qlib en los directorios dados.
+; Uso: find-qlibs/from %./mi-proyecto/
+; Devuelve bloque de objetos qlib (puede estar vacío).
+find-qlibs: func [
+    "Busca librerías .qlib en el directorio dado"
+    /from project-dir [file!]
+    /local search-dirs libs d d-str qlib-dir obj
+][
+    search-dirs: copy []
+    if from [append search-dirs clean-path project-dir]
+
+    libs: copy []
+    foreach p search-dirs [
+        if all [p  exists? p  dir? p] [
+            foreach d read p [
+                d-str: form d
+                if all [dir? d  find d-str ".qlib"] [
+                    qlib-dir: to-file rejoin [form p form d]
+                    obj: load-qlib qlib-dir
+                    if obj [append libs obj]
+                ]
+            ]
+        ]
+    ]
+    libs
+]
+
 #include %../ui/diagram/canvas.red

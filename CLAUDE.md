@@ -122,16 +122,16 @@ QTorres/
 
 **Fase 3 — Sub-VIs y extensibilidad (en curso):**
 - ~~#17 Sub-VI con connector pane~~ ✅ (pin-based connector, compile-subvi-call, runner carga contextos, btn-run sincronizado)
-- ~~#18 Librería .qlib~~ ✅ (load-qlib, find-qlibs, paleta integrada, ejemplo math.qlib, 481 tests PASS)
-- #64 FP como ventana maestra — BD bajo demanda (Ctrl+E)
+- ~~#18 Librería .qlib~~ ✅ (load-qlib, find-qlibs, paleta integrada, ejemplo math.qlib, 482 tests PASS)
+- ~~#64 FP como ventana maestra~~ ✅ (FP=blocking master, BD=no-wait slave, Ctrl+E toggle, títulos sincronizados, current-file en app-model)
 - #65 Ventanas redimensionables con scroll horizontal y vertical
 
 **Fase 5 — UX y gestión de proyectos (planificado):**
 - Splash / Welcome screen (Create New VI, Open Existing, proyectos recientes)
 - Project Explorer con formato .qproj (árbol de ficheros, gestión de dependencias)
-- Depende de: .qlib (#18) y FP como ventana maestra (#64)
+- Depende de: .qlib (#18) ✅ y FP como ventana maestra (#64) ✅
 
-**Próximo paso:** #64 FP como ventana maestra
+**Próximo paso:** #65 Ventanas redimensionables con scroll horizontal y vertical
 
 ## Decisiones técnicas clave
 
@@ -284,7 +284,7 @@ Spec visual: cada tipo implementa su aspecto según `docs/visual-spec.md`.
 **Fase 3 — Sub-VIs y extensibilidad:**
 - #17 Sub-VI con connector pane ✅
 - #18 Librería .qlib ✅
-- #64 FP como ventana maestra — BD bajo demanda (Ctrl+E)
+- #64 FP como ventana maestra — BD bajo demanda (Ctrl+E) ✅
 - #65 Ventanas redimensionables con scroll horizontal y vertical
 
 **Fase 4 — Hardware:**

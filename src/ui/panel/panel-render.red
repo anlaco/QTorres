@@ -402,11 +402,8 @@ render-fp-panel: func [model w h /local cmds item selected? sx sy sb-w _cy _th _
     sx: any [model/fp-scroll-x  0]
     sy: any [model/fp-scroll-y  0]
 
-    ; Viewport: clip + translate por scroll
-    append cmds compose [
-        clip 0x0 (as-pair w h)
-        translate (as-pair (negate sx) (negate sy))
-    ]
+    ; Viewport: translate por scroll — Red/View clipea automáticamente a los bounds del face
+    append cmds compose [translate (as-pair (negate sx) (negate sy))]
 
     append cmds render-fp-grid (sx + w + 20) (sy + h + 20)
 

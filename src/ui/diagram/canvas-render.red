@@ -879,11 +879,8 @@ render-bd: func [model /local cmds src-port-xy mid st w h sx sy sb-w _cx _cy _th
     sx: any [model/scroll-x  0]
     sy: any [model/scroll-y  0]
 
-    ; Viewport: clip al área completa del canvas, luego translate por scroll
-    append cmds compose [
-        clip 0x0 (as-pair w h)
-        translate (as-pair (negate sx) (negate sy))
-    ]
+    ; Translate por scroll — Red/View clipea automáticamente a los bounds del face
+    append cmds compose [translate (as-pair (negate sx) (negate sy))]
 
     ; 0) Grid de fondo (cubre el área visible en espacio de contenido)
     append cmds render-grid (sx + w + grid-size) (sy + h + grid-size)

@@ -23,11 +23,37 @@ qvi-diagram: [
     ]
 ]
 
-; ── CÓDIGO GENERADO ──────────────────────────────
+; --- Helpers de runtime ---
+arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]
 
-do %suma-subvi.qvi          ; carga y define la función `suma`
+; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
+_saved-qtorres-runtime: value? 'qtorres-runtime
+qtorres-runtime: true
+#include %suma-subvi.qvi
+; --- Restaurar qtorres-runtime si estaba definido ---
+if not _saved-qtorres-runtime [unset 'qtorres-runtime]
 
-ctrl_1: 10.0
-ctrl_2: 4.0
-ind_1: suma ctrl_1 ctrl_2
-print ind_1
+either empty? system/options/args [
+    view layout [
+        text "X" f_1: field "10.0"
+        text "Y" f_2: field "4.0"
+        button "Run" [
+            ctrl_1: to-float f_1/text
+            ctrl_2: to-float f_2/text
+            subvi_1_A: ctrl_1
+            subvi_1_B: ctrl_2
+            subvi_1_Resultado: suma/exec subvi_1_A subvi_1_B
+            ind_1: subvi_1_Resultado
+            l_ind_1/text: form ind_1
+        ]
+        text "Total:" l_ind_1: text "---"
+    ]
+][
+    ctrl_1: to-float any [system/options/args/1 10.0]
+    ctrl_2: to-float any [system/options/args/2 4.0]
+    subvi_1_A: ctrl_1
+    subvi_1_B: ctrl_2
+    subvi_1_Resultado: suma/exec subvi_1_A subvi_1_B
+    ind_1: subvi_1_Resultado
+    print ind_1
+]

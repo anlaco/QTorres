@@ -406,8 +406,8 @@ open-palette: func [face x y /struct target-struct
     ]
 
     ; ── Sección dinámica: librerías .qlib ────────────────────────
-    ; Busca .qlib en el directorio desde donde se lanzó Red (proyecto)
-    qlibs: find-qlibs/from system/options/path
+    ; Busca .qlib en la raíz del proyecto (capturada en qtorres.red)
+    qlibs: find-qlibs/from _qtorres-project-dir
     if not empty? qlibs [
         append layout-block [text "Librerías:" return]
         foreach qlib qlibs [

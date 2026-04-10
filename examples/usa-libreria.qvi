@@ -12,10 +12,10 @@ qvi-diagram: [
             node [id: 1   type: 'control    x: 40   y: 80   name: "ctrl_1"   label: [text: "X" visible: true]]
             node [id: 2   type: 'control    x: 40   y: 180  name: "ctrl_2"   label: [text: "Y" visible: true]]
             node [id: 10  type: 'subvi      x: 220  y: 80   name: "subvi_1"
-                  file: %math.qlib/add.qvi
+                  file: %math/add.qvi
                   label: [text: "math/add"]]
             node [id: 11  type: 'subvi      x: 220  y: 180  name: "subvi_2"
-                  file: %math.qlib/subtract.qvi
+                  file: %math/subtract.qvi
                   label: [text: "math/subtract"]]
             node [id: 3   type: 'indicator  x: 400  y: 80   name: "ind_1"    label: [text: "Suma" visible: true]]
             node [id: 4   type: 'indicator  x: 400  y: 180  name: "ind_2"    label: [text: "Resta" visible: true]]
@@ -31,13 +31,12 @@ qvi-diagram: [
     ]
 ]
 
-; --- CÓDIGO GENERADO ---
 arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]
 
 _saved-qtorres-runtime: value? 'qtorres-runtime
 qtorres-runtime: true
-#include %math.qlib/add.qvi
-#include %math.qlib/subtract.qvi
+#include %math/add.qvi
+#include %math/subtract.qvi
 if not _saved-qtorres-runtime [unset 'qtorres-runtime]
 
 either empty? system/options/args [

@@ -326,23 +326,24 @@ qproj [
 
 Una librería agrupa VIs bajo un namespace. Es un **directorio** con un manifiesto `qlib.red` y los `.qvi` miembros. Cada miembro debe tener un `connector:` para poder usarse como sub-VI.
 
-**Estructura del directorio:**
+**Estructura:**
 ```
-math.qlib/
-  qlib.red          ; manifiesto
-  add.qvi           ; sub-VI con connector
-  subtract.qvi      ; sub-VI con connector
+proyecto/
+  math.qlib          ; manifiesto (fichero de texto)
+  math/
+    add.qvi          ; sub-VI con connector
+    subtract.qvi     ; sub-VI con connector
 ```
 
-**Formato de `qlib.red`:**
+**Formato del fichero `math.qlib`:**
 ```red
 qlib [
     name:        "math"
     version:     1
     description: "Operaciones matematicas basicas"
     members: [
-        %add.qvi
-        %subtract.qvi
+        %math/add.qvi
+        %math/subtract.qvi
     ]
 ]
 ```
@@ -370,7 +371,7 @@ resultado-resta: subtract/exec A B
 - Local al proyecto: copiar el directorio `.qlib` junto al `.qvi` principal
 - Global del usuario: copiar a `~/.qtorres/libs/` (pendiente de implementar)
 
-**Ver ejemplo:** `examples/math.qlib/` y `examples/usa-libreria.qvi`
+**Ver ejemplo:** `examples/math.qlib` + `examples/math/` + `examples/usa-libreria.qvi`
 
 ### `.qctl` — Type definition
 

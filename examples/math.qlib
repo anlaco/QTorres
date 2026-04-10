@@ -1,0 +1,9 @@
+qlib [
+    name:        "math"
+    version:     1
+    description: "Operaciones matematicas basicas"
+    members: [
+        %math/add.qvi
+        %math/subtract.qvi
+    ]
+]

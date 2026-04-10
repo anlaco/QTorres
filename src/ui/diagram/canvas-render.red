@@ -60,23 +60,53 @@ block-color: func [node-type /local cat] [
 
 ; Devuelve los puertos de entrada de un nodo.
 ; Para bundle: puertos dinámicos desde config/fields.
+; Para subvi: puertos dinámicos desde config/connector/inputs.
 ; Para el resto: consulta el block-registry.
-in-ports: func [node] [
-    either node/type = 'bundle [
-        cluster-in-ports node
-    ][
-        any [block-in-ports to-word node/type  []]
+in-ports: func [node /local connector inputs result conn-in] [
+    case [
+        node/type = 'bundle [
+            cluster-in-ports node
+        ]
+        node/type = 'subvi [
+            ; Leer puertos del connector almacenado en config
+            connector: select node/config 'connector
+            inputs: any [all [connector  select connector 'inputs]  copy []]
+            result: copy []
+            ; inputs es [id name label id name label ...]
+            repeat i (length? inputs / 3) [
+                append result to-word inputs/(i * 3 - 1)  ; name del input
+            ]
+            result
+        ]
+        true [
+            any [block-in-ports to-word node/type  []]
+        ]
     ]
 ]
 
 ; Devuelve los puertos de salida de un nodo.
 ; Para unbundle: puertos dinámicos desde config/fields.
+; Para subvi: puertos dinámicos desde config/connector/outputs.
 ; Para el resto: consulta el block-registry.
-out-ports: func [node] [
-    either node/type = 'unbundle [
-        cluster-out-ports node
-    ][
-        any [block-out-ports to-word node/type  []]
+out-ports: func [node /local connector outputs result] [
+    case [
+        node/type = 'unbundle [
+            cluster-out-ports node
+        ]
+        node/type = 'subvi [
+            ; Leer puertos del connector almacenado en config
+            connector: select node/config 'connector
+            outputs: any [all [connector  select connector 'outputs]  copy []]
+            result: copy []
+            ; outputs es [id name label id name label ...]
+            repeat i (length? outputs / 3) [
+                append result to-word outputs/(i * 3 - 1)  ; name del output
+            ]
+            result
+        ]
+        true [
+            any [block-out-ports to-word node/type  []]
+        ]
     ]
 ]
 

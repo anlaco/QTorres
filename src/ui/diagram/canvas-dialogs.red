@@ -273,6 +273,40 @@ palette-add-node: func [node-type /local n nid model] [
     unview
 ]
 
+; Añade un nodo Sub-VI con file picker.
+palette-add-subvi: func [/local n nid model file-path] [
+    model: palette-canvas/extra
+    file-path: request-file/filter "Seleccionar Sub-VI" "*.qvi"
+    if none? file-path [unview  return]
+    ; request-file devuelve un bloque, tomar el primer elemento
+    if block? file-path [file-path: first file-path]
+    nid: gen-node-id model
+    n: make-subvi-node compose [
+        id: (nid)
+        type: 'subvi
+        x: (palette-pos-x)
+        y: (palette-pos-y)
+        file: (file-path)
+    ]
+    either palette-struct [
+        ; Case structure: añadir al frame activo
+        if all [palette-struct/type = 'case-structure  block? palette-struct/frames] [
+            if palette-struct/active-frame < length? palette-struct/frames [
+                append palette-struct/frames/(palette-struct/active-frame + 1)/nodes n
+            ]
+        ]
+        ; While/For loop: añadir a st/nodes
+        if find [while-loop for-loop] palette-struct/type [
+            append palette-struct/nodes n
+        ]
+    ][
+        append model/nodes n
+    ]
+    palette-canvas/draw: render-bd model
+    show palette-canvas
+    unview
+]
+
 ; Crea una nueva estructura while-loop y la añade al diagrama.
 palette-add-structure: func [type [word!] /local nid st model] [
     model: palette-canvas/extra
@@ -327,7 +361,8 @@ open-palette: func [face x y /struct target-struct] [
         text "Estructuras:"  return
         button 80 "While"    [palette-add-structure 'while-loop]
         button 80 "For"      [palette-add-structure 'for-loop]
-        button 80 "Case"     [palette-add-structure 'case-structure]  return
+        button 80 "Case"     [palette-add-structure 'case-structure]
+        button 80 "Sub-VI"   [palette-add-subvi]  return
         button 80 "Add SR"   [
             if palette-struct [
                 unview

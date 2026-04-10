@@ -493,8 +493,26 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
         extra: model                    ; modelo accesible desde actores via face/extra
         actors: make object! [
 
-            on-down: func [face event /local mouse-x mouse-y model hit-result hit-nd hit-port-name hit-dir hit-ref] [
+            on-down: func [face event /local mouse-x mouse-y model hit-result hit-nd hit-port-name hit-dir hit-ref _sx _sy _w _h _b _sb] [
                 model: face/extra
+                _sx: event/offset/x  _sy: event/offset/y
+                _w: face/size/x      _h: face/size/y
+                _sb: 8
+                ; ── Click en scrollbar (coords de pantalla, antes del translate) ──
+                _b: bd-content-bounds model
+                if all [_b/y > _h  _sx >= (_w - _sb)  _sy < (_h - _sb)] [
+                    ; Scrollbar vertical — calcular nueva posición de scroll
+                    model/scroll-y: max 0 to-integer (_sy * (_b/y - _h) / (_h - _sb))
+                    face/draw: render-bd model
+                    exit
+                ]
+                if all [_b/x > _w  _sy >= (_h - _sb)  _sx < (_w - _sb)] [
+                    ; Scrollbar horizontal
+                    model/scroll-x: max 0 to-integer (_sx * (_b/x - _w) / (_w - _sb))
+                    face/draw: render-bd model
+                    exit
+                ]
+                ; ── Hit-test normal (coords de contenido, con compensación de scroll) ──
                 mouse-x: event/offset/x + model/scroll-x
                 mouse-y: event/offset/y + model/scroll-y
 

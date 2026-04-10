@@ -34,6 +34,7 @@ do %test-model.red
 do %test-topo-sort.red
 do %test-compiler.red
 do %test-array.red
+do %test-qlib.red
 
 ; ── Resumen ──────────────────────────────────────────────────────────
 total: pass-count + fail-count

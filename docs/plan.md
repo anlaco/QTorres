@@ -157,11 +157,20 @@ Los controles de entrada se convierten en `field` editables. Los indicadores de 
 
 ## Fase 3 — Sub-VIs y extensibilidad
 
-- [ ] Connector pane: definir entradas/salidas de un VI para usarlo como bloque (#18)
-- [ ] Compilador genera `func` Red para sub-VIs (DT-006, DT-009)
-- [ ] Un .qvi con connector pane se puede usar como bloque en otro .qvi
-- [ ] `.qlib`: librería de bloques con `context` Red para namespacing
+### Sub-VIs
+- [x] Connector pane: definir entradas/salidas de un VI para usarlo como bloque (#17) ✅
+- [x] Compilador genera `func` Red para sub-VIs (DT-006, DT-009) ✅
+- [x] Un .qvi con connector pane se puede usar como bloque en otro .qvi ✅
+
+### Librería
+- [ ] `.qlib`: librería de bloques con `context` Red para namespacing (#18)
 - [ ] Paleta de bloques extensible por el usuario
+
+### UX — Modelo de ventanas LabVIEW
+- [ ] FP como ventana maestra — BD se abre bajo demanda con Ctrl+E (#64)
+- [ ] Ventanas redimensionables con scroll horizontal y vertical (#65)
+
+### Herramientas
 - [ ] Depurador con sondas en wires (ver valor en ejecución)
 - [ ] Exportar a ejecutable (compilación Red nativa a binario)
 
@@ -195,6 +204,26 @@ Esta fase es esencial para el público objetivo (mismo que LabVIEW: ingeniería 
 
 ---
 
+## Fase 5 — Experiencia de usuario y gestión de proyectos
+
+### Splash / Welcome screen
+- [ ] Pantalla de bienvenida al lanzar QTorres (Create New VI, Open Existing, proyectos recientes)
+- [ ] Depende de que exista el concepto de proyecto (.qproj) o al menos .qlib (#18)
+
+### Project Explorer (.qproj)
+- [ ] Formato `.qproj`: fichero de proyecto que agrupa VIs, sub-VIs, librerías y targets
+- [ ] Ventana Project Explorer con árbol de ficheros del proyecto (equivalente al .lvproj de LabVIEW)
+- [ ] Abrir un .qproj carga el árbol y muestra el explorer (doble clic en un VI abre su FP)
+- [ ] Gestión de dependencias entre VIs y librerías dentro del proyecto
+- [ ] Depende de: .qlib (#18), FP como ventana maestra (#64)
+
+### Notas
+- El splash screen tiene sentido cuando haya algo que "abrir" — un .qproj o al menos historial de .qvi recientes
+- El Project Explorer es una feature grande que requiere .qlib resuelto primero
+- El modelo LabVIEW es: splash → project explorer → doble clic VI → FP → Ctrl+E → BD
+
+---
+
 ## Hitos clave
 
 | Hito | Descripción | Fase |
@@ -205,9 +234,13 @@ Esta fase es esencial para el público objetivo (mismo que LabVIEW: ingeniería 
 | Tipo booleano | Wire verde, LED control/indicator | 2 ✅ |
 | Tipos completos | Boolean, string, array, cluster en wires | 2 |
 | Estructuras de control | Bucles y condicionales en el diagrama | 2 |
-| Sub-VIs | VIs reutilizables como bloques con connector | 3 |
+| Sub-VIs | VIs reutilizables como bloques con connector | 3 ✅ |
+| FP como master | FP ventana principal, BD bajo demanda | 3 |
+| Resize + scroll | Ventanas redimensionables con scrollbars | 3 |
 | Primera medida real | Controlar un Keysight desde QTorres | 4 |
 | DAQ completo | Adquisición continua con tarjeta o Arduino | 4 |
+| Welcome screen | Splash con Create/Open al lanzar QTorres | 5 |
+| Project Explorer | Árbol de proyecto .qproj con gestión de VIs | 5 |
 
 ---
 

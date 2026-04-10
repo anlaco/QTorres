@@ -122,9 +122,16 @@ QTorres/
 
 **Fase 3 — Sub-VIs y extensibilidad (en curso):**
 - ~~#17 Sub-VI con connector pane~~ ✅ (pin-based connector, compile-subvi-call, runner carga contextos, btn-run sincronizado)
-- #18 Librería .qlib
+- ~~#18 Librería .qlib~~ ✅ (load-qlib, find-qlibs, paleta integrada, ejemplo math.qlib, 481 tests PASS)
+- #64 FP como ventana maestra — BD bajo demanda (Ctrl+E)
+- #65 Ventanas redimensionables con scroll horizontal y vertical
 
-**Próximo paso:** #18 Librería .qlib
+**Fase 5 — UX y gestión de proyectos (planificado):**
+- Splash / Welcome screen (Create New VI, Open Existing, proyectos recientes)
+- Project Explorer con formato .qproj (árbol de ficheros, gestión de dependencias)
+- Depende de: .qlib (#18) y FP como ventana maestra (#64)
+
+**Próximo paso:** #64 FP como ventana maestra
 
 ## Decisiones técnicas clave
 
@@ -275,8 +282,10 @@ Estrategia QA: tests con cada feature nueva, no sesión QA dedicada.
 Spec visual: cada tipo implementa su aspecto según `docs/visual-spec.md`.
 
 **Fase 3 — Sub-VIs y extensibilidad:**
-- #17 Sub-VI con connector pane
-- #18 Librería .qlib
+- #17 Sub-VI con connector pane ✅
+- #18 Librería .qlib ✅
+- #64 FP como ventana maestra — BD bajo demanda (Ctrl+E)
+- #65 Ventanas redimensionables con scroll horizontal y vertical
 
 **Fase 4 — Hardware:**
 - #19 SCPI sobre TCP/IP (Keysight por red)
@@ -284,6 +293,10 @@ Spec visual: cada tipo implementa su aspecto según `docs/visual-spec.md`.
 - #21 Puerto serie RS-232/RS-485 (Arduino, ESP32)
 - #22 TCP/IP genérico (Modbus TCP, protocolos propios)
 - #23 DAQ analógico (comedi/libcomedi)
+
+**Fase 5 — UX y gestión de proyectos:**
+- Splash / Welcome screen (Create New VI, Open Existing, proyectos recientes)
+- Project Explorer con formato .qproj (árbol de proyecto, gestión de dependencias)
 
 ## Ollama MCP — Delegación de tareas a modelo local
 

@@ -1072,3 +1072,48 @@ _err: scpi-read instrument _err
 | Error cluster desde Fase 2 | Complejidad prematura. Sin hardware, no hay errores reales que propagar |
 | Solo `try/catch` global | No permite al usuario ver qué nodo falló ni tomar decisiones en el diagrama |
 | Ignorar errores (solo `print`) | Inaceptable para producción industrial |
+
+---
+
+## DT-030: UI Framework — Red/View + Draw con capa QT-Widgets propia
+
+**Fecha:** 2026-04-10
+**Estado:** Adoptada
+
+**Contexto:** QTorres necesita un editor visual con nodos arrastrables, wires, scrollbars, controles custom, inline text editing, tree views (project explorer) y más. Red/View proporciona ventanas y eventos, Draw proporciona renderizado 2D, pero no hay widget toolkit intermedio. Se evaluó si construir sobre Red/View+Draw, GTK directo, o Qt.
+
+**Alternativas evaluadas:**
+
+| Opción | Ventajas | Inconvenientes |
+|--------|----------|----------------|
+| **Red/View + Draw** (actual) | Todo en Red (DT-001), binario < 1 MB, multiplataforma, control total | Cada widget hay que construirlo desde cero, bugs GTK, no hay accessibility |
+| **GTK (via FFI/C)** | Widgets nativos maduros, TreeView, ScrolledWindow, accessibility | Rompe DT-001, solo nativo en Linux, runtime pesado en Win/macOS, el canvas custom sigue siendo necesario |
+| **Qt (C++/Python)** | QGraphicsScene resuelve el canvas, toolkit más completo que existe, multiplataforma real | Rompe DT-001 completamente, 50-100 MB de runtime, Red relegado a lenguaje del .qvi, no del editor |
+
+**Decisión:** Construir sobre Red/View + Draw, formalizando progresivamente una capa intermedia (QT-Widgets).
+
+**Arquitectura objetivo:**
+
+```
+Red/View (ventanas + event loop)
+  └── Draw (renderizado 2D)
+       └── QT-Widgets (capa propia: hit-test, scroll, controles Draw-based)
+            └── QTorres UI (canvas, panel, diálogos, project explorer)
+```
+
+**Razones:**
+
+1. **El canvas del diagrama es custom sí o sí.** Incluso con Qt/QGraphicsScene, los nodos QTorres, los wires con tipado por color, las estructuras de control y el connector pane necesitan renderizado propio. El 80% de la complejidad no se ahorra con un toolkit externo.
+
+2. **Identidad del proyecto.** "Todo en Red, un binario < 1 MB, sin dependencias" es la propuesta de valor que diferencia a QTorres de LabVIEW. Meter Qt o GTK la destruye.
+
+3. **Ya estamos construyendo el framework.** canvas-render.red (932 líneas), panel-render.red (411 líneas), el hit-testing en canvas.red — eso ya ES un framework UI custom, solo falta formalizarlo.
+
+4. **Los widgets necesarios son pocos.** Scrollbar, text input inline, tree view, tabs. No necesitamos un toolkit genérico de 200 widgets.
+
+**Plan de formalización:**
+
+- **Fases 3-4:** Seguir construyendo widgets ad-hoc (scroll, resize) dentro de los módulos existentes. No extraer todavía.
+- **Fase 5+:** Cuando lleguen inline text editing, property panels y project explorer, extraer QT-Widgets como módulo en `src/ui/widgets/`. Widgets candidatos: scrollbar, text-input, tree-view, tab-bar.
+
+**Plan B:** Si Red se estanca (bugs GTK sin arreglar en 1-2 años, 64-bit no llega), migrar el editor a PyQt/PySide manteniendo Red como lenguaje del código generado (.qvi). El formato .qvi y el compilador no cambian.

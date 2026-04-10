@@ -1,0 +1,55 @@
+Red [title: "add"]
+
+qvi-diagram: [
+    connector: [
+        input  [pin: 1  label: "A"       id: 1]
+        input  [pin: 2  label: "B"       id: 2]
+        output [pin: 3  label: "Result"  id: 4]
+    ]
+    front-panel: [
+        control   [id: 1  type: 'control    name: "ctrl_1"  label: [text: "A"]       default: 0.0]
+        control   [id: 2  type: 'control    name: "ctrl_2"  label: [text: "B"]       default: 0.0]
+        indicator [id: 4  type: 'indicator  name: "ind_1"   label: [text: "Result"]]
+    ]
+    block-diagram: [
+        nodes: [
+            node [id: 1  type: 'control    x: 40   y: 80   name: "ctrl_1"  label: [text: "A" visible: true]]
+            node [id: 2  type: 'control    x: 40   y: 160  name: "ctrl_2"  label: [text: "B" visible: true]]
+            node [id: 3  type: 'add        x: 200  y: 120  name: "add_1"   label: [text: "Add"]]
+            node [id: 4  type: 'indicator  x: 360  y: 120  name: "ind_1"   label: [text: "Result" visible: true]]
+        ]
+        wires: [
+            wire [from: 1  port: 'out  to: 3  port: 'a]
+            wire [from: 2  port: 'out  to: 3  port: 'b]
+            wire [from: 3  port: 'out  to: 4  port: 'in]
+        ]
+    ]
+]
+
+; --- CÓDIGO GENERADO ---
+arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]
+
+add: context [
+    exec: func [A B /local ctrl_1 ctrl_2 add_1 ind_1] [
+        ctrl_1: A
+        ctrl_2: B
+        add_1: ctrl_1 + ctrl_2
+        ind_1: add_1
+        ind_1
+    ]
+]
+
+if not value? 'qtorres-runtime [
+    view layout [
+        text "A" f_1: field "0.0"
+        text "B" f_2: field "0.0"
+        button "Run" [
+            ctrl_1: to-float f_1/text
+            ctrl_2: to-float f_2/text
+            add_1: ctrl_1 + ctrl_2
+            ind_1: add_1
+            l_ind_1/text: form ind_1
+        ]
+        text "Result:" l_ind_1: text "---"
+    ]
+]

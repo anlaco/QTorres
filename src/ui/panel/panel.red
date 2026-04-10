@@ -343,10 +343,10 @@ render-panel: func [model panel-width panel-height /local panel-face] [
         actors:  make object! [
 
             on-down: func [face event /local mouse-x mouse-y zone item w h lbl-dx lbl-dy] [
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
-                w: face/extra/size/x
-                h: face/extra/size/y
+                mouse-x: event/offset/x + face/extra/fp-scroll-x
+                mouse-y: event/offset/y + face/extra/fp-scroll-y
+                w: face/size/x
+                h: face/size/y
                 zone: hit-fp-zone face/extra mouse-x mouse-y
 
                 either zone [
@@ -376,10 +376,10 @@ render-panel: func [model panel-width panel-height /local panel-face] [
             ]
 
             on-over: func [face event /local mouse-x mouse-y w h item] [
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
-                w: face/extra/size/x
-                h: face/extra/size/y
+                mouse-x: event/offset/x + face/extra/fp-scroll-x
+                mouse-y: event/offset/y + face/extra/fp-scroll-y
+                w: face/size/x
+                h: face/size/y
 
                 if all [face/extra/drag-fp  face/extra/drag-off  event/down?] [
                     item: face/extra/drag-fp
@@ -403,10 +403,10 @@ render-panel: func [model panel-width panel-height /local panel-face] [
             ]
 
             on-click: func [face event /local mouse-x mouse-y hit w h] [
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
-                w: face/extra/size/x
-                h: face/extra/size/y
+                mouse-x: event/offset/x + face/extra/fp-scroll-x
+                mouse-y: event/offset/y + face/extra/fp-scroll-y
+                w: face/size/x
+                h: face/size/y
                 hit: hit-fp-item face/extra mouse-x mouse-y
                 case [
                     all [hit  hit/type = 'bool-control] [
@@ -430,8 +430,8 @@ render-panel: func [model panel-width panel-height /local panel-face] [
             ]
 
             on-dbl-click: func [face event /local mouse-x mouse-y hit] [
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
+                mouse-x: event/offset/x + face/extra/fp-scroll-x
+                mouse-y: event/offset/y + face/extra/fp-scroll-y
                 hit: hit-fp-item face/extra mouse-x mouse-y
 
                 case [
@@ -448,16 +448,27 @@ render-panel: func [model panel-width panel-height /local panel-face] [
             ]
 
             on-alt-down: func [face event /local mouse-x mouse-y] [
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
+                mouse-x: event/offset/x + face/extra/fp-scroll-x
+                mouse-y: event/offset/y + face/extra/fp-scroll-y
                 open-fp-palette face mouse-x mouse-y
+            ]
+
+            on-wheel: func [face event /local model step] [
+                model: face/extra
+                step: to-integer event/picked * -40
+                either event/shift? [
+                    model/fp-scroll-x: max 0 (model/fp-scroll-x + step)
+                ][
+                    model/fp-scroll-y: max 0 (model/fp-scroll-y + step)
+                ]
+                face/draw: render-fp-panel model face/size/x face/size/y
             ]
 
             on-key: func [face event /local model hit w h _cref bd-node] [
                 model: face/extra
                 hit: model/selected-fp
-                w: model/size/x
-                h: model/size/y
+                w: face/size/x
+                h: face/size/y
 
                 if all [hit  any [find [delete backspace] event/key  find [#"^(7F)" #"^H"] event/key]] [
                     ; Sync BD: borrar nodo y sus wires

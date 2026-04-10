@@ -396,14 +396,43 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
     cmds
 ]
 
-render-fp-panel: func [model w h /local cmds item selected?] [
+render-fp-panel: func [model w h /local cmds item selected? sx sy sb-w _cy _th _ty] [
     cmds: copy []
 
-    append cmds render-fp-grid w h
+    sx: any [model/fp-scroll-x  0]
+    sy: any [model/fp-scroll-y  0]
+
+    ; Viewport: clip + translate por scroll
+    append cmds compose [
+        clip 0x0 (as-pair w h)
+        translate (as-pair (negate sx) (negate sy))
+    ]
+
+    append cmds render-fp-grid (sx + w + 20) (sy + h + 20)
 
     foreach item model/front-panel [
         selected?: either model/selected-fp [same? item model/selected-fp] [false]
         append cmds render-fp-item item selected?
+    ]
+
+    ; Volver a coords de pantalla para scrollbars
+    append cmds [reset-matrix]
+
+    ; Bounding-box del contenido FP
+    _cy: h
+    foreach _item model/front-panel [
+        _cy: max _cy (_item/offset/y + fp-item-height + fp-label-above + 20)
+    ]
+    sb-w: 8
+    if _cy > h [
+        _th: max 20 to-integer (h * h / _cy)
+        _ty: to-integer (sy * (h - _th - sb-w) / (_cy - h))
+        append cmds compose [
+            fill-pen 210.212.218  pen off
+            box (as-pair (w - sb-w) 0) (as-pair w (h - sb-w))
+            fill-pen 150.152.162  pen off
+            box (as-pair (w - sb-w) (_ty)) (as-pair w (_ty + _th))
+        ]
     ]
 
     cmds

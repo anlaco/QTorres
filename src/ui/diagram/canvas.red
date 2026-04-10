@@ -495,8 +495,8 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
 
             on-down: func [face event /local mouse-x mouse-y model hit-result hit-nd hit-port-name hit-dir hit-ref] [
                 model: face/extra
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
+                mouse-x: event/offset/x + model/scroll-x
+                mouse-y: event/offset/y + model/scroll-y
 
                 ; 1) Puerto? (incluye nodos internos de estructuras)
                 hit-result: hit-port model mouse-x mouse-y
@@ -509,7 +509,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                             model/broken-wire: none
                             model/wire-src:  hit-nd
                             model/wire-port: hit-port-name
-                            model/mouse-pos: event/offset
+                            model/mouse-pos: as-pair mouse-x mouse-y
                             face/draw: render-bd model
                         ]
                     ][
@@ -921,8 +921,8 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
 
             on-over: func [face event /local mouse-x mouse-y model dx dy _st _frame _nodes] [
                 model: face/extra
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
+                mouse-x: event/offset/x + model/scroll-x
+                mouse-y: event/offset/y + model/scroll-y
 
                 ; Drag de nodo (normal o interno)
                 if all [model/drag-node model/drag-off event/down?] [
@@ -992,7 +992,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 model: face/extra
                 ; Completar wire si se suelta sobre un puerto de entrada (drag-to-connect)
                 if model/wire-src [
-                    hit-result: hit-port model event/offset/x event/offset/y
+                    hit-result: hit-port model (event/offset/x + model/scroll-x) (event/offset/y + model/scroll-y)
                     if all [
                         hit-result
                         hit-result/3 = 'in
@@ -1051,10 +1051,21 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 ]
             ]
 
+            on-wheel: func [face event /local model step] [
+                model: face/extra
+                step: to-integer event/picked * -40
+                either event/shift? [
+                    model/scroll-x: max 0 (model/scroll-x + step)
+                ][
+                    model/scroll-y: max 0 (model/scroll-y + step)
+                ]
+                face/draw: render-bd model
+            ]
+
             on-dbl-click: func [face event /local mouse-x mouse-y model node label-text st-hit struct-hit sr-hit] [
                 model: face/extra
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
+                mouse-x: event/offset/x + model/scroll-x
+                mouse-y: event/offset/y + model/scroll-y
 
                 ; 0) Terminal SR: editar valor inicial
                 sr-hit: hit-structure-sr model mouse-x mouse-y

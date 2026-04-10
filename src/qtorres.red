@@ -295,8 +295,14 @@ show-bd-window: func [/local] [
         text:   rejoin ["Block Diagram — " app-model/name]
         size:   900x545
         offset: 60x60
+        flags:  [resize]
         pane:   reduce [btn-run btn-save btn-load canvas-face]
         actors: make object! [
+            on-resize: func [face event] [
+                canvas-face/size: as-pair (face/size/x - 10) (face/size/y - 38)
+                canvas-face/draw: render-bd app-model
+                show canvas-face
+            ]
             on-key-down: func [face event] [
                 ; Delete/Backspace → borrar selección en canvas
                 if any [
@@ -334,8 +340,14 @@ fp-window: make face! [
     text:   "Front Panel — untitled"
     size:   400x375
     offset: 960x60
+    flags:  [resize]
     pane:   reduce [panel-face]
     actors: make object! [
+        on-resize: func [face event] [
+            panel-face/size: as-pair (face/size/x - 10) (face/size/y - 10)
+            panel-face/draw: render-fp-panel app-model panel-face/size/x panel-face/size/y
+            show panel-face
+        ]
         on-key-down: func [face event] [
             ; Ctrl+E → mostrar BD (crearlo si se cerró, traerlo al frente si existe)
             ; GTK-012: on-key-down para combos Ctrl; view/no-wait levanta la ventana en GTK

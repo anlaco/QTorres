@@ -842,7 +842,7 @@ emit-cluster-indicator-headless: func [
 compile-subvi-call: func [
     node    [object!]
     diagram [object!]
-    /local func-name connector inputs outputs code arg-vars out-var w src
+    /local func-name connector inputs outputs code arg-vars out-var w src pin-word
 ][
     code: copy []
 
@@ -855,14 +855,15 @@ compile-subvi-call: func [
     outputs: any [select connector 'outputs  copy []]
 
     ; Recolectar argumentos de los wires conectados a cada puerto de entrada
+    ; inputs es [pin label id  pin label id ...]
     arg-vars: copy []
-    repeat i (length? inputs / 3) [  ; cada input es [id name label]
-        input-name: inputs/(i * 3 - 1)  ; índice 2, 5, 8... (el name)
+    repeat i ((length? inputs) / 3) [
+        pin-word: to-word rejoin ["p" inputs/(i * 3 - 2)]  ; pin → 'p1, 'p2...
         found: false
         foreach w diagram/wires [
             if all [
                 w/to-node = node/id
-                (to-word w/to-port) = (to-word input-name)
+                (to-word w/to-port) = pin-word
             ][
                 src: find-node-by-id diagram/nodes w/from-node
                 if src [
@@ -876,17 +877,16 @@ compile-subvi-call: func [
     ]
 
     ; Generar llamada: resultado: func-name/exec arg1 arg2 ...
-    ; El sub-VI define: func-name: context [exec: func [...] [...]]
+    ; outputs es [pin label id  pin label id ...]
     ; Por simplicidad, asumimos una sola salida (la primera)
-    ; TODO: manejar múltiples salidas
     if not empty? outputs [
-        out-name: outputs/2  ; name de la primera salida
-        out-var: port-var node to-word out-name
+        out-pin: to-word rejoin ["p" outputs/1]  ; pin del primer output
+        out-var: port-var node out-pin
         append code to-set-word out-var
     ]
 
-    ; Añadir la llamada a la función: func-name/exec
-    append code to-path reduce [to-word func-name 'exec]
+    ; Añadir la llamada a la función: func-name/exec (append/only para no extender el path)
+    append/only code to-path reduce [to-word func-name 'exec]
     foreach arg arg-vars [append code arg]
 
     code
@@ -931,7 +931,10 @@ compile-body: func [
                             if src [
                                 src-var: port-var src to-word w/from-port
                                 lbl: either all [item/label  object? item/label] [item/label/text] [any [item/name ""]]
-                                append code compose [print rejoin [(lbl) ": " form (src-var)]]
+                                ; Construir [print rejoin ["label" ": " form var-word]] sin compose
+                                append code 'print
+                                append code 'rejoin
+                                append/only code reduce [copy lbl ": " 'form to-word src-var]
                             ]
                         ]
                     ]

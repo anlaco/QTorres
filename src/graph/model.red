@@ -424,7 +424,7 @@ cluster-field-type: func [
 load-subvi-connector: func [
     "Carga el connector de un .qvi y devuelve bloque con inputs, outputs y func-name"
     path [file!]
-    /local src qd conn inputs outputs func-name title-meta pos blk
+    /local src qd conn inputs outputs func-name title-meta pos blk pin-val
 ][
     if not exists? path [
         return reduce ['inputs copy [] 'outputs copy [] 'func-name ""]
@@ -447,17 +447,19 @@ load-subvi-connector: func [
         parse conn [
             any [
                 'input set blk block! (
+                    pin-val: any [select blk 'pin 0]
                     append inputs reduce [
+                        pin-val
+                        any [select blk 'label ""]
                         any [select blk 'id 0]
-                        any [select blk 'name ""]
-                        any [select blk 'label []]
                     ]
                 )
                 | 'output set blk block! (
+                    pin-val: any [select blk 'pin 0]
                     append outputs reduce [
+                        pin-val
+                        any [select blk 'label ""]
                         any [select blk 'id 0]
-                        any [select blk 'name ""]
-                        any [select blk 'label []]
                     ]
                 )
                 | skip
@@ -465,12 +467,12 @@ load-subvi-connector: func [
         ]
     ]
 
-    title-meta: select qd 'meta
-    if block? title-meta [
-        func-name: any [select title-meta 'title ""]
+    ; Obtener título del Red header (Red [title: "suma"])
+    if all [not empty? src  src/1 = 'Red  block? src/2] [
+        func-name: any [select src/2 'title  ""]
     ]
 
-    ; Si no hay title en meta, usar el nombre del fichero sin extension
+    ; Fallback: nombre del fichero sin extensión
     if empty? func-name [
         func-name: to-string first split last split-path path "."
     ]

@@ -1,0 +1,74 @@
+Red [Title: {/home/alaforga/Anlaco/01-PRODUCTOS/QTorres/examples/programa_con_qvi.qvi} Needs: 'View]
+
+qvi-diagram: [
+    meta: [description: "" version: 1 author: "" tags: []]
+    icon: []
+    block-diagram: [
+        nodes: [
+            node [
+    id: 1 type: 'subvi
+    name: "subvi_1"
+    label: [text: "SubVI" visible: false]
+    x: 299.0 y: 186.0 config [connector [inputs [1 "A" 1 2 "B" 2] outputs [3 "Resultado" 4]] func-name "suma"] file %/home/alaforga/Anlaco/01-PRODUCTOS/QTorres/examples/suma-subvi.qvi
+]
+            node [
+    id: 2 type: control
+    name: "control_1"
+    label: [text: "Numeric" visible: true]
+    x: 48.0 y: 85.0 config [default 10.0]
+]
+            node [
+    id: 3 type: indicator
+    name: "indicator_2"
+    label: [text: "Numeric" visible: true]
+    x: 575.0 y: 182.0
+]
+            node [
+    id: 4 type: control
+    name: "control_3"
+    label: [text: "Numeric" visible: true]
+    x: 53.0 y: 244.0 config [default 120.0]
+]
+        ]
+        wires: [
+            wire [
+    from: 2 from-port: result
+    to: 1 to-port: p1
+]
+            wire [
+    from: 4 from-port: result
+    to: 1 to-port: p2
+]
+            wire [
+    from: 1 from-port: p3
+    to: 3 to-port: value
+]
+        ]
+    ]
+    front-panel: [
+        control [id: 1 type: control name: "control_1" label: [text: "Numeric" visible: true offset: 0x0] default: 10.0 offset: 42x75]
+        indicator [id: 2 type: indicator name: "indicator_2" label: [text: "Numeric" visible: true offset: 0x0] default: 0.0 offset: 233x111]
+        control [id: 3 type: control name: "control_3" label: [text: "Numeric" visible: true offset: 0x0] default: 120.0 offset: 67x224]
+    ]
+]
+
+_saved-qtorres-runtime: value? 'qtorres-runtime
+qtorres-runtime: true
+#include %/home/alaforga/Anlaco/01-PRODUCTOS/QTorres/examples/suma-subvi.qvi
+; --- Restaurar qtorres-runtime si estaba definido ---
+if not _saved-qtorres-runtime [unset 'qtorres-runtime]
+
+; --- Helpers de runtime ---
+arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]
+
+; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
+either empty? system/options/args [
+    view layout [
+        text "Numeric" f_2: field "10.0"
+        text "Numeric" f_4: field "120.0"
+        button "Run" [control_1_result: to-float f_2/text control_3_result: to-float f_4/text subvi_1_p3: suma/exec control_1_result control_3_result t_3/text: form subvi_1_p3]
+        text "Numeric" t_3: text "---"
+    ]
+][
+    control_1_result: 10.0 control_3_result: 120.0 subvi_1_p3: suma/exec control_1_result control_3_result print rejoin ["Numeric" ": " form subvi_1_p3]
+]

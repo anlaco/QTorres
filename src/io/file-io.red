@@ -159,10 +159,10 @@ serialize-diagram: func [
     connector-block: copy []
     if all [in diagram 'connector  block? diagram/connector  not empty? diagram/connector] [
         foreach conn-item diagram/connector [
-            ; conn-item: [type id name label] donde type es 'input o 'output
+            ; conn-item: [type pin label id] donde type es 'input o 'output
             append connector-block conn-item/1
             append/only connector-block compose/only [
-                id: (conn-item/2)  name: (conn-item/3)  label: (conn-item/4)
+                pin: (conn-item/2)  label: (conn-item/3)  id: (conn-item/4)
             ]
         ]
     ]
@@ -392,7 +392,7 @@ format-qvi: func [
         append includes-str "_saved-qtorres-runtime: value? 'qtorres-runtime^/"
         append includes-str "qtorres-runtime: true^/"
         foreach svf svf-list [
-            append includes-str rejoin ["#include %" mold svf "^/"]
+            append includes-str rejoin ["#include " mold svf "^/"]
         ]
         ; Restore se hace al final del código generado
     ]
@@ -548,7 +548,12 @@ load-node-list: func [
                         if pos: find node-spec 'x [pos/2: nx + abs-x]
                         if pos: find node-spec 'y [pos/2: ny + abs-y]
                     ]
-                    n: make-node node-spec
+                    ; Subvi: cargar connector desde el fichero referenciado
+                    n: either (select node-spec 'type) = 'subvi [
+                        make-subvi-node node-spec
+                    ][
+                        make-node node-spec
+                    ]
                     if select node-spec 'name [append names select node-spec 'name]
                     keep n
                 )
@@ -719,17 +724,17 @@ load-vi: func [
                 'input set conn-spec block! (
                     append d/connector reduce [
                         'input
+                        any [select conn-spec 'pin 0]
+                        any [select conn-spec 'label ""]
                         any [select conn-spec 'id 0]
-                        any [select conn-spec 'name ""]
-                        any [select conn-spec 'label []]
                     ]
                 )
                 | 'output set conn-spec block! (
                     append d/connector reduce [
                         'output
+                        any [select conn-spec 'pin 0]
+                        any [select conn-spec 'label ""]
                         any [select conn-spec 'id 0]
-                        any [select conn-spec 'name ""]
-                        any [select conn-spec 'label []]
                     ]
                 )
                 | skip

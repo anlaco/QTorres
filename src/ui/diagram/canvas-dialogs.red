@@ -276,7 +276,7 @@ palette-add-node: func [node-type /local n nid model] [
 ; Añade un nodo Sub-VI con file picker.
 palette-add-subvi: func [/local n nid model file-path] [
     model: palette-canvas/extra
-    file-path: request-file/filter "Seleccionar Sub-VI" "*.qvi"
+    file-path: request-file/title/filter "Seleccionar VI" ["QVI" %*.qvi]
     if none? file-path [unview  return]
     ; request-file devuelve un bloque, tomar el primer elemento
     if block? file-path [file-path: first file-path]
@@ -362,7 +362,7 @@ open-palette: func [face x y /struct target-struct] [
         button 80 "While"    [palette-add-structure 'while-loop]
         button 80 "For"      [palette-add-structure 'for-loop]
         button 80 "Case"     [palette-add-structure 'case-structure]
-        button 80 "Sub-VI"   [palette-add-subvi]  return
+        button 80 "QVI"       [palette-add-subvi]  return
         button 80 "Add SR"   [
             if palette-struct [
                 unview

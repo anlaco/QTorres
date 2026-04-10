@@ -21,11 +21,30 @@ Red [
 
 run: func [
     diagram [object!]
-    /local code
+    /local code result subvi-node
 ][
     qtorres-runtime: true
+
+    ; Cargar contextos de sub-VIs referenciados en el diagrama
+    foreach subvi-node diagram/nodes [
+        if all [subvi-node/type = 'subvi  file? subvi-node/file  exists? subvi-node/file] [
+            ; try puede devolver unset! si el fichero termina con print/unset,
+            ; añadimos none para forzar retorno tipado
+            result: try [do subvi-node/file  none]
+            if error? result [
+                print rejoin ["[runner] ERROR cargando sub-VI " mold subvi-node/file ": " mold result]
+            ]
+        ]
+    ]
+
     code: compile-body diagram
-    attempt [do code]
+    ; try puede devolver unset! si el código termina con print — añadimos none
+    result: try [do code  none]
+    if error? result [
+        print rejoin ["[runner] ERROR ejecutando body: " mold result]
+        print rejoin ["[runner] Código: " mold/only code]
+    ]
+
     qtorres-runtime: false
     true
 ]

@@ -4,14 +4,14 @@ Red [title: "suma"]
 
 qvi-diagram: [
     connector: [
-        input  [id: 1  name: "ctrl_1"  label: [text: "A"]]
-        input  [id: 2  name: "ctrl_2"  label: [text: "B"]]
-        output [id: 4  name: "ind_1"   label: [text: "Resultado"]]
+        input  [pin: 1  label: "A"           id: 1]
+        input  [pin: 2  label: "B"           id: 2]
+        output [pin: 3  label: "Resultado"   id: 4]
     ]
     front-panel: [
-        control   [id: 1  type: 'numeric  name: "ctrl_1"  label: [text: "A"]         default: 0.0]
-        control   [id: 2  type: 'numeric  name: "ctrl_2"  label: [text: "B"]         default: 0.0]
-        indicator [id: 4  type: 'numeric  name: "ind_1"   label: [text: "Resultado"]]
+        control   [id: 1  type: 'control    name: "ctrl_1"  label: [text: "A"]         default: 0.0]
+        control   [id: 2  type: 'control    name: "ctrl_2"  label: [text: "B"]         default: 0.0]
+        indicator [id: 4  type: 'indicator  name: "ind_1"   label: [text: "Resultado"]]
     ]
     block-diagram: [
         nodes: [

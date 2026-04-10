@@ -72,9 +72,9 @@ in-ports: func [node /local connector inputs result conn-in] [
             connector: select node/config 'connector
             inputs: any [all [connector  select connector 'inputs]  copy []]
             result: copy []
-            ; inputs es [id name label id name label ...]
-            repeat i (length? inputs / 3) [
-                append result to-word inputs/(i * 3 - 1)  ; name del input
+            ; inputs es [pin label id  pin label id ...]
+            repeat i ((length? inputs) / 3) [
+                append result to-word rejoin ["p" inputs/(i * 3 - 2)]  ; pin → 'p1, 'p2...
             ]
             result
         ]
@@ -98,9 +98,9 @@ out-ports: func [node /local connector outputs result] [
             connector: select node/config 'connector
             outputs: any [all [connector  select connector 'outputs]  copy []]
             result: copy []
-            ; outputs es [id name label id name label ...]
-            repeat i (length? outputs / 3) [
-                append result to-word outputs/(i * 3 - 1)  ; name del output
+            ; outputs es [pin label id  pin label id ...]
+            repeat i ((length? outputs) / 3) [
+                append result to-word rejoin ["p" outputs/(i * 3 - 2)]  ; pin → 'p3...
             ]
             result
         ]
@@ -108,6 +108,31 @@ out-ports: func [node /local connector outputs result] [
             any [block-out-ports to-word node/type  []]
         ]
     ]
+]
+
+; Devuelve el label visible de un puerto de subvi (ej. 'p1 → "A").
+; Para nodos no-subvi devuelve form del port word.
+subvi-port-label: func [node port-word /local connector inputs outputs pin-str pin-num i] [
+    if node/type <> 'subvi [return form port-word]
+    connector: select node/config 'connector
+    if none? connector [return form port-word]
+    pin-str: form port-word               ; "p1"
+    pin-num: to-integer skip pin-str 1     ; 1
+    ; Buscar en inputs
+    inputs: any [select connector 'inputs  copy []]
+    i: 1
+    while [i <= length? inputs] [
+        if inputs/:i = pin-num [return form inputs/(i + 1)]  ; label
+        i: i + 3
+    ]
+    ; Buscar en outputs
+    outputs: any [select connector 'outputs  copy []]
+    i: 1
+    while [i <= length? outputs] [
+        if outputs/:i = pin-num [return form outputs/(i + 1)]  ; label
+        i: i + 3
+    ]
+    form port-word
 ]
 
 ; Devuelve el tipo de dato de un puerto de salida ('number por defecto).
@@ -389,7 +414,7 @@ render-node-list: func [
                 pen col-port-in  fill-pen col-port-in
                 circle (as-pair (node/x - port-radius) in-port-y) (port-radius)
                 fill-pen col-text
-                text (as-pair (node/x - port-radius - 22) (in-port-y - 7 + text-dy)) (form port)
+                text (as-pair (node/x - port-radius - 22) (in-port-y - 7 + text-dy)) (subvi-port-label node port)
             ]
             in-port-y: in-port-y + 20
         ]
@@ -400,7 +425,7 @@ render-node-list: func [
                 pen col-port-out  fill-pen col-port-out
                 circle (as-pair (node/x + block-width + port-radius) out-port-y) (port-radius)
                 fill-pen col-text
-                text (as-pair (node/x + block-width + port-radius + 12) (out-port-y - 7 + text-dy)) (form port)
+                text (as-pair (node/x + block-width + port-radius + 12) (out-port-y - 7 + text-dy)) (subvi-port-label node port)
             ]
             out-port-y: out-port-y + 20
         ]

@@ -342,11 +342,22 @@ render-panel: func [model panel-width panel-height /local panel-face] [
         draw:    render-fp-panel model panel-width panel-height
         actors:  make object! [
 
-            on-down: func [face event /local mouse-x mouse-y zone item w h lbl-dx lbl-dy] [
+            on-down: func [face event /local mouse-x mouse-y zone item w h lbl-dx lbl-dy _sx _sy _sb _cy] [
+                w: face/size/x  h: face/size/y
+                _sx: event/offset/x  _sy: event/offset/y
+                _sb: 8
+                ; ── Click en scrollbar vertical del FP ──
+                _cy: h
+                foreach _it face/extra/front-panel [
+                    _cy: max _cy (_it/offset/y + fp-item-height + fp-label-above + 20)
+                ]
+                if all [_cy > h  _sx >= (w - _sb)  _sy < (h - _sb)] [
+                    face/extra/fp-scroll-y: max 0 to-integer (_sy * (_cy - h) / (h - _sb))
+                    face/draw: render-fp-panel face/extra w h
+                    exit
+                ]
                 mouse-x: event/offset/x + face/extra/fp-scroll-x
                 mouse-y: event/offset/y + face/extra/fp-scroll-y
-                w: face/size/x
-                h: face/size/y
                 zone: hit-fp-zone face/extra mouse-x mouse-y
 
                 either zone [

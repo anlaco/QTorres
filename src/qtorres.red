@@ -299,6 +299,12 @@ show-bd-window: func [/local] [
         pane:   reduce [btn-run btn-save btn-load canvas-face]
         actors: make object! [
             on-resize: func [face event] [
+                ; GTK-003: maximize no actualiza face/size antes de on-resize.
+                ; Diferimos 50ms con un timer de un solo disparo.
+                face/rate: 0:0:0.05
+            ]
+            on-time: func [face event] [
+                face/rate: none
                 canvas-face/size: as-pair (face/size/x - 10) (face/size/y - 38)
                 canvas-face/draw: render-bd app-model
                 show canvas-face
@@ -344,6 +350,10 @@ fp-window: make face! [
     pane:   reduce [panel-face]
     actors: make object! [
         on-resize: func [face event] [
+            face/rate: 0:0:0.05
+        ]
+        on-time: func [face event] [
+            face/rate: none
             panel-face/size: as-pair (face/size/x - 10) (face/size/y - 10)
             panel-face/draw: render-fp-panel app-model panel-face/size/x panel-face/size/y
             show panel-face

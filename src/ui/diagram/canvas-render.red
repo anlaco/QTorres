@@ -852,7 +852,23 @@ render-structure: func [
     cmds
 ]
 
-render-bd: func [model /local cmds src-port-xy mid st w h sx sy sb-w _cx _cy _th _tx _ty] [
+; Bounding-box del contenido del BD en píxeles de contenido
+bd-content-bounds: func [model /local cx cy] [
+    cx: 600  cy: 400
+    foreach _n model/nodes [
+        cx: max cx (_n/x + block-width  + 40)
+        cy: max cy (_n/y + block-height + 40)
+    ]
+    if block? model/structures [
+        foreach _st model/structures [
+            cx: max cx (_st/x + _st/w + 40)
+            cy: max cy (_st/y + _st/h + 40)
+        ]
+    ]
+    as-pair cx cy
+]
+
+render-bd: func [model /local cmds src-port-xy mid st w h sx sy sb-w _cx _cy _th _tx _ty _bounds] [
     cmds: copy []
 
     ; Dimensiones del canvas (dinámicas con resize)
@@ -1015,6 +1031,8 @@ render-bd: func [model /local cmds src-port-xy mid st w h sx sy sb-w _cx _cy _th
             _cy: max _cy (_st/y + _st/h + 40)
         ]
     ]
+    _bounds: bd-content-bounds model
+    _cx: _bounds/x  _cy: _bounds/y
     sb-w: 8  ; grosor del scrollbar
     ; Scrollbar vertical (derecha)
     if _cy > h [

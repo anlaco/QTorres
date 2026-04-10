@@ -561,6 +561,10 @@ make-diagram-model: func [] [
         broken-wire:     none
         canvas-ref:      none
         size:            0x0
+        scroll-x:        0       ; BD scroll horizontal (píxeles de contenido)
+        scroll-y:        0       ; BD scroll vertical
+        fp-scroll-x:     0       ; FP scroll horizontal
+        fp-scroll-y:     0       ; FP scroll vertical
     ]
 ]
 

@@ -1,221 +1,153 @@
-# Plan — Fase 3: Sub-VI con connector pane (#17)
+# Plan — Fase 3: Libreria .qlib (#18)
 
-**Creado:** 2026-04-09
-**Objetivo:** Permitir que un VI con `connector` se use como bloque dentro de otro VI, con puertos dinamicos, compilacion a `func` Red, y round-trip completo.
+**Creado:** 2026-04-10
+**Objetivo:** Implementar el formato `.qlib` para agrupar VIs en una libreria con namespacing, cargable desde la paleta del editor.
 
-**Linea base:** 462 tests PASS, v0.2.0, main limpia.
+**Linea base:** 462 tests PASS, branch feat/17-subvi-connector, sub-VI funcional con #include + context.
 
-## Reglas absolutas (recordatorio)
+## Contexto previo
 
-- Todo en Red-Lang. Sin crear modulos nuevos sin aprobacion.
-- `./red-cli tests/run-all.red` debe pasar tras cada cambio.
-- Consultar `skills/red-lang/SKILL.md` antes de tocar Draw/View.
-- NUNCA `do` dinamico, `load` strings, ni `compose` runtime en .qvi generado (DT-028).
-- Los puertos del subvi vienen del connector del .qvi cargado, no de blocks.red.
+El Issue #17 (sub-VI) ya establecio:
+- Patron `#include %subvi.qvi` (compile-time, DT-028)
+- Sub-VI genera `nombre: context [exec: func [...] [...]]`
+- Standalone guard con save/restore de `qtorres-runtime`
+- El compilador recopila ficheros unicos en `subvi-files` y valida unicidad de nombres
+- El caller llama `nombre/exec arg1 arg2`
+
+La .qlib extiende este patron: agrupa multiples VIs bajo un namespace comun.
 
 ## Decisiones de diseno
 
-### D1: Puertos dinamicos vs registro en blocks.red
+### D1: Formato del .qlib — directorio con manifiesto
 
-**Decision:** Los puertos del nodo subvi se almacenan en `node/config` como `[connector [...]]` al momento de insertar el nodo. `in-ports`/`out-ports` en canvas-render.red consultan esta config cuando `node/type = 'subvi`. blocks.red tiene un entry minimo (categoria, sin puertos fijos).
+**Decision:** Un `.qlib` es un **directorio** con un fichero `qlib.red` (manifiesto) + los .qvi miembros.
 
-**Razon:** Cada subvi tiene puertos distintos segun su connector. No se puede registrar en blocks.red con puertos fijos.
-
-### D2: Campo `file` en el nodo
-
-**Decision:** Anadir campo `file: none` al prototipo de nodo en `make-node`. Solo se puebla para nodos `'subvi`. Se serializa/carga en file-io.red.
-
-### D3: Nombre del context = titulo del VI (unicidad obligatoria)
-
-**Decision:** El nombre del context viene del `title` del header Red del .qvi cargado. Se almacena en `node/config` como `[func-name "suma"]`. El compilador valida que no haya dos sub-VIs con el mismo titulo — si colisionan, error de compilacion.
-
-**Razon:** Igual que LabVIEW, donde los nombres de VI deben ser unicos dentro del proyecto. El context da namespace natural (`suma/exec`).
-
-### D4: `#include` + context (validado con tests)
-
-**Decision:** El codigo generado usa `#include %subvi.qvi` con cada sub-VI envuelto en un `context` con nombre. Validado experimentalmente con 3 niveles de anidamiento.
-
-**Patron del sub-VI (.qvi con connector):**
-```red
-Red [title: "suma" Needs: 'View]
-qvi-diagram: [...]
-
-suma: context [
-    exec: func [A [float!] B [float!] /local Resultado] [
-        Resultado: A + B
-        Resultado
-    ]
-]
-
-if not value? 'qtorres-runtime [
-    context [view layout [...]]
-]
+```
+math.qlib/
+  qlib.red          ; manifiesto
+  add.qvi
+  subtract.qvi
+  interpolate.qvi
 ```
 
-**Patron del sub-VI que usa otros sub-VIs:**
+**Contenido de qlib.red:**
 ```red
-Red [title: "filtro" Needs: 'View]
-qvi-diagram: [...]
-
-_qt-imported: value? 'qtorres-runtime
-qtorres-runtime: true
-#include %suma.qvi
-if not _qt-imported [unset 'qtorres-runtime]
-
-filtro: context [
-    exec: func [X [float!]] [suma/exec X 0.5]
-]
-
-if not value? 'qtorres-runtime [
-    context [view layout [...]]
-]
-```
-
-**Patron del VI caller (programa principal):**
-```red
-Red [title: "main" Needs: 'View]
-qvi-diagram: [...]
-
-qtorres-runtime: true
-#include %filtro.qvi
-
-context [
-    view layout [
-        button "Run" [l_ind_1/text: form filtro/exec to-float f_ctrl_1/text]
+qlib [
+    name:    "math"
+    version: 1
+    description: "Operaciones matematicas"
+    members: [
+        %add.qvi
+        %subtract.qvi
+        %interpolate.qvi
     ]
 ]
 ```
 
-**Comportamiento verificado:**
-- `red suma.qvi` → standalone, muestra panel ✓
-- `red filtro.qvi` → standalone, muestra panel (suma NO ejecuta standalone) ✓
-- `red main.qvi` → solo main, ni filtro ni suma ejecutan standalone ✓
-- `red -c main.qvi` → compilable, #include es compile-time ✓
+**Razon:** Un directorio es mas facil de editar, versionar con git, y depurar que un fichero empaquetado. Los .qvi individuales siguen siendo ejecutables standalone. LabVIEW usa el mismo patron (un .lvlib es logico, los .vi son ficheros separados).
 
-**Ventajas sobre inlining:**
-- Cada VI es 100% independiente — ejecutable por si solo
-- El compilador de QTorres solo emite #include + llamadas, NO necesita compilar recursivamente sub-VIs
-- Los namespaces (context) evitan colisiones de forma natural
-- El .qvi del sub-VI es la fuente de verdad — si cambia, el caller lo ve al recompilar
+**Alternativa descartada:** Fichero unico con todo empaquetado — complicaria el editor (hay que desempaquetar), no permite git por VI, y Red no tiene zip nativo.
 
-**Razon:** `#include` es compile-time (cumple DT-028). El context con nombre da namespace. El patron save/restore de `qtorres-runtime` permite que cada VI funcione standalone Y como sub-VI sin conflictos.
+### D2: Namespacing — contexts existentes de cada sub-VI
 
-### D5: `context` con `exec` para sub-VIs
+**Decision:** Al compilar un VI que usa una libreria, el compilador emite `#include` de cada miembro necesario. Los contexts ya existentes de cada sub-VI (patron #17) dan el namespace natural. El nombre del context = titulo del VI (ya implementado).
 
-**Decision:** El codigo generado sigue esta estructura:
-- **VI con connector:** `nombre: context [exec: func [...] [...]]` + standalone guard
-- **VI sin connector (solo standalone):** `context [view layout [...]]`
-- **VI que usa sub-VIs:** save/restore flag + `#include`s + su propio context (si tiene connector) o standalone
+**No** hay un context wrapper extra por libreria. Cada VI mantiene su propio context.
 
-**Convencion de llamada:** `suma/exec arg1 arg2` — el context es el namespace, `exec` es la funcion.
+**Razon:** Ya tenemos `suma: context [exec: func [...]]` por sub-VI. Añadir otro nivel (`math: context [suma: context [...]]`) complicaria las llamadas (`math/suma/exec` vs `suma/exec`) sin beneficio real. La unicidad se valida en compile-time (ya implementado).
 
-**Razon:** No hay diferencia entre "VI principal" y "sub-VI" — un VI con connector siempre genera context + standalone guard, independientemente de como se use (DT-017). El caller decide si lo incluye.
+**Si en el futuro hay colision de nombres entre librerias:** se añade prefijo de libreria como opcion (`math-suma/exec`). Cambio aditivo, no rompe lo actual.
 
-### D6: Connector se edita manualmente (por ahora)
+### D3: Directorio de librerias
 
-**Decision:** Un VI que quiera ser usable como sub-VI necesita una seccion `connector:` en su `qvi-diagram`. En esta fase, el connector se edita manualmente en el .qvi. El editor visual de connector pane es fase posterior.
+**Decision:** Las librerias se buscan en:
+1. Directorio del proyecto actual (ruta relativa)
+2. `~/.qtorres/libs/` (directorio global del usuario)
 
-### D7: Error handling (DT-029 nivel 1)
+El compilador resuelve rutas en ese orden. El manifiesto usa rutas relativas internas.
 
-**Decision:** Cada llamada a sub-VI se envuelve en `try`: `result: try [subvi-name/exec arg1 arg2]`. Si falla, se propaga el error nativo de Red.
+### D4: Integracion con la paleta
 
-### D8: Vision a largo plazo — sin deuda tecnica
+**Decision:** La paleta (canvas-dialogs.red) muestra una seccion "Librerias" con los VIs disponibles de las .qlib detectadas. Al seleccionar uno, se crea un nodo subvi (patron existente de #17) con el fichero apuntando al .qvi dentro de la .qlib.
 
-El modelo de dos caminos (runner vs .qvi generado) permite:
-- **Runner (IDE):** abrir multiples VIs, sub-VI mostrando su panel, valores en vivo — todo posible via `do` en memoria + `view/no-wait`
-- **Compilado (.qvi):** binario autocontenido via `#include`. Sub-VIs son context con `exec` (sin panel) en Fase 3.
+### D5: Compilacion — #include selectivo
 
-**Evolucion futura sin romper arquitectura:**
-- Sub-VIs con panel en compilado: anadir func `panel` al context → `suma/panel`. Cambio aditivo, no rompe `exec`.
-- Multiples VIs abiertos: cada context es independiente, no comparten estado.
-- Clases (.qclass): futuro, modelo diferente.
-- El unico riesgo conocido es `app-model` unico (un VI en memoria), que se abordara con .qproj.
+**Decision:** El compilador solo emite `#include` de los miembros de la .qlib que realmente se usan en el diagrama. No se incluye la libreria entera.
 
-Las decisiones de esta fase no bloquean ninguna de estas evoluciones.
+**Razon:** Un .qvi compilado debe ser autocontenido y minimo. Si solo usas `math/add`, no necesitas `math/fft`.
+
+### D6: El manifiesto NO contiene codigo
+
+**Decision:** `qlib.red` es solo metadata (nombre, version, lista de miembros). No contiene codigo ejecutable. Los .qvi miembros son los que tienen el codigo.
 
 ## Fases de implementacion
 
-### Fase 1 — Modelo y serializacion ✅ COMPLETADA
+### Fase 1 — Formato y carga del manifiesto ⬜
 
-> Cimientos: que el formato se cargue, persista y haga round-trip.
+> Que QTorres pueda leer un .qlib y entender su contenido.
 
-- [x] **1.1** `model.red`: campo `file: none` en `make-node`
-- [x] **1.2** `model.red`: helper `load-subvi-connector`
-- [x] **1.3** `model.red`: helper `make-subvi-node`
-- [x] **1.4** `file-io.red`: `serialize-nodes` emite `file:`
-- [x] **1.5** `file-io.red`: `load-node-list` lee `file:`
-- [x] **1.6** `file-io.red`: `serialize-diagram` emite `connector:`
-- [x] **1.7** `file-io.red`: `load-vi` parsea `connector:`
-- [x] **1.8** Tests round-trip
-- [x] **1.9** 462 tests PASS
+- [ ] **1.1** Definir formato definitivo de `qlib.red` (ya esbozado en D1)
+- [ ] **1.2** `file-io.red`: funcion `load-qlib` — lee directorio .qlib, parsea qlib.red, devuelve objeto con name/version/members (rutas absolutas a .qvi)
+- [ ] **1.3** `file-io.red`: funcion `find-qlibs` — busca .qlib en directorio del proyecto + ~/.qtorres/libs/
+- [ ] **1.4** Tests: load-qlib con manifiesto valido, invalido, miembro inexistente
+- [ ] **1.5** Tests pasan. Commit.
 
-### Fase 2 — Compilador ⬜
+### Fase 2 — Integracion con la paleta ⬜
 
-> Que el codigo generado sea correcto para caller y callee.
+> Que el usuario pueda insertar VIs de una libreria desde el editor.
 
-- [x] **2.1** `blocks.red`: registrar `'subvi` con block-def minimo (category: 'function, sin puertos, sin emit)
-- [x] **2.2** `compiler.red`: funcion `compile-subvi-call` que genera la llamada `nombre/exec arg1 arg2`
-- [x] **2.3** `compiler.red`: en `compile-body`, caso `item/type = 'subvi` → `compile-subvi-call`
-- [x] **2.4** `compiler.red`: en `compile-diagram` run-body, caso `'subvi` para modo UI
-- [ ] **2.5** `compiler.red`: emitir `#include %subvi.qvi` + save/restore `qtorres-runtime` al inicio del codigo generado. Recopilar ficheros unicos (sin duplicados).
-- [ ] **2.6** `compiler.red`: para VIs con connector propio, generar `nombre: context [exec: func [...] [...]]` + standalone guard con save/restore
-- [ ] **2.7** `compiler.red`: validar unicidad de func-name entre todos los sub-VIs referenciados — error si colision
-- [ ] **2.8** Actualizar `compile-subvi-call` para usar convencion `nombre/exec` en vez de func directa
-- [ ] **2.9** Tests: compile-body con nodo subvi, codigo generado correcto, round-trip compile
-- [ ] **2.10** Tests pasan. Commit.
+- [ ] **2.1** `canvas-dialogs.red`: seccion "Librerias" en la paleta con los VIs detectados por find-qlibs
+- [ ] **2.2** Al seleccionar un VI de libreria, crear nodo subvi con `file:` apuntando al .qvi (reutiliza make-subvi-node de #17)
+- [ ] **2.3** El nodo subvi de libreria funciona igual que un subvi suelto (mismos puertos, misma compilacion, mismo rendering)
+- [ ] **2.4** Test manual: abrir paleta, ver librerias, insertar VI, conectar wires, Run
+- [ ] **2.5** Commit.
 
-### Fase 3 — Renderizado y UI ⬜
+### Fase 3 — Ejemplo funcional ⬜
 
-> Que el subvi se vea y se pueda anadir desde el editor.
+> Demostrar el ciclo completo con una libreria real.
 
-- [ ] **3.1** `canvas-render.red`: `in-ports` / `out-ports` — si `node/type = 'subvi`, leer puertos de `node/config` en vez de blocks registry
-- [ ] **3.2** `canvas-render.red`: renderizar nodo subvi con icono (si tiene) o caja generica con label = func-name
-- [ ] **3.3** `canvas-render.red`: colores de puertos segun tipo del connector (number/string/boolean/etc)
-- [ ] **3.4** `canvas-dialogs.red`: boton "Sub-VI" en paleta → file picker (`request-file`) → `make-subvi-node` → anadir al diagrama
-- [ ] **3.5** `canvas.red`: hit-test de puertos del subvi (misma logica que otros nodos, pero puertos dinamicos)
-- [ ] **3.6** Test manual: crear diagrama con subvi, conectar wires, verificar render
-- [ ] **3.7** Commit.
+- [ ] **3.1** Crear `examples/math.qlib/` con qlib.red + add.qvi + subtract.qvi (sub-VIs con connector)
+- [ ] **3.2** Crear `examples/usa-libreria.qvi` — programa que usa math.qlib/add y math.qlib/subtract
+- [ ] **3.3** Verificar: `./red-cli examples/usa-libreria.qvi` funciona headless
+- [ ] **3.4** Verificar: cargar en QTorres, editar, guardar, recargar — round-trip OK
+- [ ] **3.5** Tests automatizados del ejemplo
+- [ ] **3.6** Commit.
 
-### Fase 4 — Ejemplo funcional end-to-end ⬜
+### Fase 4 — Documentacion y cierre ⬜
 
-> Que suma-subvi.qvi + programa-con-subvi.qvi funcionen de verdad.
+- [ ] **4.1** Actualizar `docs/tipos-de-fichero.md` con formato definitivo del .qlib
+- [ ] **4.2** Actualizar CLAUDE.md (estado Fase 3, .qlib como implementado)
+- [ ] **4.3** Cerrar Issue #18
+- [ ] **4.4** Commit + PR
 
-- [ ] **4.1** Actualizar `examples/suma-subvi.qvi`: qvi-diagram con connector + codigo generado (context + standalone guard)
-- [ ] **4.2** Actualizar `examples/programa-con-subvi.qvi`: qvi-diagram con nodo subvi + codigo generado (#include + context)
-- [ ] **4.3** Verificar: `./red-cli examples/programa-con-subvi.qvi` produce resultado correcto
-- [ ] **4.4** Verificar: cargar en QTorres, editar, guardar, volver a cargar → round-trip OK
-- [ ] **4.5** Test automatizado: headless round-trip del ejemplo
-- [ ] **4.6** Commit + PR.
+## Fuera de scope
 
-### Fase 5 — Cierre ⬜
-
-- [ ] **5.1** Actualizar CLAUDE.md (estado Fase 3, nuevos ficheros/funciones, D4 como nueva DT)
-- [ ] **5.2** Cerrar Issue #17
-- [ ] **5.3** Actualizar version a 0.3.0 y tag
+- Editor visual de librerias (crear/editar .qlib desde QTorres UI) — futuro
+- Versionado de librerias / dependencias transitivas — futuro (.qproj)
+- Descarga/instalacion de librerias remotas — futuro (ecosistema)
+- .qprim (primitivas con codigo Red puro) — issue separado
+- .qctl (type definitions) — issue separado
 
 ## Criterios de exito
 
-- `./red-cli tests/run-all.red` → todos pasan
-- `./red-cli examples/suma-subvi.qvi` → standalone funciona
-- `./red-cli examples/programa-con-subvi.qvi` → output correcto (headless, usa sub-VI)
-- Round-trip: cargar .qvi con subvi → guardar → cargar → mismos datos
-- Un VI con connector genera `nombre: context [exec: func [...]]` + standalone guard
-- Un VI caller genera `#include` + llamada `nombre/exec` correcta
-- Compilador detecta colision de nombres entre sub-VIs
-- Nodo subvi se renderiza con puertos del connector en el canvas
+- `load-qlib` parsea un directorio .qlib y devuelve metadata + rutas de miembros
+- `find-qlibs` encuentra librerias en directorio actual y ~/.qtorres/libs/
+- La paleta muestra VIs de librerias detectadas
+- Insertar un VI de libreria crea nodo subvi funcional (compile + run)
+- El compilador solo incluye los miembros usados (#include selectivo)
+- Ejemplo end-to-end funciona headless y en QTorres
+- Round-trip: guardar programa con subvi de libreria → cargar → mismos datos
+- `./red-cli tests/run-all.red` pasa
 
 ## Riesgos
 
 | Riesgo | Mitigacion |
 |--------|-----------|
-| `#include` de .qvi con header Red | Verificado: Red strip header de ficheros incluidos ✓ |
-| `qvi-diagram` sobreescrito por includes | Caller define su qvi-diagram DESPUES de includes → ultima asignacion gana ✓ |
-| Standalone guard en sub-VIs anidados | Patron save/restore validado con 3 niveles ✓ |
-| Connector con tipos no-number (string, bool, cluster) | Fase 1 solo number, extender despues |
-| Fichero .qvi referenciado no existe | Error amigable en `load-subvi-connector`, no crash |
-| Puertos dinamicos rompen hit-test en canvas | Reusar misma logica de port positioning pero con lista dinamica |
-| Cambio en connector del subvi invalida el caller | Detectar en load, warning al usuario — fase posterior |
-| Dos sub-VIs con mismo titulo | Compilador valida y da error (D3) |
+| Rutas relativas rotas al mover proyecto | Busqueda en dos directorios (D3) + error amigable |
+| Colision de nombres entre librerias | Ya validado en compile-time (subvi-names del #17) |
+| .qvi miembro sin connector (no usable como subvi) | Validar en load-qlib, warning al usuario |
+| Rendimiento al escanear muchas .qlib | Lazy loading — solo cargar manifiesto, no los .qvi |
+| Paleta muy larga con muchas librerias | Subsecciones colapsables — futuro, no bloquea MVP |
 
 ## Log de errores
 

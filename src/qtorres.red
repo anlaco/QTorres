@@ -265,12 +265,21 @@ btn-load: make face! [
     ]
 ]
 
+; ── Tamaño fijo de ventanas ───────────────────────────────────────
+; Ambas ventanas tienen el mismo tamaño fijo — sin botón de maximizar
+; ni redimensionado. El scroll maneja el contenido que supere el área.
+; BD: canvas offset 5x38 (toolbar arriba) → canvas 890x557
+; FP: panel offset 5x5                   → panel  890x590
+_win-size:     900x600
+_bd-canvas-sz: 890x557   ; _win-size - margen 10x43 (5+5 x 38+5)
+_fp-panel-sz:  890x590   ; _win-size - margen 10x10
+
 ; ── Faces principales ─────────────────────────────────────────────
-canvas-face: render-diagram app-model 880 490
+canvas-face: render-diagram app-model _bd-canvas-sz/x _bd-canvas-sz/y
 canvas-face/offset: 5x38
 app-model/canvas-ref: canvas-face
 
-panel-face: render-panel app-model 380 350
+panel-face: render-panel app-model _fp-panel-sz/x _fp-panel-sz/y
 panel-face/offset: 5x5
 app-model/panel-ref: panel-face
 
@@ -278,29 +287,6 @@ app-model/panel-ref: panel-face
 ; Necesarias para toggle BD (Ctrl+E) y actualizar títulos al cargar .qvi.
 bd-window: none
 fp-window: none
-
-; ── Overhead CSD por ventana (GTK-014) ───────────────────────────
-; En GTK con Client-Side Decorations, face/size incluye header bar +
-; shadows (~98x130 px). Se mide una vez al primer on-time de cada
-; ventana y queda fijo. Sin detección de flips (irresolubles con
-; heurísticas de delta — ver tests/test-overhead.red y GTK-014).
-; Consecuencia aceptada: en modo cliente (alt+tab) el child queda
-; ~98x108 px más pequeño de lo óptimo (padding), pero nunca overflow.
-_bd-spec-size:    900x545   ; tamaño spec de la ventana BD
-_bd-csd-overhead: 0x0       ; medido al primer on-time; 0x0 = sin medir aún
-_fp-spec-size:    400x375   ; tamaño spec de la ventana FP
-_fp-csd-overhead: 0x0       ; medido al primer on-time; 0x0 = sin medir aún
-
-; compute-child-size: devuelve el tamaño correcto de un face hijo
-; descontando overhead CSD y el margen interno del layout.
-; Garantiza mínimo 50x50 para evitar faces de tamaño cero o negativo.
-compute-child-size: func [win-size ov margin-x margin-y /local cw ch] [
-    cw: win-size/x - ov/x - margin-x
-    ch: win-size/y - ov/y - margin-y
-    if cw < 50 [cw: 50]
-    if ch < 50 [ch: 50]
-    as-pair cw ch
-]
 
 ; ── show-bd-window: abre BD o intenta traerlo al frente ──────────
 ; GTK-013: Red/View no expone gtk_window_present — `show` intenta
@@ -316,26 +302,10 @@ show-bd-window: func [/local] [
     bd-window: make face! [
         type:   'window
         text:   rejoin ["Block Diagram — " app-model/name]
-        size:   _bd-spec-size
+        size:   _win-size
         offset: 60x60
-        flags:  [resize]
         pane:   reduce [btn-run btn-save btn-load canvas-face]
         actors: make object! [
-            on-resize: func [face event] [
-                ; GTK-003: maximize no actualiza face/size antes de on-resize.
-                ; Diferimos 50ms con un timer de un solo disparo.
-                face/rate: 0:0:0.05
-            ]
-            on-time: func [face event] [
-                face/rate: none
-                ; GTK-014: medir overhead CSD una sola vez al primer on-time.
-                if _bd-csd-overhead = 0x0 [
-                    _bd-csd-overhead: face/size - _bd-spec-size
-                ]
-                canvas-face/size: compute-child-size face/size _bd-csd-overhead 10 38
-                canvas-face/draw: render-bd app-model
-                show canvas-face
-            ]
             on-key-down: func [face event] [
                 ; Delete/Backspace → borrar selección en canvas
                 if any [
@@ -357,8 +327,6 @@ show-bd-window: func [/local] [
                 ; GTK destruye la ventana al cerrar — limpiamos referencia.
                 ; El próximo Ctrl+E recreará la ventana al frente.
                 bd-window: none
-                ; Resetear overhead para que la nueva ventana lo mida de nuevo.
-                _bd-csd-overhead: 0x0
             ]
         ]
     ]
@@ -373,24 +341,10 @@ show-bd-window
 fp-window: make face! [
     type:   'window
     text:   "Front Panel — untitled"
-    size:   _fp-spec-size
+    size:   _win-size
     offset: 960x60
-    flags:  [resize]
     pane:   reduce [panel-face]
     actors: make object! [
-        on-resize: func [face event] [
-            face/rate: 0:0:0.05
-        ]
-        on-time: func [face event] [
-            face/rate: none
-            ; GTK-014: medir overhead CSD una sola vez al primer on-time.
-            if _fp-csd-overhead = 0x0 [
-                _fp-csd-overhead: face/size - _fp-spec-size
-            ]
-            panel-face/size: compute-child-size face/size _fp-csd-overhead 10 10
-            panel-face/draw: render-fp-panel app-model panel-face/size/x panel-face/size/y
-            show panel-face
-        ]
         on-key-down: func [face event] [
             ; Ctrl+E → mostrar BD (crearlo si se cerró, traerlo al frente si existe)
             ; GTK-012: on-key-down para combos Ctrl; view/no-wait levanta la ventana en GTK

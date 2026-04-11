@@ -854,7 +854,9 @@ render-structure: func [
 
 ; Bounding-box del contenido del BD en píxeles de contenido
 bd-content-bounds: func [model /local cx cy] [
-    cx: 600  cy: 400
+    ; Mínimo 0 — el caller añade max con el tamaño del viewport para
+    ; que solo aparezcan scrollbars cuando el contenido supera la ventana.
+    cx: 0  cy: 0
     foreach _n model/nodes [
         cx: max cx (_n/x + block-width  + 40)
         cy: max cy (_n/y + block-height + 40)
@@ -1016,20 +1018,10 @@ render-bd: func [model /local cmds src-port-xy mid st w h sx sy sb-w _cx _cy _th
     append cmds [reset-matrix]
 
     ; ── Scrollbars (coords de pantalla — fuera del translate) ───────
-    ; Bounding-box del contenido (mínimo = tamaño del viewport)
-    _cx: w  _cy: h
-    foreach _n model/nodes [
-        _cx: max _cx (_n/x + block-width  + 40)
-        _cy: max _cy (_n/y + block-height + 40)
-    ]
-    if block? model/structures [
-        foreach _st model/structures [
-            _cx: max _cx (_st/x + _st/w + 40)
-            _cy: max _cy (_st/y + _st/h + 40)
-        ]
-    ]
+    ; Contenido real vs viewport: scrollbar solo si contenido > viewport.
     _bounds: bd-content-bounds model
-    _cx: _bounds/x  _cy: _bounds/y
+    _cx: max w _bounds/x
+    _cy: max h _bounds/y
     sb-w: 8  ; grosor del scrollbar
     ; Scrollbar vertical (derecha)
     if _cy > h [

@@ -1069,13 +1069,16 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 ]
             ]
 
-            on-wheel: func [face event /local model step] [
+            on-wheel: func [face event /local model step bounds max-sx max-sy] [
                 model: face/extra
                 step: to-integer event/picked * -40
+                bounds: bd-content-bounds model
+                max-sx: max 0 (bounds/x - face/size/x)
+                max-sy: max 0 (bounds/y - face/size/y)
                 either event/shift? [
-                    model/scroll-x: max 0 (model/scroll-x + step)
+                    model/scroll-x: max 0 min max-sx (model/scroll-x + step)
                 ][
-                    model/scroll-y: max 0 (model/scroll-y + step)
+                    model/scroll-y: max 0 min max-sy (model/scroll-y + step)
                 ]
                 face/draw: render-bd model
             ]

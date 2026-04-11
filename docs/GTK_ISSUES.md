@@ -94,6 +94,7 @@ Cuando Red migre a 64-bit, este problema desaparece. QTorres debe seguir ese roa
 | GTK-010 `on-change` de field queda enganchado tras Run | — | Issue anlaco/QTorres#49 |
 | GTK-014 `face/size` flip-flop CSD↔cliente tras alt+tab | — | Workaround: detección bidireccional en qtorres.red |
 | GTK-015 Tab crashea navegación foco en window con solo `base` | — | Pendiente de crear — no fatal |
+| GTK-016 Access violation en show/draw bajo maximize/resize | — | Crítico — sin workaround user-land |
 
 ---
 
@@ -180,6 +181,37 @@ Al pulsar Tab en una ventana cuyo `pane` solo contiene faces de tipo `base` (no 
 **Workaround temporal:** Ninguno limpio desde user-land. Se acepta como limitación conocida de Red/View GTK. El BD/FP de QTorres no usa Tab como interacción normal.
 
 **Test reproducible:** `tests/test-overhead.red` — pulsar Tab muestra el error repetidamente en stderr pero la aplicación sigue funcionando.
+
+---
+
+### GTK-016: Access violation en `show`/`draw` bajo maximize/resize repetidos
+
+**Severidad:** Crítica
+**Impacto en QTorres:** Bajo presión de eventos de resize (maximize/restore rápido, o drag agresivo del borde) el runtime de Red/View genera un `*** Runtime Error 1: access violation` nativo en una dirección dentro del runtime (ej. `at: 0809DC91h`). En un caso observado el crash arrastró al sistema entero hasta colgarlo.
+
+**Descripción:**
+El crash ocurre esporádicamente al combinar:
+- Modificaciones de `face/size` desde un handler (`on-time`)
+- Llamadas a `show` sobre el face hijo (base con Draw)
+- Eventos GTK concurrentes de maximize/restore/focus
+
+La pila de ejecución nunca llega al user-land — es un `access violation` en memoria nativa, probablemente en el path de actualización del widget GTK desde el binding de Red. No hay forma de capturarlo con `try`/`catch`: es segfault puro.
+
+**Hallazgos del diagnóstico:**
+
+1. **Intermitente** — no se reproduce de forma determinista. Requiere varios ciclos de maximize/restore seguidos.
+2. **No depende de la lógica user-land** — se reproduce con el test simplificado `test-overhead.red` que no hace flip detection ni manipula estado.
+3. **Peligroso** — en un caso concreto arrastró al sistema entero (no solo a la app) y obligó a reiniciar el equipo.
+4. **No hay workaround** — cualquier estrategia que implique `show` tras cambiar `face/size` es vulnerable.
+
+**Workaround temporal:** Ninguno conocido desde user-land. Posibles mitigaciones a investigar:
+- Diferir `show` con un timer adicional tras el resize
+- Usar `show/with` o `show face/pane` en lugar de `show child`
+- Evitar modificar `face/size` dentro del handler y hacerlo en un tick posterior
+
+**Siguiente paso:** Caso mínimo reproducible para bug report upstream a Red-Lang. Mientras tanto, QTorres debe asumir que el resize agresivo puede matar la app.
+
+**Test reproducible:** `tests/test-overhead.red` — maximize/restore repetido acaba disparando el crash en una fracción de los intentos.
 
 ---
 

@@ -493,10 +493,28 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
         extra: model                    ; modelo accesible desde actores via face/extra
         actors: make object! [
 
-            on-down: func [face event /local mouse-x mouse-y model hit-result hit-nd hit-port-name hit-dir hit-ref] [
+            on-down: func [face event /local mouse-x mouse-y model hit-result hit-nd hit-port-name hit-dir hit-ref _sx _sy _w _h _b _sb] [
                 model: face/extra
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
+                _sx: event/offset/x  _sy: event/offset/y
+                _w: face/size/x      _h: face/size/y
+                _sb: 8
+                ; ── Click en scrollbar (coords de pantalla, antes del translate) ──
+                _b: bd-content-bounds model
+                if all [_b/y > _h  _sx >= (_w - _sb)  _sy < (_h - _sb)] [
+                    ; Scrollbar vertical — calcular nueva posición de scroll
+                    model/scroll-y: max 0 to-integer (_sy * (_b/y - _h) / (_h - _sb))
+                    face/draw: render-bd model
+                    exit
+                ]
+                if all [_b/x > _w  _sy >= (_h - _sb)  _sx < (_w - _sb)] [
+                    ; Scrollbar horizontal
+                    model/scroll-x: max 0 to-integer (_sx * (_b/x - _w) / (_w - _sb))
+                    face/draw: render-bd model
+                    exit
+                ]
+                ; ── Hit-test normal (coords de contenido, con compensación de scroll) ──
+                mouse-x: event/offset/x + model/scroll-x
+                mouse-y: event/offset/y + model/scroll-y
 
                 ; 1) Puerto? (incluye nodos internos de estructuras)
                 hit-result: hit-port model mouse-x mouse-y
@@ -509,7 +527,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                             model/broken-wire: none
                             model/wire-src:  hit-nd
                             model/wire-port: hit-port-name
-                            model/mouse-pos: event/offset
+                            model/mouse-pos: as-pair mouse-x mouse-y
                             face/draw: render-bd model
                         ]
                     ][
@@ -921,8 +939,8 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
 
             on-over: func [face event /local mouse-x mouse-y model dx dy _st _frame _nodes] [
                 model: face/extra
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
+                mouse-x: event/offset/x + model/scroll-x
+                mouse-y: event/offset/y + model/scroll-y
 
                 ; Drag de nodo (normal o interno)
                 if all [model/drag-node model/drag-off event/down?] [
@@ -992,7 +1010,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 model: face/extra
                 ; Completar wire si se suelta sobre un puerto de entrada (drag-to-connect)
                 if model/wire-src [
-                    hit-result: hit-port model event/offset/x event/offset/y
+                    hit-result: hit-port model (event/offset/x + model/scroll-x) (event/offset/y + model/scroll-y)
                     if all [
                         hit-result
                         hit-result/3 = 'in
@@ -1051,10 +1069,24 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 ]
             ]
 
+            on-wheel: func [face event /local model step bounds max-sx max-sy] [
+                model: face/extra
+                step: to-integer event/picked * -40
+                bounds: bd-content-bounds model
+                max-sx: max 0 (bounds/x - face/size/x)
+                max-sy: max 0 (bounds/y - face/size/y)
+                either event/shift? [
+                    model/scroll-x: max 0 min max-sx (model/scroll-x + step)
+                ][
+                    model/scroll-y: max 0 min max-sy (model/scroll-y + step)
+                ]
+                face/draw: render-bd model
+            ]
+
             on-dbl-click: func [face event /local mouse-x mouse-y model node label-text st-hit struct-hit sr-hit] [
                 model: face/extra
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
+                mouse-x: event/offset/x + model/scroll-x
+                mouse-y: event/offset/y + model/scroll-y
 
                 ; 0) Terminal SR: editar valor inicial
                 sr-hit: hit-structure-sr model mouse-x mouse-y

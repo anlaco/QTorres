@@ -273,6 +273,35 @@ palette-add-node: func [node-type /local n nid model] [
     unview
 ]
 
+; Añade un nodo Sub-VI apuntando directamente a un .qvi de librería.
+; vi-path es un file! ya resuelto (absoluto o relativo al working dir).
+palette-add-qlib-vi: func [vi-path [file!] /local n nid model] [
+    model: palette-canvas/extra
+    nid: gen-node-id model
+    n: make-subvi-node compose [
+        id: (nid)
+        type: 'subvi
+        x: (palette-pos-x)
+        y: (palette-pos-y)
+        file: (vi-path)
+    ]
+    either palette-struct [
+        if all [palette-struct/type = 'case-structure  block? palette-struct/frames] [
+            if palette-struct/active-frame < length? palette-struct/frames [
+                append palette-struct/frames/(palette-struct/active-frame + 1)/nodes n
+            ]
+        ]
+        if find [while-loop for-loop] palette-struct/type [
+            append palette-struct/nodes n
+        ]
+    ][
+        append model/nodes n
+    ]
+    palette-canvas/draw: render-bd model
+    show palette-canvas
+    unview
+]
+
 ; Añade un nodo Sub-VI con file picker.
 palette-add-subvi: func [/local n nid model file-path] [
     model: palette-canvas/extra
@@ -319,12 +348,16 @@ palette-add-structure: func [type [word!] /local nid st model] [
     unview
 ]
 
-open-palette: func [face x y /struct target-struct] [
+open-palette: func [face x y /struct target-struct
+    /local qlibs qlib vi-path vi-label vi-short layout-block
+][
     palette-canvas: face
     palette-pos-x:  x
     palette-pos-y:  y
     palette-struct: target-struct
-    view/no-wait [
+
+    ; ── Parte estática ────────────────────────────────────────────
+    layout-block: copy [
         title "Añadir bloque"
         text "Aritmética:"  return
         button 80 "Add +"    [palette-add-node 'add]
@@ -362,7 +395,7 @@ open-palette: func [face x y /struct target-struct] [
         button 80 "While"    [palette-add-structure 'while-loop]
         button 80 "For"      [palette-add-structure 'for-loop]
         button 80 "Case"     [palette-add-structure 'case-structure]
-        button 80 "QVI"       [palette-add-subvi]  return
+        button 80 "QVI"      [palette-add-subvi]  return
         button 80 "Add SR"   [
             if palette-struct [
                 unview
@@ -370,8 +403,43 @@ open-palette: func [face x y /struct target-struct] [
             ]
         ]
         return
-        button "Cancelar"    [unview]
     ]
+
+    ; ── Sección dinámica: librerías .qlib ────────────────────────
+    ; Busca .qlib junto al .qvi cargado; si no hay fichero abierto, usa raíz del proyecto
+    _qlib-search-dir: either all [
+        value? 'app-model
+        object? app-model
+        in app-model 'current-file
+        file? app-model/current-file
+    ][
+        first split-path app-model/current-file
+    ][
+        _qtorres-project-dir
+    ]
+    qlibs: find-qlibs/from _qlib-search-dir
+    if not empty? qlibs [
+        append layout-block [text "Librerías:" return]
+        foreach qlib qlibs [
+            foreach vi-path qlib/members [
+                ; Etiqueta: "nombre-lib/vi" (sin extensión)
+                vi-short: form last split-path vi-path
+                if find vi-short ".qvi" [
+                    vi-short: copy/part vi-short (subtract length? vi-short 4)
+                ]
+                vi-label: rejoin [qlib/name "/" vi-short]
+                ; compose/deep captura vi-path por valor en cada iteración
+                append layout-block compose/deep [
+                    button 120 (vi-label) [palette-add-qlib-vi (vi-path)]
+                ]
+            ]
+            append layout-block 'return
+        ]
+    ]
+
+    append layout-block [button "Cancelar" [unview]]
+
+    view/no-wait layout-block
 ]
 
 ; ── Shift Register helpers ──────────────────────────────────────────

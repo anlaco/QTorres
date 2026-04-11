@@ -6,6 +6,12 @@ Red [
     Needs:   'View
 ]
 
+; ── Directorio raíz del proyecto ─────────────────────────────────
+; Red cambia what-dir al directorio del script al cargarlo (src/).
+; Capturamos la raíz del proyecto (un nivel arriba de src/) antes
+; de cualquier #include para que la paleta encuentre los .qlib.
+_qtorres-project-dir: clean-path to-file rejoin [form what-dir "../"]
+
 ; ── Módulos internos — se empaquetan con redc -e ─────────────────
 ; Chain loading (DT-025): cada módulo incluye al siguiente al final.
 ; Paths relativos al propio módulo → funciona con red-cli y redc -e.
@@ -36,6 +42,15 @@ show-save-dialog: func [model [object!] /local dlg default-name] [
         across
         button "Guardar" [
             save-vi-full to-file _save-field/text _save-model
+            ; Actualizar títulos tras guardar con nuevo nombre
+            if all [fp-window  object? fp-window] [
+                fp-window/text: rejoin ["Front Panel — " _save-model/name]
+                show fp-window
+            ]
+            if all [bd-window  object? bd-window] [
+                bd-window/text: rejoin ["Block Diagram — " _save-model/name]
+                show bd-window
+            ]
             unview
         ]
         button "Cancelar" [unview]
@@ -51,6 +66,7 @@ app-model: make app-model [
     canvas-ref:    none        ; face del BD — para refrescar desde panel.red
     panel-ref:     none        ; face del FP — para refrescar desde canvas.red
     drag-is-label: false
+    current-file:  none        ; path del .qvi cargado — para buscar .qlib relativos
 ]
 
 ; ── save-vi-full: serializa BD + FP juntos ───────────────────────
@@ -225,6 +241,7 @@ btn-load: make face! [
                     app-model/structures:     either in loaded 'structures [loaded/structures] [copy []]
                     app-model/name:           loaded/name
                     app-model/front-panel:    loaded/front-panel
+                    app-model/current-file:   path
                     app-model/selected-node:  none
                     app-model/selected-wire:  none
                     app-model/selected-struct: none
@@ -233,45 +250,115 @@ btn-load: make face! [
                     show canvas-face
                     panel-face/draw: render-fp-panel app-model panel-face/size/x panel-face/size/y
                     show panel-face
+                    ; Actualizar títulos de ventanas
+                    if all [fp-window  object? fp-window] [
+                        fp-window/text: rejoin ["Front Panel — " app-model/name]
+                        show fp-window
+                    ]
+                    if all [bd-window  object? bd-window] [
+                        bd-window/text: rejoin ["Block Diagram — " app-model/name]
+                        show bd-window
+                    ]
                 ]
             ]
         ]
     ]
 ]
 
+; ── Tamaño fijo de ventanas ───────────────────────────────────────
+; Ambas ventanas tienen el mismo tamaño fijo — sin botón de maximizar
+; ni redimensionado. El scroll maneja el contenido que supere el área.
+; BD: canvas offset 5x38 (toolbar arriba) → canvas 890x557
+; FP: panel offset 5x5                   → panel  890x590
+_win-size:     900x600
+_bd-canvas-sz: 890x557   ; _win-size - margen 10x43 (5+5 x 38+5)
+_fp-panel-sz:  890x590   ; _win-size - margen 10x10
+
 ; ── Faces principales ─────────────────────────────────────────────
-canvas-face: render-diagram app-model 880 490
+canvas-face: render-diagram app-model _bd-canvas-sz/x _bd-canvas-sz/y
 canvas-face/offset: 5x38
 app-model/canvas-ref: canvas-face
 
-panel-face: render-panel app-model 380 350
+panel-face: render-panel app-model _fp-panel-sz/x _fp-panel-sz/y
 panel-face/offset: 5x5
 app-model/panel-ref: panel-face
 
-; ── Ventana Front Panel (no-wait — coexiste con BD) ──────────────
-view/no-wait make face! [
-    type:   'window
-    text:   "Front Panel — untitled"
-    size:   400x375
-    offset: 960x60
-    pane:   reduce [panel-face]
-]
+; ── Referencias globales a las ventanas ──────────────────────────
+; Necesarias para toggle BD (Ctrl+E) y actualizar títulos al cargar .qvi.
+bd-window: none
+fp-window: none
 
-; ── Ventana Block Diagram (blocking — mantiene el event loop) ────
-view make face! [
-    type:   'window
-    text:   "Block Diagram — untitled"
-    size:   900x545
-    offset: 60x60
-    pane:   reduce [btn-run btn-save btn-load canvas-face]
-    actors: make object! [
-        on-key: func [face event] [
-            if any [
-                find [delete backspace] event/key
-                find [#"^(7F)" #"^H"] event/key
-            ][
-                canvas-delete-selected canvas-face
+; ── show-bd-window: abre BD o intenta traerlo al frente ──────────
+; GTK-013: Red/View no expone gtk_window_present — `show` intenta
+; elevar pero GTK no lo garantiza. La recreación (cuando bd-window
+; es none tras cerrar con X) sí garantiza que aparezca al frente.
+show-bd-window: func [/local] [
+    ; Ya existe → intentar traer al frente con show
+    if all [bd-window  object? bd-window] [
+        show bd-window
+        exit
+    ]
+    ; Crear ventana BD (primera vez o tras cierre con X → siempre al frente)
+    bd-window: make face! [
+        type:   'window
+        text:   rejoin ["Block Diagram — " app-model/name]
+        size:   _win-size
+        offset: 60x60
+        pane:   reduce [btn-run btn-save btn-load canvas-face]
+        actors: make object! [
+            on-key-down: func [face event] [
+                ; Delete/Backspace → borrar selección en canvas
+                if any [
+                    find [delete backspace] event/key
+                    find [#"^(7F)" #"^H"] event/key
+                ][
+                    canvas-delete-selected canvas-face
+                ]
+                ; Ctrl+E desde BD → intentar traer FP al frente
+                if event/ctrl? [
+                    if any [event/key = #"e"  event/key = #"E"  event/key = #"^E"] [
+                        if all [fp-window  object? fp-window] [
+                            show fp-window
+                        ]
+                    ]
+                ]
+            ]
+            on-close: func [face event] [
+                ; GTK destruye la ventana al cerrar — limpiamos referencia.
+                ; El próximo Ctrl+E recreará la ventana al frente.
+                bd-window: none
             ]
         ]
     ]
+    view/no-wait bd-window
 ]
+
+; ── Ventana Block Diagram (esclavo — se abre con Ctrl+E) ─────────
+show-bd-window
+
+; ── Ventana Front Panel (maestra — mantiene el event loop) ───────
+; Cerrar FP = cerrar todo. Ctrl+E = toggle BD.
+fp-window: make face! [
+    type:   'window
+    text:   "Front Panel — untitled"
+    size:   _win-size
+    offset: 960x60
+    pane:   reduce [panel-face]
+    actors: make object! [
+        on-key-down: func [face event] [
+            ; Ctrl+E → mostrar BD (crearlo si se cerró, traerlo al frente si existe)
+            ; GTK-012: on-key-down para combos Ctrl; view/no-wait levanta la ventana en GTK
+            ; Nota: Ctrl+E nunca cierra BD — para cerrar BD usar la X del OS
+            if event/ctrl? [
+                if any [event/key = #"e"  event/key = #"E"  event/key = #"^E"] [
+                    show-bd-window
+                ]
+            ]
+        ]
+        on-close: func [face event] [
+            ; Cerrar FP = cerrar todo el entorno
+            unview/all
+        ]
+    ]
+]
+view fp-window

@@ -324,36 +324,54 @@ qproj [
 
 ### `.qlib` — Librería
 
-Una librería agrupa VIs y primitivas bajo un namespace. Puede contener tanto `.qvi` como `.qprim`.
+Una librería agrupa VIs bajo un namespace. Es un **directorio** con un manifiesto `qlib.red` y los `.qvi` miembros. Cada miembro debe tener un `connector:` para poder usarse como sub-VI.
 
+**Estructura:**
+```
+proyecto/
+  math.qlib          ; manifiesto (fichero de texto)
+  math/
+    add.qvi          ; sub-VI con connector
+    subtract.qvi     ; sub-VI con connector
+```
+
+**Formato del fichero `math.qlib`:**
 ```red
 qlib [
-    version: 1
-    name:    "math"
-
+    name:        "math"
+    version:     1
+    description: "Operaciones matematicas basicas"
     members: [
-        %add.qprim
-        %subtract.qprim
-        %interpolate.qvi
-        %fft.qvi
+        %math/add.qvi
+        %math/subtract.qvi
     ]
 ]
 ```
 
-Código generado al cargar la librería:
+**Comportamiento en QTorres:**
+- La paleta del editor detecta automáticamente `.qlib` en el directorio de trabajo
+- Los VIs de la librería aparecen en sección "Librerías" de la paleta con etiqueta `nombre-lib/vi`
+- Al insertar un VI de librería se crea un nodo subvi igual que con cualquier sub-VI
+- Al compilar, el compilador emite `#include` selectivo (solo los miembros usados)
 
+**Código generado en el caller (usa `#include` selectivo):**
 ```red
-math: context [
-    do %math/add.qprim       ; incrusta código de la primitiva
-    do %math/subtract.qprim
-    do %math/interpolate.qvi  ; define math/interpolate
-    do %math/fft.qvi          ; define math/fft
-]
+_saved-qtorres-runtime: value? 'qtorres-runtime
+qtorres-runtime: true
+#include %math.qlib/add.qvi       ; solo los miembros usados
+#include %math.qlib/subtract.qvi
+if not _saved-qtorres-runtime [unset 'qtorres-runtime]
 
-; Uso desde otro VI:
-math/interpolate datos frecuencia
-math/fft señal
+; Llamadas con la convención nombre-context/exec:
+resultado-suma: add/exec A B
+resultado-resta: subtract/exec A B
 ```
+
+**Instalación:**
+- Local al proyecto: copiar el directorio `.qlib` junto al `.qvi` principal
+- Global del usuario: copiar a `~/.qtorres/libs/` (pendiente de implementar)
+
+**Ver ejemplo:** `examples/math.qlib` + `examples/math/` + `examples/usa-libreria.qvi`
 
 ### `.qctl` — Type definition
 

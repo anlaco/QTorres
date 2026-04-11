@@ -342,11 +342,26 @@ render-panel: func [model panel-width panel-height /local panel-face] [
         draw:    render-fp-panel model panel-width panel-height
         actors:  make object! [
 
-            on-down: func [face event /local mouse-x mouse-y zone item w h lbl-dx lbl-dy] [
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
-                w: face/extra/size/x
-                h: face/extra/size/y
+            on-down: func [face event /local mouse-x mouse-y zone item w h lbl-dx lbl-dy _sx _sy _sb _bounds _cx _cy] [
+                w: face/size/x  h: face/size/y
+                _sx: event/offset/x  _sy: event/offset/y
+                _sb: 8
+                _bounds: fp-content-bounds face/extra
+                _cx: _bounds/x  _cy: _bounds/y
+                ; ── Click en scrollbar vertical del FP ──
+                if all [_cy > h  _sx >= (w - _sb)  _sy < (h - _sb)] [
+                    face/extra/fp-scroll-y: max 0 min (max 0 (_cy - h)) to-integer (_sy * (_cy - h) / (h - _sb))
+                    face/draw: render-fp-panel face/extra w h
+                    exit
+                ]
+                ; ── Click en scrollbar horizontal del FP ──
+                if all [_cx > w  _sy >= (h - _sb)  _sx < (w - _sb)] [
+                    face/extra/fp-scroll-x: max 0 min (max 0 (_cx - w)) to-integer (_sx * (_cx - w) / (w - _sb))
+                    face/draw: render-fp-panel face/extra w h
+                    exit
+                ]
+                mouse-x: event/offset/x + face/extra/fp-scroll-x
+                mouse-y: event/offset/y + face/extra/fp-scroll-y
                 zone: hit-fp-zone face/extra mouse-x mouse-y
 
                 either zone [
@@ -376,10 +391,10 @@ render-panel: func [model panel-width panel-height /local panel-face] [
             ]
 
             on-over: func [face event /local mouse-x mouse-y w h item] [
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
-                w: face/extra/size/x
-                h: face/extra/size/y
+                mouse-x: event/offset/x + face/extra/fp-scroll-x
+                mouse-y: event/offset/y + face/extra/fp-scroll-y
+                w: face/size/x
+                h: face/size/y
 
                 if all [face/extra/drag-fp  face/extra/drag-off  event/down?] [
                     item: face/extra/drag-fp
@@ -403,10 +418,10 @@ render-panel: func [model panel-width panel-height /local panel-face] [
             ]
 
             on-click: func [face event /local mouse-x mouse-y hit w h] [
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
-                w: face/extra/size/x
-                h: face/extra/size/y
+                mouse-x: event/offset/x + face/extra/fp-scroll-x
+                mouse-y: event/offset/y + face/extra/fp-scroll-y
+                w: face/size/x
+                h: face/size/y
                 hit: hit-fp-item face/extra mouse-x mouse-y
                 case [
                     all [hit  hit/type = 'bool-control] [
@@ -430,8 +445,8 @@ render-panel: func [model panel-width panel-height /local panel-face] [
             ]
 
             on-dbl-click: func [face event /local mouse-x mouse-y hit] [
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
+                mouse-x: event/offset/x + face/extra/fp-scroll-x
+                mouse-y: event/offset/y + face/extra/fp-scroll-y
                 hit: hit-fp-item face/extra mouse-x mouse-y
 
                 case [
@@ -448,16 +463,30 @@ render-panel: func [model panel-width panel-height /local panel-face] [
             ]
 
             on-alt-down: func [face event /local mouse-x mouse-y] [
-                mouse-x: event/offset/x
-                mouse-y: event/offset/y
+                mouse-x: event/offset/x + face/extra/fp-scroll-x
+                mouse-y: event/offset/y + face/extra/fp-scroll-y
                 open-fp-palette face mouse-x mouse-y
+            ]
+
+            on-wheel: func [face event /local model step bounds max-sx max-sy] [
+                model: face/extra
+                step: to-integer event/picked * -40
+                bounds: fp-content-bounds model
+                max-sx: max 0 (bounds/x - face/size/x)
+                max-sy: max 0 (bounds/y - face/size/y)
+                either event/shift? [
+                    model/fp-scroll-x: max 0 min max-sx (model/fp-scroll-x + step)
+                ][
+                    model/fp-scroll-y: max 0 min max-sy (model/fp-scroll-y + step)
+                ]
+                face/draw: render-fp-panel model face/size/x face/size/y
             ]
 
             on-key: func [face event /local model hit w h _cref bd-node] [
                 model: face/extra
                 hit: model/selected-fp
-                w: model/size/x
-                h: model/size/y
+                w: face/size/x
+                h: face/size/y
 
                 if all [hit  any [find [delete backspace] event/key  find [#"^(7F)" #"^H"] event/key]] [
                     ; Sync BD: borrar nodo y sus wires

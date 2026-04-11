@@ -396,14 +396,60 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
     cmds
 ]
 
-render-fp-panel: func [model w h /local cmds item selected?] [
+fp-content-bounds: func [model /local cx cy] [
+    ; Mínimo 0 — el caller añade max con el tamaño del viewport.
+    cx: 0  cy: 0
+    foreach _item model/front-panel [
+        cx: max cx (_item/offset/x + fp-item-width  + 20)
+        cy: max cy (_item/offset/y + fp-item-height + fp-label-above + 20)
+    ]
+    as-pair cx cy
+]
+
+render-fp-panel: func [model w h /local cmds item selected? sx sy sb-w _bounds _cx _cy _th _tx _ty] [
     cmds: copy []
 
-    append cmds render-fp-grid w h
+    sx: any [model/fp-scroll-x  0]
+    sy: any [model/fp-scroll-y  0]
+
+    ; Viewport: translate por scroll — Red/View clipea automáticamente a los bounds del face
+    append cmds compose [translate (as-pair (negate sx) (negate sy))]
+
+    append cmds render-fp-grid (sx + w + 20) (sy + h + 20)
 
     foreach item model/front-panel [
         selected?: either model/selected-fp [same? item model/selected-fp] [false]
         append cmds render-fp-item item selected?
+    ]
+
+    ; Volver a coords de pantalla para scrollbars
+    append cmds [reset-matrix]
+
+    _bounds: fp-content-bounds model
+    _cx: max w _bounds/x
+    _cy: max h _bounds/y
+    sb-w: 8
+    ; Scrollbar vertical (derecha)
+    if _cy > h [
+        _th: max 20 to-integer (h * h / _cy)
+        _ty: to-integer (sy * (h - _th - sb-w) / (_cy - h))
+        append cmds compose [
+            fill-pen 210.212.218  pen off
+            box (as-pair (w - sb-w) 0) (as-pair w (h - sb-w))
+            fill-pen 150.152.162  pen off
+            box (as-pair (w - sb-w) (_ty)) (as-pair w (_ty + _th))
+        ]
+    ]
+    ; Scrollbar horizontal (abajo)
+    if _cx > w [
+        _th: max 20 to-integer (w * w / _cx)
+        _tx: to-integer (sx * (w - _th - sb-w) / (_cx - w))
+        append cmds compose [
+            fill-pen 210.212.218  pen off
+            box (as-pair 0 (h - sb-w)) (as-pair (w - sb-w) h)
+            fill-pen 150.152.162  pen off
+            box (as-pair (_tx) (h - sb-w)) (as-pair (_tx + _th) h)
+        ]
     ]
 
     cmds

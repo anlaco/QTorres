@@ -852,11 +852,40 @@ render-structure: func [
     cmds
 ]
 
-render-bd: func [model /local cmds src-port-xy mid st] [
+; Bounding-box del contenido del BD en píxeles de contenido
+bd-content-bounds: func [model /local cx cy] [
+    ; Mínimo 0 — el caller añade max con el tamaño del viewport para
+    ; que solo aparezcan scrollbars cuando el contenido supera la ventana.
+    cx: 0  cy: 0
+    foreach _n model/nodes [
+        cx: max cx (_n/x + block-width  + 40)
+        cy: max cy (_n/y + block-height + 40)
+    ]
+    if block? model/structures [
+        foreach _st model/structures [
+            cx: max cx (_st/x + _st/w + 40)
+            cy: max cy (_st/y + _st/h + 40)
+        ]
+    ]
+    as-pair cx cy
+]
+
+render-bd: func [model /local cmds src-port-xy mid st w h sx sy sb-w _cx _cy _th _tx _ty _bounds] [
     cmds: copy []
 
-    ; 0) Grid de fondo
-    append cmds render-grid 880 490
+    ; Dimensiones del canvas (dinámicas con resize)
+    w: either all [object? model/canvas-ref  pair? model/canvas-ref/size]
+       [model/canvas-ref/size/x] [880]
+    h: either all [object? model/canvas-ref  pair? model/canvas-ref/size]
+       [model/canvas-ref/size/y] [490]
+    sx: any [model/scroll-x  0]
+    sy: any [model/scroll-y  0]
+
+    ; Translate por scroll — Red/View clipea automáticamente a los bounds del face
+    append cmds compose [translate (as-pair (negate sx) (negate sy))]
+
+    ; 0) Grid de fondo (cubre el área visible en espacio de contenido)
+    append cmds render-grid (sx + w + grid-size) (sy + h + grid-size)
 
     ; 1) Estructuras contenedoras (detrás de los nodos normales)
     if block? model/structures [
@@ -984,6 +1013,38 @@ render-bd: func [model /local cmds src-port-xy mid st] [
 
     ; 5) Nodos normales (encima de las estructuras)
     append cmds render-node-list model/nodes model/selected-node
+
+    ; ── Fin del espacio de contenido (volver a coords de pantalla) ──
+    append cmds [reset-matrix]
+
+    ; ── Scrollbars (coords de pantalla — fuera del translate) ───────
+    ; Contenido real vs viewport: scrollbar solo si contenido > viewport.
+    _bounds: bd-content-bounds model
+    _cx: max w _bounds/x
+    _cy: max h _bounds/y
+    sb-w: 8  ; grosor del scrollbar
+    ; Scrollbar vertical (derecha)
+    if _cy > h [
+        _th: max 20 to-integer (h * h / _cy)
+        _ty: to-integer (sy * (h - _th - sb-w) / (_cy - h))
+        append cmds compose [
+            fill-pen 210.212.218  pen off
+            box (as-pair (w - sb-w) 0) (as-pair w (h - sb-w))
+            fill-pen 150.152.162  pen off
+            box (as-pair (w - sb-w) (_ty)) (as-pair w (_ty + _th))
+        ]
+    ]
+    ; Scrollbar horizontal (abajo)
+    if _cx > w [
+        _th: max 20 to-integer (w * w / _cx)
+        _tx: to-integer (sx * (w - _th - sb-w) / (_cx - w))
+        append cmds compose [
+            fill-pen 210.212.218  pen off
+            box (as-pair 0 (h - sb-w)) (as-pair (w - sb-w) h)
+            fill-pen 150.152.162  pen off
+            box (as-pair (_tx) (h - sb-w)) (as-pair (_tx + _th) h)
+        ]
+    ]
 
     cmds
 ]

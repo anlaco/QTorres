@@ -342,17 +342,21 @@ render-panel: func [model panel-width panel-height /local panel-face] [
         draw:    render-fp-panel model panel-width panel-height
         actors:  make object! [
 
-            on-down: func [face event /local mouse-x mouse-y zone item w h lbl-dx lbl-dy _sx _sy _sb _cy] [
+            on-down: func [face event /local mouse-x mouse-y zone item w h lbl-dx lbl-dy _sx _sy _sb _bounds _cx _cy] [
                 w: face/size/x  h: face/size/y
                 _sx: event/offset/x  _sy: event/offset/y
                 _sb: 8
+                _bounds: fp-content-bounds face/extra
+                _cx: _bounds/x  _cy: _bounds/y
                 ; ── Click en scrollbar vertical del FP ──
-                _cy: h
-                foreach _it face/extra/front-panel [
-                    _cy: max _cy (_it/offset/y + fp-item-height + fp-label-above + 20)
-                ]
                 if all [_cy > h  _sx >= (w - _sb)  _sy < (h - _sb)] [
-                    face/extra/fp-scroll-y: max 0 to-integer (_sy * (_cy - h) / (h - _sb))
+                    face/extra/fp-scroll-y: max 0 min (max 0 (_cy - h)) to-integer (_sy * (_cy - h) / (h - _sb))
+                    face/draw: render-fp-panel face/extra w h
+                    exit
+                ]
+                ; ── Click en scrollbar horizontal del FP ──
+                if all [_cx > w  _sy >= (h - _sb)  _sx < (w - _sb)] [
+                    face/extra/fp-scroll-x: max 0 min (max 0 (_cx - w)) to-integer (_sx * (_cx - w) / (w - _sb))
                     face/draw: render-fp-panel face/extra w h
                     exit
                 ]
@@ -464,13 +468,17 @@ render-panel: func [model panel-width panel-height /local panel-face] [
                 open-fp-palette face mouse-x mouse-y
             ]
 
-            on-wheel: func [face event /local model step bounds max-sy] [
+            on-wheel: func [face event /local model step bounds max-sx max-sy] [
                 model: face/extra
                 step: to-integer event/picked * -40
                 bounds: fp-content-bounds model
+                max-sx: max 0 (bounds/x - face/size/x)
                 max-sy: max 0 (bounds/y - face/size/y)
-                ; FP solo tiene scroll vertical (shift+wheel no hace nada útil aún)
-                model/fp-scroll-y: max 0 min max-sy (model/fp-scroll-y + step)
+                either event/shift? [
+                    model/fp-scroll-x: max 0 min max-sx (model/fp-scroll-x + step)
+                ][
+                    model/fp-scroll-y: max 0 min max-sy (model/fp-scroll-y + step)
+                ]
                 face/draw: render-fp-panel model face/size/x face/size/y
             ]
 

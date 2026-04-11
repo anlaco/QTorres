@@ -396,6 +396,14 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
     cmds
 ]
 
+fp-content-bounds: func [model /local cy] [
+    cy: 400
+    foreach _item model/front-panel [
+        cy: max cy (_item/offset/y + fp-item-height + fp-label-above + 20)
+    ]
+    as-pair 0 cy   ; FP solo tiene scroll vertical por ahora
+]
+
 render-fp-panel: func [model w h /local cmds item selected? sx sy sb-w _cy _th _ty] [
     cmds: copy []
 

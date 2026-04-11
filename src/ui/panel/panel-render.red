@@ -397,7 +397,8 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
 ]
 
 fp-content-bounds: func [model /local cx cy] [
-    cx: 400  cy: 400
+    ; Mínimo 0 — el caller añade max con el tamaño del viewport.
+    cx: 0  cy: 0
     foreach _item model/front-panel [
         cx: max cx (_item/offset/x + fp-item-width  + 20)
         cy: max cy (_item/offset/y + fp-item-height + fp-label-above + 20)
@@ -425,7 +426,8 @@ render-fp-panel: func [model w h /local cmds item selected? sx sy sb-w _bounds _
     append cmds [reset-matrix]
 
     _bounds: fp-content-bounds model
-    _cx: _bounds/x  _cy: _bounds/y
+    _cx: max w _bounds/x
+    _cy: max h _bounds/y
     sb-w: 8
     ; Scrollbar vertical (derecha)
     if _cy > h [

@@ -92,6 +92,8 @@ Cuando Red migre a 64-bit, este problema desaparece. QTorres debe seguir ese roa
 | GTK-008 `request-file/save` abre diálogo de carpetas | — | Workaround: diálogo VID propio |
 | GTK-009 `request-file` no permite controlar tamaño | — | Posible: file browser VID propio |
 | GTK-010 `on-change` de field queda enganchado tras Run | — | Issue anlaco/QTorres#49 |
+| GTK-014 `face/size` flip-flop CSD↔cliente tras alt+tab | — | Workaround: detección bidireccional en qtorres.red |
+| GTK-015 Tab crashea navegación foco en window con solo `base` | — | Pendiente de crear — no fatal |
 
 ---
 
@@ -112,6 +114,72 @@ La causa probable es que Red/View no llama a `gtk_window_set_transient_for()` o 
 **Workaround temporal:** Usar `view/no-wait` en vez de `view/flags [modal]`. El diálogo no es modal pero preserva el foco. Requiere variables de módulo en vez de `/local` porque la función retorna antes de que se cierre el diálogo.
 
 **Test reproducible:** `tests/test-focus-modal.red` — V1 reproduce el bug, V2 muestra el workaround.
+
+---
+
+### GTK-014: `face/size` reporta dos interpretaciones distintas según el estado de foco — flip-flop tras alt+tab / maximize / restore
+
+**Severidad:** Alta
+**Impacto en QTorres:** El canvas del BD y del FP se dimensionaban mal tras alt+tab o restore de maximize, saliéndose por la derecha y/o abajo de la ventana, o quedándose demasiado pequeño con huecos visibles.
+
+**Descripción:**
+En GTK3 con CSD (Client-Side Decorations), `face/size` de una ventana reporta **dos valores distintos para el mismo estado visual**, y cambia entre ellos tras eventos de foco sin intervención del usuario:
+
+- **Modo CSD** (inicial y tras restore): `face/size = área cliente + header bar + sombras`
+- **Modo cliente** (tras primer alt+tab o focus cycle): `face/size = área cliente + header bar` (sin sombras)
+
+El valor en modo cliente es `~98x98 px menor` que en modo CSD para la misma ventana visual. No hay API en Red/View para saber en qué modo está GTK.
+
+**Ejemplo capturado** (pantalla 1366x768, ventana maximizada):
+
+```
+#21 on-resize 1464x836   ← maximizar, modo CSD (shadows incluidas)
+#22 on-time   1464x836
+#23 on-unfocus 1366x738  ← alt+tab, GTK cambia a modo cliente (-98x-98)
+#28 on-resize  663x486   ← restore, modo cliente (747-98, 584-98)
+#30 on-resize  747x584   ← mismo estado, GTK vuelve a modo CSD (+98x+98)
+```
+
+**Workaround implementado:** Detección bidireccional del flip en `qtorres.red`:
+
+1. Medir `_gtk-csd-overhead = face/size - spec-size` al crear la primera ventana (ej. 98x130).
+2. En cada `on-resize` y `on-time`, llamar `detect-gtk-csd-flip face/size`:
+   - Si `face/size` salta -98x-98 (ambos ejes simultáneos en rango [80,150]): flip CSD→cliente. Nuevo overhead = `csd-overhead - |delta|` (normalmente `0x32`, solo header bar).
+   - Si `face/size` salta +98x+98: flip cliente→CSD. Overhead vuelve al original.
+3. El área del canvas se calcula siempre como `face/size - _gtk-overhead - margen`, que es consistente en ambos modos.
+
+El umbral [80, 150] filtra drags normales del usuario (que raramente afectan ambos ejes simultáneamente con esa magnitud).
+
+**Test reproducible:** `tests/test-overhead.red` — con logging a `/tmp/test-overhead.log` para capturar la secuencia de eventos y validar la detección.
+
+---
+
+### GTK-015: Pulsar `Tab` en ventana con solo `base` face crashea en navegación de foco
+
+**Severidad:** Media (no fatal)
+**Impacto en QTorres:** Si el usuario pulsa Tab con foco en el canvas del BD o FP, aparece un error en stderr. La aplicación **no muere** — el event loop continúa funcionando normalmente.
+
+**Descripción:**
+Al pulsar Tab en una ventana cuyo `pane` solo contiene faces de tipo `base` (no focusables), el handler interno de navegación de foco de Red/View intenta recorrer `p/parent/pane` y falla porque `parent` es `none`:
+
+```
+*** Script Error: path p/parent/pane is not valid for none! type
+*** Where: eval-path
+*** Near : handler face event
+*** Stack: view do-events do-safe
+```
+
+**Hallazgos del diagnóstico:**
+
+1. **`on-key` recibe el Tab** (`event/key = #"^-"`) — el evento llega al user-land antes del crash.
+2. **`return 'done` desde `on-key` NO previene** el handler interno — Red/View lo ejecuta igualmente.
+3. **Añadir un `field` al pane como "tab-sink"** no evita el crash. Si es `visible?: false` GTK emite `gtk_widget_event: WIDGET_REALIZED_FOR_EVENT failed` porque el widget no está realizado. Si es visible pero off-screen, el crash sigue produciéndose en un handler distinto.
+4. **`set-focus tab-sink` en `on-create`** falla porque los widgets hijos aún no están realizados en ese momento.
+5. **El crash es no-fatal** — el event loop sigue vivo y los siguientes eventos de teclado se procesan normalmente.
+
+**Workaround temporal:** Ninguno limpio desde user-land. Se acepta como limitación conocida de Red/View GTK. El BD/FP de QTorres no usa Tab como interacción normal.
+
+**Test reproducible:** `tests/test-overhead.red` — pulsar Tab muestra el error repetidamente en stderr pero la aplicación sigue funcionando.
 
 ---
 

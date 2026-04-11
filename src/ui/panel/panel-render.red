@@ -396,15 +396,16 @@ render-fp-item: func [item selected? /local cmds col border-col type-lbl led-col
     cmds
 ]
 
-fp-content-bounds: func [model /local cy] [
-    cy: 400
+fp-content-bounds: func [model /local cx cy] [
+    cx: 400  cy: 400
     foreach _item model/front-panel [
+        cx: max cx (_item/offset/x + fp-item-width  + 20)
         cy: max cy (_item/offset/y + fp-item-height + fp-label-above + 20)
     ]
-    as-pair 0 cy   ; FP solo tiene scroll vertical por ahora
+    as-pair cx cy
 ]
 
-render-fp-panel: func [model w h /local cmds item selected? sx sy sb-w _cy _th _ty] [
+render-fp-panel: func [model w h /local cmds item selected? sx sy sb-w _bounds _cx _cy _th _tx _ty] [
     cmds: copy []
 
     sx: any [model/fp-scroll-x  0]
@@ -423,12 +424,10 @@ render-fp-panel: func [model w h /local cmds item selected? sx sy sb-w _cy _th _
     ; Volver a coords de pantalla para scrollbars
     append cmds [reset-matrix]
 
-    ; Bounding-box del contenido FP
-    _cy: h
-    foreach _item model/front-panel [
-        _cy: max _cy (_item/offset/y + fp-item-height + fp-label-above + 20)
-    ]
+    _bounds: fp-content-bounds model
+    _cx: _bounds/x  _cy: _bounds/y
     sb-w: 8
+    ; Scrollbar vertical (derecha)
     if _cy > h [
         _th: max 20 to-integer (h * h / _cy)
         _ty: to-integer (sy * (h - _th - sb-w) / (_cy - h))
@@ -437,6 +436,17 @@ render-fp-panel: func [model w h /local cmds item selected? sx sy sb-w _cy _th _
             box (as-pair (w - sb-w) 0) (as-pair w (h - sb-w))
             fill-pen 150.152.162  pen off
             box (as-pair (w - sb-w) (_ty)) (as-pair w (_ty + _th))
+        ]
+    ]
+    ; Scrollbar horizontal (abajo)
+    if _cx > w [
+        _th: max 20 to-integer (w * w / _cx)
+        _tx: to-integer (sx * (w - _th - sb-w) / (_cx - w))
+        append cmds compose [
+            fill-pen 210.212.218  pen off
+            box (as-pair 0 (h - sb-w)) (as-pair (w - sb-w) h)
+            fill-pen 150.152.162  pen off
+            box (as-pair (_tx) (h - sb-w)) (as-pair (_tx + _th) h)
         ]
     ]
 

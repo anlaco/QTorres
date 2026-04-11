@@ -92,7 +92,7 @@ Cuando Red migre a 64-bit, este problema desaparece. QTorres debe seguir ese roa
 | GTK-008 `request-file/save` abre diálogo de carpetas | — | Workaround: diálogo VID propio |
 | GTK-009 `request-file` no permite controlar tamaño | — | Posible: file browser VID propio |
 | GTK-010 `on-change` de field queda enganchado tras Run | — | Issue anlaco/QTorres#49 |
-| GTK-014 `face/size` flip-flop CSD↔cliente tras alt+tab | — | Workaround: detección bidireccional en qtorres.red |
+| GTK-014 `face/size` flip-flop CSD↔cliente tras alt+tab | — | Workaround: ventanas fijas 900x600 sin resize (Issue #65) |
 | GTK-015 Tab crashea navegación foco en window con solo `base` | — | Pendiente de crear — no fatal |
 | GTK-016 Access violation en show/draw bajo maximize/resize | — | Crítico — sin workaround user-land |
 
@@ -141,17 +141,11 @@ El valor en modo cliente es `~98x98 px menor` que en modo CSD para la misma vent
 #30 on-resize  747x584   ← mismo estado, GTK vuelve a modo CSD (+98x+98)
 ```
 
-**Workaround implementado:** Detección bidireccional del flip en `qtorres.red`:
+**Workaround implementado (Issue #65):** Ventanas de tamaño fijo (900x600) sin `flags: [resize]`. Al no haber redimensionado, el flip CSD↔cliente no afecta al layout — los canvas tienen tamaño fijo calculado contra el spec de la ventana, no contra `face/size`.
 
-1. Medir `_gtk-csd-overhead = face/size - spec-size` al crear la primera ventana (ej. 98x130).
-2. En cada `on-resize` y `on-time`, llamar `detect-gtk-csd-flip face/size`:
-   - Si `face/size` salta -98x-98 (ambos ejes simultáneos en rango [80,150]): flip CSD→cliente. Nuevo overhead = `csd-overhead - |delta|` (normalmente `0x32`, solo header bar).
-   - Si `face/size` salta +98x+98: flip cliente→CSD. Overhead vuelve al original.
-3. El área del canvas se calcula siempre como `face/size - _gtk-overhead - margen`, que es consistente en ambos modos.
+La detección bidireccional del flip fue explorada y descartada: los deltas -98x-98 durante maximize son indistinguibles de un flip legítimo por alt+tab, y la lógica de corrección se volvía inestable. Ver `tests/test-overhead.red` para el diagnóstico completo.
 
-El umbral [80, 150] filtra drags normales del usuario (que raramente afectan ambos ejes simultáneamente con esa magnitud).
-
-**Test reproducible:** `tests/test-overhead.red` — con logging a `/tmp/test-overhead.log` para capturar la secuencia de eventos y validar la detección.
+**Test reproducible:** `tests/test-overhead.red` — con logging a `/tmp/test-overhead.log` para capturar la secuencia de eventos.
 
 ---
 

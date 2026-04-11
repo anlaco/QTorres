@@ -124,14 +124,14 @@ QTorres/
 - ~~#17 Sub-VI con connector pane~~ ✅ (pin-based connector, compile-subvi-call, runner carga contextos, btn-run sincronizado)
 - ~~#18 Librería .qlib~~ ✅ (load-qlib, find-qlibs, paleta integrada, ejemplo math.qlib, 482 tests PASS)
 - ~~#64 FP como ventana maestra~~ ✅ (FP=blocking master, BD=no-wait slave, Ctrl+E toggle, títulos sincronizados, current-file en app-model)
-- #65 Ventanas redimensionables con scroll horizontal y vertical
+- ~~#65 Scroll en BD y FP~~ ✅ (ventanas fijas 900x600, scroll wheel + click scrollbar, límites por contenido real)
 
 **Fase 5 — UX y gestión de proyectos (planificado):**
 - Splash / Welcome screen (Create New VI, Open Existing, proyectos recientes)
 - Project Explorer con formato .qproj (árbol de ficheros, gestión de dependencias)
 - Depende de: .qlib (#18) ✅ y FP como ventana maestra (#64) ✅
 
-**Próximo paso:** #65 Ventanas redimensionables con scroll horizontal y vertical
+**Próximo paso:** Fase 4 (hardware) o Fase 5 (UX)
 
 ## Decisiones técnicas clave
 
@@ -285,7 +285,7 @@ Spec visual: cada tipo implementa su aspecto según `docs/visual-spec.md`.
 - #17 Sub-VI con connector pane ✅
 - #18 Librería .qlib ✅
 - #64 FP como ventana maestra — BD bajo demanda (Ctrl+E) ✅
-- #65 Ventanas redimensionables con scroll horizontal y vertical
+- ~~#65 Scroll en BD y FP~~ ✅ (ventanas fijas 900x600, scrollbars draw-based, límites por contenido)
 
 **Fase 4 — Hardware:**
 - #19 SCPI sobre TCP/IP (Keysight por red)

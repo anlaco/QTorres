@@ -279,6 +279,29 @@ app-model/panel-ref: panel-face
 bd-window: none
 fp-window: none
 
+; ── Overhead CSD por ventana (GTK-014) ───────────────────────────
+; En GTK con Client-Side Decorations, face/size incluye header bar +
+; shadows (~98x130 px). Se mide una vez al primer on-time de cada
+; ventana y queda fijo. Sin detección de flips (irresolubles con
+; heurísticas de delta — ver tests/test-overhead.red y GTK-014).
+; Consecuencia aceptada: en modo cliente (alt+tab) el child queda
+; ~98x108 px más pequeño de lo óptimo (padding), pero nunca overflow.
+_bd-spec-size:    900x545   ; tamaño spec de la ventana BD
+_bd-csd-overhead: 0x0       ; medido al primer on-time; 0x0 = sin medir aún
+_fp-spec-size:    400x375   ; tamaño spec de la ventana FP
+_fp-csd-overhead: 0x0       ; medido al primer on-time; 0x0 = sin medir aún
+
+; compute-child-size: devuelve el tamaño correcto de un face hijo
+; descontando overhead CSD y el margen interno del layout.
+; Garantiza mínimo 50x50 para evitar faces de tamaño cero o negativo.
+compute-child-size: func [win-size ov margin-x margin-y /local cw ch] [
+    cw: win-size/x - ov/x - margin-x
+    ch: win-size/y - ov/y - margin-y
+    if cw < 50 [cw: 50]
+    if ch < 50 [ch: 50]
+    as-pair cw ch
+]
+
 ; ── show-bd-window: abre BD o intenta traerlo al frente ──────────
 ; GTK-013: Red/View no expone gtk_window_present — `show` intenta
 ; elevar pero GTK no lo garantiza. La recreación (cuando bd-window
@@ -293,7 +316,7 @@ show-bd-window: func [/local] [
     bd-window: make face! [
         type:   'window
         text:   rejoin ["Block Diagram — " app-model/name]
-        size:   900x545
+        size:   _bd-spec-size
         offset: 60x60
         flags:  [resize]
         pane:   reduce [btn-run btn-save btn-load canvas-face]
@@ -305,7 +328,11 @@ show-bd-window: func [/local] [
             ]
             on-time: func [face event] [
                 face/rate: none
-                canvas-face/size: as-pair (face/size/x - 10) (face/size/y - 38)
+                ; GTK-014: medir overhead CSD una sola vez al primer on-time.
+                if _bd-csd-overhead = 0x0 [
+                    _bd-csd-overhead: face/size - _bd-spec-size
+                ]
+                canvas-face/size: compute-child-size face/size _bd-csd-overhead 10 38
                 canvas-face/draw: render-bd app-model
                 show canvas-face
             ]
@@ -330,6 +357,8 @@ show-bd-window: func [/local] [
                 ; GTK destruye la ventana al cerrar — limpiamos referencia.
                 ; El próximo Ctrl+E recreará la ventana al frente.
                 bd-window: none
+                ; Resetear overhead para que la nueva ventana lo mida de nuevo.
+                _bd-csd-overhead: 0x0
             ]
         ]
     ]
@@ -344,7 +373,7 @@ show-bd-window
 fp-window: make face! [
     type:   'window
     text:   "Front Panel — untitled"
-    size:   400x375
+    size:   _fp-spec-size
     offset: 960x60
     flags:  [resize]
     pane:   reduce [panel-face]
@@ -354,7 +383,11 @@ fp-window: make face! [
         ]
         on-time: func [face event] [
             face/rate: none
-            panel-face/size: as-pair (face/size/x - 10) (face/size/y - 10)
+            ; GTK-014: medir overhead CSD una sola vez al primer on-time.
+            if _fp-csd-overhead = 0x0 [
+                _fp-csd-overhead: face/size - _fp-spec-size
+            ]
+            panel-face/size: compute-child-size face/size _fp-csd-overhead 10 10
             panel-face/draw: render-fp-panel app-model panel-face/size/x panel-face/size/y
             show panel-face
         ]

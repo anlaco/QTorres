@@ -204,6 +204,30 @@ Esta fase es esencial para el público objetivo (mismo que LabVIEW: ingeniería 
 
 ---
 
+## Fase 4.5 — Integración red-sg (puente entre hardware y UX)
+
+**Premisa:** red-sg es el toolkit hermano de QTorres. La separación aplicación/toolkit
+(ver DT-030 y `docs/roadmap-9-10.md` sección "red-sg: separación de responsabilidades
+por equipos") implica que, una vez red-sg esté estable, QTorres delega en él la capa
+gráfica genérica (scene graph, transforms, hit-test, undo/redo, widgets).
+
+**Prerrequisitos:**
+- Fase 4 funcionalmente completa (hardware operativo en al menos SCPI + Serial)
+- red-sg Fase 1 estable: sg-core, sg-transform, sg-hit-test, sg-events, sg-undo probados
+- Baselines de rendimiento establecidos (ver "Métricas pendientes" en roadmap-9-10)
+
+**Entregables:**
+- [ ] Migrar hit-test manual a `sg-hit-test`
+- [ ] Mapear nodos QTorres a `sg-node` con `draw-cmd`
+- [ ] Reemplazar scroll manual por `scene/view-x`, `scene/view-y`
+- [ ] Activar undo/redo con `sg-undo` (DT-031)
+- [ ] Migrar panel.red al mismo patrón
+- [ ] Medir reducción real de líneas y actualizar "Métricas pendientes"
+
+**Referencia detallada:** `docs/roadmap-9-10.md` sección "Fase 4.5".
+
+---
+
 ## Fase 5 — Experiencia de usuario y gestión de proyectos
 
 ### Splash / Welcome screen

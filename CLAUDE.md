@@ -131,7 +131,9 @@ QTorres/
 - Project Explorer con formato .qproj (árbol de ficheros, gestión de dependencias)
 - Depende de: .qlib (#18) ✅ y FP como ventana maestra (#64) ✅
 
-**Próximo paso:** Fase 4 (hardware) o Fase 5 (UX)
+**Próximo paso:** Fase 4 (hardware) → Fase 4.5 (integración red-sg) → Fase 5 (UX)
+
+**Prioridad:** Fase 4 hardware antes que Fase 5 UX. Un QTorres que habla con instrumentos reales es más valioso que uno con undo/redo pulido. La Fase 4.5 (red-sg) se sitúa entre ambas como puente natural de la separación aplicación/toolkit (ver DT-030 y `docs/roadmap-9-10.md`).
 
 ## Decisiones técnicas clave
 
@@ -385,6 +387,7 @@ Cubre sintaxis core, View, Draw, VID, Parse, patrones idiomáticos y gotchas.
 
 - Arquitectura completa: `docs/arquitectura.md`
 - Plan por fases: `docs/plan.md`
+- Roadmap detallado, riesgos existenciales y autocrítica: `docs/roadmap-9-10.md`
 - Todas las decisiones técnicas: `docs/decisiones.md` — **leer antes de implementar**
 - Decisiones pendientes: `docs/PLANNING.md` — **leer antes de tocar compilador o file-io**
 - Formato de ficheros: `docs/tipos-de-fichero.md`

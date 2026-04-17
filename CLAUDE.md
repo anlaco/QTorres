@@ -118,7 +118,7 @@ QTorres/
 - ~~#54 Cluster persiste campos~~ ✅  ~~#48/#50/#51 bugs menores~~ ✅
 - QA-018/029: protecciones de integridad ✅
 - Refactor 4A-4E: responsabilidades reorganizadas, ficheros grandes divididos ✅
-- 462 tests PASS
+- 482 tests PASS
 
 **Fase 3 — Sub-VIs y extensibilidad (en curso):**
 - ~~#17 Sub-VI con connector pane~~ ✅ (pin-based connector, compile-subvi-call, runner carga contextos, btn-run sincronizado)
@@ -130,10 +130,15 @@ QTorres/
 - Splash / Welcome screen (Create New VI, Open Existing, proyectos recientes)
 - Project Explorer con formato .qproj (árbol de ficheros, gestión de dependencias)
 - Depende de: .qlib (#18) ✅ y FP como ventana maestra (#64) ✅
+- **Nota:** Prototipo temprano de `.qproj` existe en `examples/ejemplo.qproj` — sirve como referencia del formato, pero sin tooling de Project Explorer aún
 
-**Próximo paso:** Fase 4 (hardware) → Fase 4.5 (integración red-sg) → Fase 5 (UX)
+**Próximo paso:** **Refactor 4B** (dividir compiler/file-io >800 líneas) → Fase 4 (hardware) → Fase 4.5 (integración red-sg) → Fase 5 (UX)
+
+**Refactor 4B estado (2026-04-17):** Plan detallado en `docs/refactor-4b-plan.md`. Listo para ejecutar (4-5.5 h, bajo riesgo). Recomendado antes de Fase 4 para evitar agregar complejidad a ficheros ya grandes.
 
 **Prioridad:** Fase 4 hardware antes que Fase 5 UX. Un QTorres que habla con instrumentos reales es más valioso que uno con undo/redo pulido. La Fase 4.5 (red-sg) se sitúa entre ambas como puente natural de la separación aplicación/toolkit (ver DT-030 y `docs/roadmap-9-10.md`).
+
+**Nota sobre el fork `anlaco/red`:** Los binarios `red-cli` y `red-view` se compilan desde un fork propio del repositorio Red, mantenido en `/home/alaforga/Anlaco/01-PRODUCTOS/red/` con origen `https://github.com/anlaco/red.git`. Este fork aplica fixes GTK3 (GTK-014, GTK-003 A/B) que upstream no ha cerrado. Ver `docs/GTK_ISSUES.md` para estado de cada bug y sus commits resolutivos en el fork. El fork se sincroniza periódicamente con `red/red` upstream pero se mantiene como copia local para independencia de Red upstream.
 
 ## Decisiones técnicas clave
 
@@ -300,6 +305,10 @@ Spec visual: cada tipo implementa su aspecto según `docs/visual-spec.md`.
 - Splash / Welcome screen (Create New VI, Open Existing, proyectos recientes)
 - Project Explorer con formato .qproj (árbol de proyecto, gestión de dependencias)
 
+## Fork `anlaco/red` como runtime — Fixes GTK aplicados
+
+Los binarios `red-cli` y `red-view` se compilan desde el fork `https://github.com/anlaco/red.git` mantenido en `/home/alaforga/Anlaco/01-PRODUCTOS/red/` (branch `fix/gtk3-resize-bugs`). Este fork aplica fixes GTK3 que upstream no ha cerrado rápido. Ver `docs/GTK_ISSUES.md` para estado de cada bug (GTK-014, GTK-003 A/B actualmente resueltos en el fork, commits `496a7c5`, `b381d9d`, `dbcfbe8`).
+
 ## Ollama MCP — Delegación de tareas a modelo local
 
 QTorres tiene un MCP server que conecta con Ollama (modelo local). Ollama tiene cargado automáticamente CLAUDE.md y el skill de Red-Lang como contexto del proyecto.
@@ -422,18 +431,18 @@ Cubre sintaxis core, View, Draw, VID, Parse, patrones idiomáticos y gotchas.
 El acoplamiento es **por diseño del dominio** (FP↔BD son una unidad 1:1) y no es deuda técnica.
 - **Regla para IA:** NO agravar esta dependencia. Usar el patrón existente para sincronizar BD↔FP.
 
-### Ficheros y tamaños (2026-04-08)
+### Ficheros y tamaños (2026-04-17)
 
 | Fichero | Líneas | Contenido |
 |---------|--------|-----------|
-| canvas.red | 1226 | Hit-test, CRUD, actor render-diagram |
-| canvas-render.red | 932 | Constantes visuales, geometría, Draw |
-| canvas-dialogs.red | 397 | Diálogos de edición, paleta, SR helpers |
-| panel.red | 535 | Hit-test, diálogos FP, paleta FP, actor |
-| panel-render.red | 411 | Constantes FP, render Draw, waveform |
-| compiler.red | 1029 | compile-diagram + compile-panel + estructuras |
-| file-io.red | 738 | serialize, save/load .qvi, save/load panel |
-| model.red | 635 | Constructores, helpers, find-node-by-id, set-config |
+| canvas.red | 1265 | Hit-test, CRUD, actor render-diagram |
+| canvas-render.red | 1050 | Constantes visuales, geometría, Draw |
+| canvas-dialogs.red | 516 | Diálogos de edición, paleta, SR helpers |
+| panel.red | 599 | Hit-test, diálogos FP, paleta FP, actor |
+| panel-render.red | 457 | Constantes FP, render Draw, waveform |
+| compiler.red | 1255 | compile-diagram + compile-panel + estructuras |
+| file-io.red | 939 | serialize, save/load .qvi, save/load panel |
+| model.red | 744 | Constructores, helpers, find-node-by-id, set-config |
 
 **Regla para IA:** Al trabajar en canvas.red o panel.red y sus submódulos, leer el fichero COMPLETO antes de hacer cambios.
 

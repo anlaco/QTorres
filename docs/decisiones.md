@@ -1239,3 +1239,42 @@ Cada widget sigue el patrón: función `render-*` que devuelve bloque Draw + fun
   directamente** y este DT se revisa.
 
 **Referencias:** DT-030 (arquitectura UI general); `docs/roadmap-9-10.md` apéndice.
+
+---
+
+## DT-034: Fork `anlaco/red` como runtime — independencia de upstream
+
+**Fecha:** 2026-04-17  
+**Estado:** Adoptada
+
+**Contexto:** Red-Lang upstream mueve lentamente o no acepta fixes para bugs GTK específicos que QTorres requiere (GTK-014: `face/size` flip-flop, GTK-003 A/B: resize events no se disparan en maximize/restore). Bloquear QTorres en upstream lentifica el proyecto. Se investigó mantener un fork propio con fixes compilados.
+
+**Decisión:** QTorres mantiene un fork oficial de Red en `https://github.com/anlaco/red.git` (copia local en `/home/alaforga/Anlaco/01-PRODUCTOS/red/`, rama `fix/gtk3-resize-bugs`). Los binarios `red-cli`, `red-view` y `redc` commiteados en el repo QTorres se compilan desde este fork, **no** desde Red upstream.
+
+**Política de mantenimiento:**
+
+1. **Sincronización con upstream:** El fork rebase regularmente (mensual) contra `red/red` main para absorber fixes de Red que beneficien QTorres (seguridad, rendimiento, nuevas features).
+
+2. **Criterio de fix propio:** Un fix entra en el fork si cumple **todos** estos criterios:
+   - Afecta a QTorres en GTK (no es reparación genérica de Red)
+   - Tiene caso mínimo reproducible documentado
+   - No entra en upstream en plazo <2 semanas (se intenta PR, si no se acepta entra al fork)
+   - Incluye test reproducible en `tests/` del fork
+
+3. **Trazabilidad:** Cada actualización de binarios (`red-cli`, `red-view`) lleva un commit QTorres con el mensaje `Update red-cli/red-view from anlaco/red commit HASH` y un fichero `red-fork-version.txt` con el hash del fork usado.
+
+4. **Coexistencia:** El fork es copia local; Red upstream sigue siendo upstream. Los `.qvi` generados son Red estándar y compilables con cualquier Red válido. El fork es una optimización de desarrollo, no una dependencia del formato.
+
+**Implicación:** 
+
+- QTorres no espera a Red upstream para funcionalidad GTK.
+- Los tests en CI (`tests/run-all.red`) se ejecutan contra los binarios del fork, validando fixes aplicados.
+- Cuando Red upstream implemente 64-bit, el fork puede descartarse (migración 1:1, no cambios de API).
+
+**Alternativas descartadas:**
+
+- Patches locales en QTorres: violaría DT-001 (todo en Red, sin workarounds).
+- Esperar a Red upstream: ralentización inaceptable (GTK bugs llevan meses).
+- Usar Rebol 3: sin View funcional completo, no es opción.
+
+**Referencias:** `docs/GTK_ISSUES.md` (estado de bugs resueltos en el fork); CLAUDE.md (sección "Fork `anlaco/red`").

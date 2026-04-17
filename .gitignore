@@ -36,3 +36,8 @@ libRedRT-defs.r
 libRedRT-extras.r
 libRedRT-include.red
 # red-cli, red-view y redc SÍ van en el repo (versión fijada, Linux x86_32)
+
+# Artefactos de la skill planning-with-files
+findings.md
+progress.md
+task_plan.md

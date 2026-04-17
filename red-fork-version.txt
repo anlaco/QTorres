@@ -1,0 +1,16 @@
+Fork: https://github.com/anlaco/red.git
+Branch: fix/gtk3-resize-bugs
+Commit: 2a93443f3 (BUGFIX: correct GTK3 window state constants and add fullscreen support)
+Date: 2026-04-17
+
+Fixes aplicados en este commit:
+- GTK-014: face/size flip-flop CSD↔cliente (commit 496a7c5)
+- GTK-003 Bug A: on-resize no se dispara en maximize/restore (commit b381d9d)
+- GTK-003 Bug B: base/panel no se repinta tras maximize/restore (commit dbcfbe8)
+- GTK-003 fullscreen support añadido (commit 2a93443)
+
+Para actualizar a nuevo commit del fork:
+  cd /home/alaforga/Anlaco/01-PRODUCTOS/red
+  git pull origin fix/gtk3-resize-bugs
+  # recompilar red-cli/red-view si cambian archivos en /runtime
+  # actualizar este fichero con el nuevo commit hash

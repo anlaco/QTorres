@@ -132,9 +132,9 @@ QTorres/
 - Depende de: .qlib (#18) ✅ y FP como ventana maestra (#64) ✅
 - **Nota:** Prototipo temprano de `.qproj` existe en `examples/ejemplo.qproj` — sirve como referencia del formato, pero sin tooling de Project Explorer aún
 
-**Próximo paso:** **Refactor 4B** (dividir compiler/file-io >800 líneas) → Fase 4 (hardware) → Fase 4.5 (integración red-sg) → Fase 5 (UX)
+**Próximo paso:** Fase 4 (hardware) → Fase 4.5 (integración red-sg) → Fase 5 (UX)
 
-**Refactor 4B estado (2026-04-17):** Plan detallado en `docs/refactor-4b-plan.md`. Listo para ejecutar (4-5.5 h, bajo riesgo). Recomendado antes de Fase 4 para evitar agregar complejidad a ficheros ya grandes.
+**Refactor 4B ✅ COMPLETADO (2026-04-17):** `compiler.red` (1255 → 18 líneas orquestador + 5 módulos) y `file-io.red` (939 → 17 líneas orquestador + 4 módulos). Todos los módulos <400 líneas excepto `file-io-serialize.red` (468) por `format-qvi` monolítica. 482/482 tests PASS. Ver `docs/refactor-4b-plan.md` para el plan original.
 
 **Prioridad:** Fase 4 hardware antes que Fase 5 UX. Un QTorres que habla con instrumentos reales es más valioso que uno con undo/redo pulido. La Fase 4.5 (red-sg) se sitúa entre ambas como puente natural de la separación aplicación/toolkit (ver DT-030 y `docs/roadmap-9-10.md`).
 
@@ -440,8 +440,17 @@ El acoplamiento es **por diseño del dominio** (FP↔BD son una unidad 1:1) y no
 | canvas-dialogs.red | 516 | Diálogos de edición, paleta, SR helpers |
 | panel.red | 599 | Hit-test, diálogos FP, paleta FP, actor |
 | panel-render.red | 457 | Constantes FP, render Draw, waveform |
-| compiler.red | 1255 | compile-diagram + compile-panel + estructuras |
-| file-io.red | 939 | serialize, save/load .qvi, save/load panel |
+| compiler.red | 18 | Orquestador: `#include` de los 5 submódulos |
+| compiler-emit.red | 348 | bind-emit, emit-bundle/unbundle, emit-cluster-* |
+| compiler-structures.red | 333 | compile-structure (while/for), compile-case-structure |
+| compiler-body.red | 315 | compile-subvi-call, compile-body, compile-diagram |
+| compiler-topo.red | 118 | topological-sort (Kahn), build-sorted-items |
+| compiler-panel.red | 117 | compile-panel, gen-standalone-code |
+| file-io.red | 17 | Orquestador: `#include` de los 4 submódulos |
+| file-io-serialize.red | 468 | serialize-nodes/wires/diagram, format-qvi (monolítica) |
+| file-io-load.red | 306 | load-vi, load-node-list, load-wire-list, norm-spec |
+| file-io-qlib.red | 94 | load-qlib, find-qlibs |
+| file-io-save.red | 79 | save-vi, save-panel-to-diagram |
 | model.red | 744 | Constructores, helpers, find-node-by-id, set-config |
 
 **Regla para IA:** Al trabajar en canvas.red o panel.red y sus submódulos, leer el fichero COMPLETO antes de hacer cambios.

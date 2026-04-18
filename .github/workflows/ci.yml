@@ -9,12 +9,17 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+      fail-fast: false
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo dpkg --add-architecture i386
           sudo apt-get update -qq
@@ -25,3 +30,11 @@ jobs:
         run: |
           chmod +x ../red-cli ../redc
           ../red-cli ../tests/run-all.red
+
+      - name: Validate DT-028 — .qvi compiles with red -c
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          chmod +x redc
+          ./redc -o /tmp/suma-test examples/suma-basica.qvi
+          test -x /tmp/suma-test && echo "✓ DT-028 validated (binary produced)" || exit 1

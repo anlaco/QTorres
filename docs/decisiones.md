@@ -1117,3 +1117,164 @@ Red/View (ventanas + event loop)
 - **Fase 5+:** Cuando lleguen inline text editing, property panels y project explorer, extraer QT-Widgets como módulo en `src/ui/widgets/`. Widgets candidatos: scrollbar, text-input, tree-view, tab-bar.
 
 **Plan B:** Si Red se estanca (bugs GTK sin arreglar en 1-2 años, 64-bit no llega), migrar el editor a PyQt/PySide manteniendo Red como lenguaje del código generado (.qvi). El formato .qvi y el compilador no cambian.
+
+---
+
+## DT-031: Undo/Redo via red-sg
+
+**Contexto:** Todo editor visual necesita undo/redo. LabVIEW tiene un stack global. GRC Qt
+tiene QUndoStack por flowgraph. Orange tiene QUndoCommand. Rete.js tiene HistoryPlugin.
+QTorres, al integrar red-sg (Fase 4.5), dispone de `sg-undo.red` ya implementado y
+testeado como parte del toolkit.
+
+**Decisión:** Usar el stack de undo/redo de red-sg (`sg-undo`). QTorres define comandos
+específicos del dominio (`add-node`, `move-node`, etc.) y los registra en el stack de
+red-sg. No reimplementar desde cero — red-sg ya tiene el motor probado y esa es
+precisamente la razón de la separación aplicación/toolkit (ver DT-030).
+
+**API de red-sg que se usa:**
+
+```red
+sg-push-undo scene action-block   ; registrar una acción
+sg-undo scene                      ; deshacer última acción
+sg-redo scene                      ; rehacer última acción
+sg-can-undo? scene                 ; hay algo que deshacer?
+sg-can-redo? scene                 ; hay algo que rehacer?
+```
+
+**Comandos QTorres:**
+
+| Comando | do | undo |
+|---------|-------|------|
+| add-node | append model/nodes node | remove-each n model/nodes [n/id = node/id] |
+| delete-node | remove-each + remove wires | append model/nodes + append model/wires |
+| move-node | node/x: new-x, node/y: new-y | node/x: old-x, node/y: old-y |
+| add-wire | append model/wires wire | remove-each w model/wires [w = wire] |
+| delete-wire | remove wire | append model/wires wire |
+| edit-label | label/text: new-text | label/text: old-text |
+
+**Atajos:** Ctrl+Z = `sg-undo scene`, Ctrl+Y = `sg-redo scene`.
+
+**Consecuencias:**
+
+- QTorres no mantiene código de undo/redo propio — delega en red-sg.
+- La migración a Fase 4.5 es prerrequisito para activar undo/redo.
+- Los comandos de Front Panel (posición, tamaño de controles) quedan fuera del primer
+  alcance; se añaden cuando FP tenga su propio modelo de comandos.
+
+**Referencias:** `docs/roadmap-9-10.md` sección 5.1; memoria `project_red_sg.md`.
+
+---
+
+## DT-032: Type-info centralizado en blocks.red
+
+**Contexto:** Añadir un tipo de dato nuevo (number, boolean, string, array, cluster,
+waveform, error) requiere modificar 4+ ficheros: `canvas-render.red`, `panel-render.red`,
+`compiler.red` y `blocks.red`. No hay fuente de verdad para los atributos visuales y de
+compilación asociados a cada tipo. El conocimiento se dispersa y las inconsistencias son
+fáciles de introducir.
+
+**Decisión:** Añadir un diccionario `type-info` en `blocks.red` que centralice los
+atributos por tipo de dato. Cada tipo define sus propiedades en un solo sitio:
+
+```red
+type-info: make map! [
+    'number   make object! [color: 255.128.0  wire-width: 1  wire-pattern: 'solid   fp-types: ['numeric]                           default-val: 0.0]
+    'boolean  make object! [color: 0.200.0    wire-width: 1  wire-pattern: 'solid   fp-types: ['bool-control 'bool-indicator]      default-val: false]
+    'string   make object! [color: 220.50.150 wire-width: 1  wire-pattern: 'dashed  fp-types: ['str-control 'str-indicator]        default-val: ""]
+    'array    make object! [color: 255.128.0  wire-width: 3  wire-pattern: 'double  fp-types: ['arr-control 'arr-indicator]        default-val: copy []]
+    'cluster  make object! [color: 160.100.40 wire-width: 1  wire-pattern: 'braided fp-types: ['cluster-control 'cluster-indicator] default-val: copy []]
+    'waveform make object! [color: 255.128.0  wire-width: 1  wire-pattern: 'solid   fp-types: ['waveform-chart 'waveform-graph]    default-val: copy []]
+    'error    make object! [color: 255.220.0  wire-width: 1  wire-pattern: 'solid   fp-types: []                                   default-val: none]
+]
+```
+
+Los módulos de render y compilación consultan `type-info` en vez de hacer `switch` por
+tipo.
+
+**Consecuencias:**
+
+- Añadir un tipo nuevo = añadir una entrada en `type-info` + (si aplica) una función de
+  render específica. Dos ficheros en lugar de cuatro.
+- Un cambio de color o grosor de cable se aplica globalmente tocando un solo sitio.
+- `blocks.red` gana peso semántico: deja de ser solo "registro de bloques" y pasa a ser
+  "registro de tipos + bloques".
+
+**Referencia:** GRC usa `.block.yml` como fuente única de verdad por bloque. QTorres
+aplica la misma idea con Red nativo en vez de YAML.
+
+**Planificación:** Fase 3.3 (PRIORIDAD MEDIA en el roadmap).
+
+---
+
+## DT-033: QT-Widgets — capa intermedia diferida
+
+**Contexto:** DT-030 define la arquitectura de widgets (Red/View + Draw + QT-Widgets
+como capa propia). Este DT formaliza **el momento de extracción**: cuándo consolidar los
+widgets ad-hoc en un módulo separado.
+
+**Decisión:** No extraer `QT-Widgets` como módulo separado hasta tener 3–4 widgets
+implementados ad-hoc dentro de los módulos existentes. Extraer prematuramente una
+abstracción de widgets antes de entender qué patrones necesitamos sería violar el
+principio "tres líneas similares es mejor que una abstracción prematura".
+
+**Plan de extracción (Fase 5+):** Cuando se alcance la masa crítica, extraer a
+`src/ui/widgets/` con:
+
+- `scrollbar.red` — ya existe como Draw-based (Issue #65)
+- `text-input.red` — inline editing en el canvas (futuro)
+- `tree-view.red` — Project Explorer (Fase 5)
+- `tab-bar.red` — Case Structure y configuración
+
+Cada widget sigue el patrón: función `render-*` que devuelve bloque Draw + función
+`hit-test-*` para eventos.
+
+**Consecuencias:**
+
+- Fases 3–4: los widgets se construyen inline en los módulos que los necesitan. No
+  preocuparse por reutilización prematura.
+- Fase 5+: cuando aparezca el tercer o cuarto widget, hacer la extracción con los
+  patrones ya claros.
+- Si red-sg entrega widgets Draw-based equivalentes antes de Fase 5, **QTorres los usa
+  directamente** y este DT se revisa.
+
+**Referencias:** DT-030 (arquitectura UI general); `docs/roadmap-9-10.md` apéndice.
+
+---
+
+## DT-034: Fork `anlaco/red` como runtime — independencia de upstream
+
+**Fecha:** 2026-04-17  
+**Estado:** Adoptada
+
+**Contexto:** Red-Lang upstream mueve lentamente o no acepta fixes para bugs GTK específicos que QTorres requiere (GTK-014: `face/size` flip-flop, GTK-003 A/B: resize events no se disparan en maximize/restore). Bloquear QTorres en upstream lentifica el proyecto. Se investigó mantener un fork propio con fixes compilados.
+
+**Decisión:** QTorres mantiene un fork oficial de Red en `https://github.com/anlaco/red.git` (copia local en `/home/alaforga/Anlaco/01-PRODUCTOS/red/`, rama `fix/gtk3-resize-bugs`). Los binarios `red-cli`, `red-view` y `redc` commiteados en el repo QTorres se compilan desde este fork, **no** desde Red upstream.
+
+**Política de mantenimiento:**
+
+1. **Sincronización con upstream:** El fork rebase regularmente (mensual) contra `red/red` main para absorber fixes de Red que beneficien QTorres (seguridad, rendimiento, nuevas features).
+
+2. **Criterio de fix propio:** Un fix entra en el fork si cumple **todos** estos criterios:
+   - Afecta a QTorres en GTK (no es reparación genérica de Red)
+   - Tiene caso mínimo reproducible documentado
+   - No entra en upstream en plazo <2 semanas (se intenta PR, si no se acepta entra al fork)
+   - Incluye test reproducible en `tests/` del fork
+
+3. **Trazabilidad:** Cada actualización de binarios (`red-cli`, `red-view`) lleva un commit QTorres con el mensaje `Update red-cli/red-view from anlaco/red commit HASH` y un fichero `red-fork-version.txt` con el hash del fork usado.
+
+4. **Coexistencia:** El fork es copia local; Red upstream sigue siendo upstream. Los `.qvi` generados son Red estándar y compilables con cualquier Red válido. El fork es una optimización de desarrollo, no una dependencia del formato.
+
+**Implicación:** 
+
+- QTorres no espera a Red upstream para funcionalidad GTK.
+- Los tests en CI (`tests/run-all.red`) se ejecutan contra los binarios del fork, validando fixes aplicados.
+- Cuando Red upstream implemente 64-bit, el fork puede descartarse (migración 1:1, no cambios de API).
+
+**Alternativas descartadas:**
+
+- Patches locales en QTorres: violaría DT-001 (todo en Red, sin workarounds).
+- Esperar a Red upstream: ralentización inaceptable (GTK bugs llevan meses).
+- Usar Rebol 3: sin View funcional completo, no es opción.
+
+**Referencias:** `docs/GTK_ISSUES.md` (estado de bugs resueltos en el fork); CLAUDE.md (sección "Fork `anlaco/red`").

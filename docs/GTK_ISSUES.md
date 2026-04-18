@@ -36,7 +36,11 @@ Windows usa DPI virtual (coordenadas independientes de la densidad de píxeles).
 **Impacto en QTorres:** El canvas no se adapta correctamente cuando el usuario redimensiona la ventana de QTorres en Linux.
 
 **Descripción:**
-Los eventos de cambio de tamaño de ventana reportan dimensiones incorrectas en el backend GTK. La ventana visualmente cambia de tamaño, pero los valores que recibe el código son incorrectos.
+Los eventos de cambio de tamaño de ventana reportan dimensiones incorrectos en el backend GTK. La ventana visualmente cambia de tamaño, pero los valores que recibe el código son incorrectos.
+
+Además, en GTK el canvas **no se redimensiona en vivo** durante el drag del borde — solo se actualiza al soltar el ratón. En Windows el canvas sigue a la ventana en tiempo real.
+
+**Estado (2026-04-17):** Resuelto en el fork `anlaco/red` (commit `b381d9d`: "FIX: on-resize not fired on maximize/restore in GTK3 backend"). Los binarios `red-cli` y `red-view` del repo ya incluyen este fix.
 
 ---
 
@@ -84,17 +88,18 @@ Cuando Red migre a 64-bit, este problema desaparece. QTorres debe seguir ese roa
 |-----|-----------------|--------|
 | GTK-001 DPI `none` | — | Pendiente de crear |
 | GTK-002 Coordenadas físicas vs virtuales | — | Pendiente de crear |
-| GTK-003 Resize incorrecto | — | Pendiente de crear |
+| GTK-003 Resize incorrecto (Bugs A, B) | — | **RESUELTO (2026-04-17)**: fork anlaco/red commits `b381d9d`, `dbcfbe8` |
 | GTK-004 Bug locale float | — | Pendiente de crear |
 | GTK-005 Colors `none` | — | Pendiente de crear |
 | GTK-006 32-bit / i386 | Upstream roadmap | Pendiente de migración 64-bit |
 | GTK-007 Modal pierde foco teclado | — | Pendiente de crear |
 | GTK-008 `request-file/save` abre diálogo de carpetas | — | Workaround: diálogo VID propio |
 | GTK-009 `request-file` no permite controlar tamaño | — | Posible: file browser VID propio |
-| GTK-010 `on-change` de field queda enganchado tras Run | — | Issue anlaco/QTorres#49 |
-| GTK-014 `face/size` flip-flop CSD↔cliente tras alt+tab | — | Workaround: ventanas fijas 900x600 sin resize (Issue #65) |
+| GTK-010 `on-change` de field queda enganchado tras Run | — | Issue anlaco/QTorres#49 — **Pendiente revalidación con fork actualizado (2026-04-17)** |
+| GTK-014 `face/size` flip-flop CSD↔cliente tras alt+tab | — | **RESUELTO (2026-04-17)**: fork anlaco/red commit `496a7c5` |
 | GTK-015 Tab crashea navegación foco en window con solo `base` | — | Pendiente de crear — no fatal |
 | GTK-016 Access violation en show/draw bajo maximize/resize | — | Crítico — sin workaround user-land |
+| GTK-017 `show`/`view/no-wait` no eleva ventana al frente | — | Pendiente de crear — confirmado GTK-only |
 
 ---
 
@@ -145,7 +150,9 @@ El valor en modo cliente es `~98x98 px menor` que en modo CSD para la misma vent
 
 La detección bidireccional del flip fue explorada y descartada: los deltas -98x-98 durante maximize son indistinguibles de un flip legítimo por alt+tab, y la lógica de corrección se volvía inestable. Ver `tests/test-overhead.red` para el diagnóstico completo.
 
-**Test reproducible:** `tests/test-overhead.red` — con logging a `/tmp/test-overhead.log` para capturar la secuencia de eventos.
+**Verificación del fix (2026-04-17):** El fork `anlaco/red` implementa `face/size` reportando el client area correctamente en todos los estados (maximize, alt+tab, restore, resize). Los problemas (maximize mal, alt+tab mal, resize diferido) eran exclusivos del backend GTK upstream y están resueltos.
+
+**Workaround histórico:** Ventanas de tamaño fijo (900x600) sin `flags: [resize]` (Issue #65). Ya no es necesario con el fork actualizado. Se puede reabrir Issue #65 como "ventanas redimensionables con fork" para migrar a `flags: [resize]` en qtorres.red.
 
 ---
 

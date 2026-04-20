@@ -408,7 +408,8 @@ format-qvi: func [
                 "if not _saved-qtorres-runtime [unset 'qtorres-runtime]^/^/"
             ]]
             "; --- Helpers de runtime ---^/"
-            "arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]^/^/"
+            "arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]^/"
+            "tcp-read-helper: func [sz timeout-ms /local buf] [tcp/set-timeout to-integer timeout-ms  buf: tcp/receive to-integer sz  either buf [to string! buf] {}]^/^/"
             "; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---^/"
             func-name ": context [^/"
             "    exec: func [] [^/"  ; TODO: extraer parámetros del connector
@@ -431,7 +432,8 @@ format-qvi: func [
                 "if not _saved-qtorres-runtime [unset 'qtorres-runtime]^/^/"
             ]]
             "; --- Helpers de runtime ---^/"
-            "arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]^/^/"
+            "arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]^/"
+            "tcp-read-helper: func [sz timeout-ms /local buf] [tcp/set-timeout to-integer timeout-ms  buf: tcp/receive to-integer sz  either buf [to string! buf] {}]^/^/"
             "; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---^/"
             "either empty? system/options/args [^/"
             "    view layout [^/"

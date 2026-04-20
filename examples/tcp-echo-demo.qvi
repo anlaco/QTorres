@@ -1,0 +1,74 @@
+Red [Title: "tcp-echo-demo" Needs: 'View]
+
+; Demo TCP/IP — cliente eco (Fase 4, Issue #19)
+;
+; Requiere un servidor de eco escuchando en 127.0.0.1:5000.
+; Para probar: en otra terminal lanzar `ncat -l 5000 --keep-open --exec "/bin/cat"`
+; (o `nc -l -k -p 5000` según la versión de netcat).
+;
+; Al pulsar Run:
+;   1. Conecta a 127.0.0.1:5000
+;   2. Envía el string del control "Mensaje" (con newline final)
+;   3. Lee hasta 256 bytes con timeout de 2000 ms
+;   4. Muestra la respuesta en el indicador "Respuesta"
+;   5. Cierra la conexión
+
+qvi-diagram: [
+    meta: [description: "Cliente TCP de eco — envía mensaje y muestra respuesta" version: 1 author: "" tags: [tcp hardware demo]]
+    icon: []
+    front-panel: [
+        control   [id: 1  type: 'string   name: "msg_1"      label: [text: "Mensaje"]    default: "HELLO"]
+        indicator [id: 2  type: 'string   name: "resp_1"     label: [text: "Respuesta"]]
+    ]
+    block-diagram: [
+        nodes: [
+            node [id: 1  type: 'str-control  x: 40   y: 80   name: "msg_1"  label: [text: "Mensaje" visible: true]]
+            node [id: 2  type: 'tcp-connect  x: 200  y: 40   name: "tcp-connect_1"  label: [text: "tcp-connect"]
+                  config: [host "127.0.0.1" port 5000]]
+            node [id: 3  type: 'tcp-write    x: 360  y: 80   name: "tcp-write_1"    label: [text: "tcp-write"]]
+            node [id: 4  type: 'tcp-read     x: 520  y: 120  name: "tcp-read_1"     label: [text: "tcp-read"]
+                  config: [size 256 timeout 2000]]
+            node [id: 5  type: 'tcp-close    x: 680  y: 160  name: "tcp-close_1"    label: [text: "tcp-close"]]
+            node [id: 6  type: 'str-indicator x: 520 y: 240  name: "resp_1"  label: [text: "Respuesta" visible: true]]
+        ]
+        wires: [
+            wire [from: 2  port: 'connected  to: 3  port: 'connected]
+            wire [from: 1  port: 'result     to: 3  port: 'data]
+            wire [from: 2  port: 'connected  to: 4  port: 'connected]
+            wire [from: 4  port: 'response   to: 6  port: 'in]
+            wire [from: 2  port: 'connected  to: 5  port: 'connected]
+        ]
+    ]
+]
+
+; --- Helpers de runtime ---
+arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]
+tcp-read-helper: func [sz timeout-ms /local buf] [
+    tcp/set-timeout to-integer timeout-ms
+    buf: tcp/receive to-integer sz
+    either buf [to string! buf] [""]
+]
+
+; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
+either empty? system/options/args [
+    view layout [
+        text "Mensaje:"   f_msg_1:  field "HELLO" 200x30  return
+        text "Respuesta:" f_resp_1: field ""      200x30  return
+        button "Run" [
+            msg_1:            f_msg_1/text
+            tcp-connect_1:    tcp/connect "127.0.0.1" 5000
+            tcp-write_1:      either tcp-connect_1 [tcp/send msg_1] [false]
+            tcp-read_1:       either tcp-connect_1 [tcp-read-helper 256 2000] [""]
+            tcp-close_1:      either tcp-connect_1 [tcp/close] [false]
+            resp_1:           tcp-read_1
+            f_resp_1/text:    resp_1
+        ]
+    ]
+][
+    msg_1:            "HELLO"
+    tcp-connect_1:    tcp/connect "127.0.0.1" 5000
+    tcp-write_1:      either tcp-connect_1 [tcp/send msg_1] [false]
+    tcp-read_1:       either tcp-connect_1 [tcp-read-helper 256 2000] [""]
+    tcp-close_1:      either tcp-connect_1 [tcp/close] [false]
+    print rejoin ["Respuesta: " tcp-read_1]
+]

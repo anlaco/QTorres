@@ -379,4 +379,45 @@ block 'subvi 'function [
     ; El emit se maneja en compile-subvi-call en compiler.red
 ]
 
+; ── Hardware: TCP/IP (Fase 4 — Issue #19) ───────────────────────────────────
+; Bloques genéricos de comunicación TCP cliente. La API tcp/* viene del fork
+; anlaco/red (ver docs/tcp-api.md). El usuario envía cualquier string/bytes
+; (comandos de instrumento, Modbus, HTTP, propios) — QTorres no asume protocolo.
+
+; Helper runtime para tcp-read: tcp/receive retorna binary! o none!, aquí se
+; convierte a string vacío si hay fallo/timeout (evita error si buf es none).
+tcp-read-helper: func [sz [integer! float!] timeout-ms [integer! float!] /local buf] [
+    tcp/set-timeout to-integer timeout-ms
+    buf: tcp/receive to-integer sz
+    either buf [to string! buf] [""]
+]
+
+block 'tcp-connect 'hardware [
+    config host 'string "127.0.0.1"
+    config port 'number 5000
+    out connected 'boolean
+    emit [connected: tcp/connect host to-integer port]
+]
+
+block 'tcp-write 'hardware [
+    in connected 'boolean
+    in data 'string
+    out done 'boolean
+    emit [done: either connected [tcp/send data] [false]]
+]
+
+block 'tcp-read 'hardware [
+    in connected 'boolean
+    config size 'number 1024
+    config timeout 'number 2000
+    out response 'string
+    emit [response: either connected [tcp-read-helper size timeout] [""]]
+]
+
+block 'tcp-close 'hardware [
+    in connected 'boolean
+    out done 'boolean
+    emit [done: either connected [tcp/close] [false]]
+]
+
 #include %../compiler/compiler.red

@@ -4,7 +4,7 @@ do %../src/graph/model.red  ; model.red incluye blocks.red y ahora también make
 
 suite "blocks — registro"
 
-assert "registra 41 bloques (34 + bundle + unbundle + cluster-control + cluster-indicator + waveform-chart + waveform-graph + subvi)" (41 = length? block-registry)
+assert "registra 45 bloques (41 + tcp-connect + tcp-write + tcp-read + tcp-close)" (45 = length? block-registry)
 assert "const está en el registro"     (not none? find-block 'const)
 assert "add está en el registro"       (not none? find-block 'add)
 assert "find-block devuelve none para bloques inexistentes" (none? find-block 'nonexistent)
@@ -114,7 +114,7 @@ assert "to-string emit es [result: form a]"                ([result: form a]    
 
 suite "blocks — cluster: registro"
 
-assert "registra 41 bloques (34 + bundle + unbundle + cluster-control + cluster-indicator + waveform-chart + waveform-graph + subvi)" (41 = length? block-registry)
+assert "registra 45 bloques (41 + tcp-connect + tcp-write + tcp-read + tcp-close)" (45 = length? block-registry)
 assert "bundle está en el registro"   (not none? find-block 'bundle)
 assert "unbundle está en el registro" (not none? find-block 'unbundle)
 
@@ -192,3 +192,93 @@ assert "waveform-graph name correcto"       ("graph_1" = wg/name)
 assert "waveform-graph label/text correcto" ("Array" = wg/label/text)
 assert "waveform-graph value es block"      (block? wg/value)
 assert "waveform-graph value vacío inicial"  (empty? wg/value)
+
+; ══════════════════════════════════════════════════════════════════
+; Fase 4 — Issue #19: Bloques TCP/IP genéricos
+; ══════════════════════════════════════════════════════════════════
+
+suite "blocks — tcp: registro"
+
+assert "tcp-connect está en el registro" (not none? find-block 'tcp-connect)
+assert "tcp-write está en el registro"   (not none? find-block 'tcp-write)
+assert "tcp-read está en el registro"    (not none? find-block 'tcp-read)
+assert "tcp-close está en el registro"   (not none? find-block 'tcp-close)
+
+b-tcpc: find-block 'tcp-connect
+b-tcpw: find-block 'tcp-write
+b-tcpr: find-block 'tcp-read
+b-tcpx: find-block 'tcp-close
+
+assert "tcp-connect categoría es hardware" ('hardware = b-tcpc/category)
+assert "tcp-write categoría es hardware"   ('hardware = b-tcpw/category)
+assert "tcp-read categoría es hardware"    ('hardware = b-tcpr/category)
+assert "tcp-close categoría es hardware"   ('hardware = b-tcpx/category)
+
+suite "blocks — tcp: puertos"
+
+tcpc-out1: first b-tcpc/outputs
+tcpw-in1:  first  b-tcpw/inputs
+tcpw-in2:  second b-tcpw/inputs
+tcpw-out1: first b-tcpw/outputs
+tcpr-in1:  first b-tcpr/inputs
+tcpr-out1: first b-tcpr/outputs
+tcpx-in1:  first b-tcpx/inputs
+tcpx-out1: first b-tcpx/outputs
+
+assert "tcp-connect no tiene entradas"   (0 = length? b-tcpc/inputs)
+assert "tcp-connect tiene 1 salida"      (1 = length? b-tcpc/outputs)
+assert "tcp-connect salida es connected" ('connected = tcpc-out1/name)
+assert "tcp-connect salida es boolean"   ('boolean   = tcpc-out1/type)
+
+assert "tcp-write tiene 2 entradas"     (2 = length? b-tcpw/inputs)
+assert "tcp-write tiene 1 salida"       (1 = length? b-tcpw/outputs)
+assert "tcp-write salida es done"       ('done      = tcpw-out1/name)
+assert "tcp-write in[0] es connected"   ('connected = tcpw-in1/name)
+assert "tcp-write in[1] es data"        ('data      = tcpw-in2/name)
+assert "tcp-write in data es string"    ('string    = tcpw-in2/type)
+
+assert "tcp-read tiene 1 entrada"       (1 = length? b-tcpr/inputs)
+assert "tcp-read tiene 1 salida"        (1 = length? b-tcpr/outputs)
+assert "tcp-read salida es response"    ('response = tcpr-out1/name)
+assert "tcp-read salida es string"      ('string   = tcpr-out1/type)
+
+assert "tcp-close tiene 1 entrada"      (1 = length? b-tcpx/inputs)
+assert "tcp-close tiene 1 salida"       (1 = length? b-tcpx/outputs)
+assert "tcp-close salida es done"       ('done = tcpx-out1/name)
+
+suite "blocks — tcp: configs"
+
+tcpc-cfg1: first  b-tcpc/configs
+tcpc-cfg2: second b-tcpc/configs
+tcpr-cfg1: first  b-tcpr/configs
+tcpr-cfg2: second b-tcpr/configs
+
+assert "tcp-connect tiene 2 configs (host, port)" (2 = length? b-tcpc/configs)
+assert "tcp-connect config[0] es host"            ('host = tcpc-cfg1/name)
+assert "tcp-connect config host default '127.0.0.1'" ("127.0.0.1" = tcpc-cfg1/default)
+assert "tcp-connect config[1] es port"            ('port = tcpc-cfg2/name)
+assert "tcp-connect config port default 5000"     (5000 = tcpc-cfg2/default)
+
+assert "tcp-read tiene 2 configs (size, timeout)" (2 = length? b-tcpr/configs)
+assert "tcp-read config[0] es size"               ('size    = tcpr-cfg1/name)
+assert "tcp-read config size default 1024"        (1024 = tcpr-cfg1/default)
+assert "tcp-read config[1] es timeout"            ('timeout = tcpr-cfg2/name)
+assert "tcp-read config timeout default 2000"     (2000 = tcpr-cfg2/default)
+
+suite "blocks — tcp: emit"
+
+assert "tcp-connect tiene emit"  (block? b-tcpc/emit)
+assert "tcp-write tiene emit"    (block? b-tcpw/emit)
+assert "tcp-read tiene emit"     (block? b-tcpr/emit)
+assert "tcp-close tiene emit"    (block? b-tcpx/emit)
+
+; emit usa la API tcp/* — find en mold del bloque ya que path! requiere búsqueda
+; como string
+assert "tcp-connect emit usa tcp/connect"  (not none? find mold b-tcpc/emit "tcp/connect")
+assert "tcp-write emit usa tcp/send"       (not none? find mold b-tcpw/emit "tcp/send")
+assert "tcp-read emit usa tcp-read-helper" (not none? find mold b-tcpr/emit "tcp-read-helper")
+assert "tcp-close emit usa tcp/close"      (not none? find mold b-tcpx/emit "tcp/close")
+
+suite "blocks — tcp: helper runtime"
+
+assert "tcp-read-helper está definido" (function? :tcp-read-helper)

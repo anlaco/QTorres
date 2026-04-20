@@ -360,7 +360,7 @@ if tcp/connect "192.168.1.100" 5000 [
     response: tcp/receive 256
 
     ; Procesar
-    print to-string! response
+    print to string! response
 
     ; Cerrar
     tcp/close
@@ -398,7 +398,7 @@ tcp/send "HELLO^/"
 
 response: tcp/receive 256
 if response [
-    print ["Respuesta: " to-string! response]
+    print ["Respuesta: " to string! response]
 ]
 
 tcp/close

@@ -391,6 +391,11 @@ open-palette: func [face x y /struct target-struct
         text "Cluster:"  return
         button 80 "Bundle"   [palette-add-node 'bundle]
         button 80 "Unbundle" [palette-add-node 'unbundle]  return
+        text "Hardware (TCP):"  return
+        button 80 "Connect"   [palette-add-node 'tcp-connect]
+        button 80 "Write"     [palette-add-node 'tcp-write]
+        button 80 "Read"      [palette-add-node 'tcp-read]
+        button 80 "Close"     [palette-add-node 'tcp-close]  return
         text "Estructuras:"  return
         button 80 "While"    [palette-add-structure 'while-loop]
         button 80 "For"      [palette-add-structure 'for-loop]

@@ -43,7 +43,7 @@ Recibe datos del servidor (bloqueante).
 ```red
 response: tcp/receive 1024
 if response [
-    print to-string! response
+    print to string! response
 ]
 ```
 
@@ -134,7 +134,7 @@ tcp/send "PING^/"
 
 ; Leer respuesta
 response: tcp/receive 256
-print ["Respuesta: " to-string! response]
+print ["Respuesta: " to string! response]
 
 ; Cerrar
 tcp/close
@@ -152,7 +152,7 @@ tcp/set-timeout 2000
 loop 10 [
     data: tcp/receive 64
     if data [
-        print ["Dato " index ": " to-string! data]
+        print ["Dato " index ": " to string! data]
     ]
 ]
 
@@ -179,7 +179,7 @@ tcp/close
 
 - **Bloqueante por defecto:** `tcp/receive` bloquea hasta recibir datos o timeout
 - **Terminación de línea:** muchos protocolos de texto requieren `\n` o `\r\n` al final de cada mensaje — usar `rejoin [cmd newline]`
-- **Binary vs String:** TCP transporta bytes. Convertir con `to-string!` / `to-binary!` cuando el protocolo sea texto
+- **Binary vs String:** TCP transporta bytes. Convertir con `to string!` / `to binary!` cuando el protocolo sea texto
 - **Sin hilos:** Red no tiene multihilo. Para múltiples conexiones, usar polling no-bloqueante + `on-time` / timers (DT-027)
 - **Error handling:** revisar `tcp/last-error` si `connect` o `send` fallan
 

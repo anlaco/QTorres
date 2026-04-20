@@ -29,8 +29,8 @@ if tcp/connect "192.168.1.100" 5025 [
 Envía datos al servidor.
 
 ```red
-tcp/send "GET / HTTP/1.0^/^/"   ; texto
-tcp/send to-binary! "datos"     ; bytes
+tcp/send "SYST:ERR?"           ; comando SCPI
+tcp/send to-binary! "datos"    ; datos binarios
 ```
 
 - **data** `[string! binary!]` — datos a enviar
@@ -43,7 +43,7 @@ Recibe datos del servidor (bloqueante).
 ```red
 response: tcp/receive 1024
 if response [
-    print to string! response
+    print to-string! response
 ]
 ```
 
@@ -118,31 +118,27 @@ print error/message
 
 ## Casos de uso — Fase 4
 
-### Eco genérico (cliente TCP)
+### SCPI sobre TCP/IP (instrumentos Keysight)
 
 ```red
 Red [Needs: 'View]
 
-; Conectar a servidor
-if not tcp/connect "192.168.1.100" 5000 [
+; Conectar a instrumento
+if not tcp/connect "192.168.1.100" 5025 [
     print "Error: no se pudo conectar"
     halt
 ]
 
-; Enviar petición
-tcp/send "PING^/"
+; Enviar comando SCPI
+tcp/send "*IDN?"
 
 ; Leer respuesta
 response: tcp/receive 256
-print ["Respuesta: " to string! response]
+print ["Instrumento: " to-string! response]
 
 ; Cerrar
 tcp/close
 ```
-
-> Para enviar comandos de instrumentación (texto plano como `*IDN?`, `MEAS:VOLT?`,
-> cadenas Modbus, etc.) basta con poner el string adecuado en `tcp/send`. Telekino no
-> incluye bloques específicos por protocolo — el usuario elige qué cadena enviar.
 
 ### Lectura secuencial (con timeout)
 
@@ -152,7 +148,7 @@ tcp/set-timeout 2000
 loop 10 [
     data: tcp/receive 64
     if data [
-        print ["Dato " index ": " to string! data]
+        print ["Dato " index ": " to-string! data]
     ]
 ]
 
@@ -178,22 +174,17 @@ tcp/close
 ## Notas de implementación
 
 - **Bloqueante por defecto:** `tcp/receive` bloquea hasta recibir datos o timeout
-- **Terminación de línea:** muchos protocolos de texto requieren `\n` o `\r\n` al final de cada mensaje — usar `rejoin [cmd newline]`
-- **Binary vs String:** TCP transporta bytes. Convertir con `to string!` / `to binary!` cuando el protocolo sea texto
-- **Sin hilos:** Red no tiene multihilo. Para múltiples conexiones, usar polling no-bloqueante + `on-time` / timers (DT-027)
-- **Error handling:** revisar `tcp/last-error` si `connect` o `send` fallan
+- **Terminación de línea:** SCPI requiere `\n` o `\r\n` al final de comandos. Usar `rejoin [cmd newline]`
+- **Binary vs String:** Instrumentos SCPI usan texto, pero TCP es binario. Convertir con `to-string!` / `to-binary!`
+- **Sin hilos:** Red no tiene multihilo. Para múltiples conexiones, usar polling no-bloqueante + `on-time` / timers (Fase 3)
+- **Error handling:** Revisar `tcp/last-error` si `connect` o `send` fallan
 
-## Integración Telekino (Fase 4)
+## Integración QTorres (Fase 4)
 
-Los bloques de hardware (#19, #22) usarán esta API de forma genérica:
+Los bloques de hardware (#19-#23) usarán esta API:
 
-- **tcp-connect / tcp-write / tcp-read / tcp-close** → wrappers directos de `tcp/connect`, `tcp/send`, `tcp/receive`, `tcp/close`
+- **SCPI-TCP block** → wrapper que genera `tcp/connect`, `tcp/send`, `tcp/receive`
 - **Error cluster** → `tcp/last-error` mapea a puertos error-in/error-out
 - **Timeout configurable** → parámetro de bloque → `tcp/set-timeout`
-- **Modbus TCP** (#22) → syntactic sugar que construye la trama Modbus y la envía con `tcp/send`
-
-> Telekino no incluye bloques específicos por protocolo (HTTP, SCPI, MQTT, …). Cada
-> protocolo de texto se usa pasando la cadena adecuada al bloque `tcp-write`.
-> Protocolos binarios (Modbus, custom) pueden construirse con `to-binary!`.
 
 Ver `docs/plan.md` — Fase 4 para roadmap completo.

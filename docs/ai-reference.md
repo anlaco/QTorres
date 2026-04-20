@@ -395,4 +395,4 @@ qvi-diagram: [
 
 ## Nota sobre evolución
 
-Este documento refleja el estado actual de QTorres (tipos numéricos). Conforme evolucione, se añadirán tipos de datos (`'boolean`, `'string`, `'array`), estructuras de control (loops, case), protocolos de hardware (Modbus, SCPI, MQTT), y nuevos bloques primitivos.
+Este documento refleja el estado actual de QTorres (tipos numéricos). Conforme evolucione, se añadirán tipos de datos (`'boolean`, `'string`, `'array`), estructuras de control (loops, case), bloques genéricos de hardware (TCP/IP, USBTMC, serie, Modbus TCP), y nuevos bloques primitivos.

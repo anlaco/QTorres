@@ -7,7 +7,7 @@ QTorres es una alternativa open source a LabVIEW para el mismo público objetivo
 **Principios de diseño:**
 - Mismo modelo mental que LabVIEW: Front Panel + Block Diagram, dataflow, sub-VIs
 - Identidad visual propia y más moderna (no un clon visual de LabVIEW)
-- Hardware como ciudadano de primera clase: SCPI/VISA para Keysight, serie para microcontroladores, DAQ
+- Hardware como ciudadano de primera clase: TCP/IP y USBTMC para instrumentación, serie para microcontroladores, DAQ
 - Sin dependencias externas. Un binario, multiplataforma.
 
 **Por qué puede competir con LabVIEW:**
@@ -180,11 +180,12 @@ Los controles de entrada se convierten en `field` editables. Los indicadores de 
 
 Esta fase es esencial para el público objetivo (mismo que LabVIEW: ingeniería de test y automatización).
 
-### SCPI para instrumentos Keysight y compatibles
-- [ ] SCPI sobre TCP/IP (puerto 5025): bloques connect/write/query/close (#28)
-- [ ] SCPI sobre USB/USBTMC (/dev/usbtmc*): mismos bloques, diferente transporte (#29)
-- [ ] Gestión de errores de instrumento (+/-OPC, error queue)
-- [ ] Bloque de identificación: `*IDN?` y detección automática de instrumento
+### Comunicación con instrumentación (TCP/IP y USBTMC)
+- [ ] TCP/IP cliente: bloques tcp-connect/write/read/close (#19)
+- [ ] USBTMC: acceso a `/dev/usbtmc*` con misma interfaz (#20)
+- [ ] Manejo de timeouts y errores de red/USB
+
+> **Nota:** NO se implementan bloques SCPI específicos. SCPI es un protocolo de comandos en texto que el usuario envía como string a través de `tcp-write`/`usbtmc-write`. Esto mantiene QTorres genérico y sirve también para Modbus (#22), protocolos propios y cualquier otro protocolo sobre TCP/USB.
 
 ### Comunicación serie
 - [ ] Puerto serie RS-232/RS-485: bloques open/write/read/close (#30)
@@ -212,7 +213,7 @@ por equipos") implica que, una vez red-sg esté estable, QTorres delega en él l
 gráfica genérica (scene graph, transforms, hit-test, undo/redo, widgets).
 
 **Prerrequisitos:**
-- Fase 4 funcionalmente completa (hardware operativo en al menos SCPI + Serial)
+- Fase 4 funcionalmente completa (hardware operativo en al menos TCP/IP + Serial)
 - red-sg Fase 1 estable: sg-core, sg-transform, sg-hit-test, sg-events, sg-undo probados
 - Baselines de rendimiento establecidos (ver "Métricas pendientes" en roadmap-9-10)
 

@@ -295,11 +295,13 @@ Spec visual: cada tipo implementa su aspecto según `docs/visual-spec.md`.
 - ~~#65 Scroll en BD y FP~~ ✅ (ventanas fijas 900x600, scrollbars draw-based, límites por contenido)
 
 **Fase 4 — Hardware:**
-- #19 SCPI sobre TCP/IP (Keysight por red)
-- #20 SCPI sobre USB/USBTMC (Keysight por USB)
+- #19 TCP/IP — bloques básicos cliente (tcp-connect/write/read/close)
+- #20 USBTMC — acceso genérico a instrumentos USB (/dev/usbtmc*)
 - #21 Puerto serie RS-232/RS-485 (Arduino, ESP32)
-- #22 TCP/IP genérico (Modbus TCP, protocolos propios)
+- #22 Modbus TCP y servidor TCP/IP (depende de #19)
 - #23 DAQ analógico (comedi/libcomedi)
+
+> **Nota:** NO se implementan bloques SCPI específicos. SCPI es un protocolo de comandos en texto que se envía como string vía `tcp-write` o `usbtmc-write`. Esto mantiene QTorres genérico y sirve también para Modbus, protocolos propios y cualquier otro protocolo sobre TCP/USB.
 
 **Fase 5 — UX y gestión de proyectos:**
 - Splash / Welcome screen (Create New VI, Open Existing, proyectos recientes)
@@ -403,7 +405,7 @@ Cubre sintaxis core, View, Draw, VID, Parse, patrones idiomáticos y gotchas.
 - Riesgos conocidos: `docs/retos.md`
 - Bugs GTK Linux: `docs/GTK_ISSUES.md`
 - **Arquitectura LabVIEW:** `docs/labview-comportamiento.md` — **leer antes de tomar decisiones sobre renderizado de widgets, modos edit/run, o controles custom**
-- **TCP/IP API:** `docs/tcp-api.md` — soporte nativo para Fase 4 (hardware SCPI, RS-232, Modbus, etc.)
+- **TCP/IP API:** `docs/tcp-api.md` — API nativa para Fase 4 (instrumentación por red, Modbus TCP, protocolos propios)
 
 ## Problemas conocidos de arquitectura
 

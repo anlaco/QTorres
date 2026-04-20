@@ -352,16 +352,16 @@ cmd: parse-command "show point 10 20"
 
 ```red
 ; Conectar
-if tcp/connect "192.168.1.100" 5025 [
-    ; Enviar comando
-    tcp/send "SYST:ERR?"
-    
+if tcp/connect "192.168.1.100" 5000 [
+    ; Enviar petición
+    tcp/send "PING^/"
+
     ; Recibir respuesta
     response: tcp/receive 256
-    
+
     ; Procesar
     print to-string! response
-    
+
     ; Cerrar
     tcp/close
 ]
@@ -381,30 +381,32 @@ if tcp/connect "192.168.1.100" 5025 [
 | `tcp/set-nonblocking` | `enable [logic!]` | `[logic!]` |
 | `tcp/last-error` | — | `[object!]` |
 
-### Ejemplo SCPI
+### Ejemplo con timeout
 
 ```red
 Red [Needs: 'View]
 
-; Conectar a instrumento
-if not tcp/connect "192.168.1.100" 5025 [
+; Conectar a servidor
+if not tcp/connect "192.168.1.100" 5000 [
     print "Error: conexión fallida"
     halt
 ]
 
-; Consultar identificación
-tcp/send "*IDN?"
+; Enviar petición y leer con timeout
 tcp/set-timeout 2000
+tcp/send "HELLO^/"
 
 response: tcp/receive 256
 if response [
-    print ["Instrumento: " to-string! response]
+    print ["Respuesta: " to-string! response]
 ]
 
 tcp/close
 ```
 
-Ver `docs/tcp-api.md` para referencia completa.
+> QTorres no incluye bloques específicos por protocolo. Para enviar comandos de texto
+> de instrumentación, Modbus, HTTP, MQTT o similar, basta con poner el string adecuado
+> en `tcp/send`. Ver `docs/tcp-api.md` para referencia completa.
 
 ---
 
@@ -503,4 +505,4 @@ emit: [
 ---
 
 *Última actualización: 2026-04-20*  
-*Próxima: Fase 4 — integración TCP con bloques SCPI*
+*Próxima: Fase 4 — bloques genéricos TCP/IP y USBTMC (sin bloques específicos por protocolo)*

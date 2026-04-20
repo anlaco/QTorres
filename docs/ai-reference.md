@@ -1,6 +1,6 @@
-# Referencia de formatos Telekino para agentes de IA
+# Referencia de formatos QTorres para agentes de IA
 
-Este documento es una referencia de consumo para agentes de IA que necesiten generar ficheros del ecosistema Telekino. No es documentación interna del proyecto — es el contrato entre Telekino y cualquier modelo que genere ficheros para él.
+Este documento es una referencia de consumo para agentes de IA que necesiten generar ficheros del ecosistema QTorres. No es documentación interna del proyecto — es el contrato entre QTorres y cualquier modelo que genere ficheros para él.
 
 **Versión:** 1.1 (solo `.qvi` con tipos numéricos)
 **Decisiones relacionadas:** DT-020, DT-021, DT-022, DT-023, DT-024
@@ -9,10 +9,10 @@ Este documento es una referencia de consumo para agentes de IA que necesiten gen
 
 ## Principio fundamental
 
-Todo fichero Telekino tiene dos secciones:
+Todo fichero QTorres tiene dos secciones:
 
 1. **Fuente de verdad** — un dialecto Red que describe la estructura gráfica y funcional. Es la única sección que se genera o edita.
-2. **Código generado** — código Red ejecutable generado automáticamente por Telekino al guardar. **No se genera por IA.** Telekino lo produce a partir de la sección 1.
+2. **Código generado** — código Red ejecutable generado automáticamente por QTorres al guardar. **No se genera por IA.** QTorres lo produce a partir de la sección 1.
 
 Un agente de IA solo trabaja con la sección 1. Nunca genera la sección 2.
 
@@ -380,7 +380,7 @@ qvi-diagram: [
 
 ## Errores comunes a evitar
 
-1. **No generar la sección 2 (código ejecutable).** Telekino la genera. El agente solo produce `qvi-diagram`.
+1. **No generar la sección 2 (código ejecutable).** QTorres la genera. El agente solo produce `qvi-diagram`.
 2. **No inventar tipos de nodo.** Usar solo los tipos listados en la tabla de nodos.
 3. **Respetar los nombres de puerto exactos.** `'a` y `'b` para bloques math, `'out` para controles, `'in` para indicadores.
 4. **Los IDs deben ser únicos** dentro de un mismo `block-diagram`.
@@ -395,4 +395,4 @@ qvi-diagram: [
 
 ## Nota sobre evolución
 
-Este documento refleja el estado actual de Telekino (tipos numéricos). Conforme evolucione, se añadirán tipos de datos (`'boolean`, `'string`, `'array`), estructuras de control (loops, case), bloques genéricos de hardware (TCP/IP, USBTMC, serie, Modbus TCP), y nuevos bloques primitivos.
+Este documento refleja el estado actual de QTorres (tipos numéricos). Conforme evolucione, se añadirán tipos de datos (`'boolean`, `'string`, `'array`), estructuras de control (loops, case), bloques genéricos de hardware (TCP/IP, USBTMC, serie, Modbus TCP), y nuevos bloques primitivos.

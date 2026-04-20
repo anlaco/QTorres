@@ -409,7 +409,11 @@ format-qvi: func [
             ]]
             "; --- Helpers de runtime ---^/"
             "arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]^/"
-            "tcp-read-helper: func [sz timeout-ms /local buf] [tcp/set-timeout to-integer timeout-ms  buf: tcp/receive to-integer sz  either buf [to string! buf] {}]^/^/"
+            "_make-tcp-session: func [a? h p] [make object! [active?: a?  host: h  port: p]]^/"
+            "_tcp-connect-helper: func [host port /local ok] [ok: tcp/connect host to-integer port  _make-tcp-session ok host to-integer port]^/"
+            "_tcp-write-helper: func [sess data] [if not sess/active? [return sess]  tcp/send data  sess]^/"
+            "_tcp-read-helper: func [sess sz timeout-ms /local buf] [if not sess/active? [return reduce [sess {}]]  tcp/set-timeout to-integer timeout-ms  buf: tcp/receive to-integer sz  either buf [reduce [sess to string! buf]] [reduce [sess {}]]]^/"
+            "_tcp-close-helper: func [sess] [if not sess/active? [return sess]  tcp/close  _make-tcp-session false sess/host sess/port]^/^/"
             "; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---^/"
             func-name ": context [^/"
             "    exec: func [] [^/"  ; TODO: extraer parámetros del connector
@@ -433,7 +437,11 @@ format-qvi: func [
             ]]
             "; --- Helpers de runtime ---^/"
             "arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]^/"
-            "tcp-read-helper: func [sz timeout-ms /local buf] [tcp/set-timeout to-integer timeout-ms  buf: tcp/receive to-integer sz  either buf [to string! buf] {}]^/^/"
+            "_make-tcp-session: func [a? h p] [make object! [active?: a?  host: h  port: p]]^/"
+            "_tcp-connect-helper: func [host port /local ok] [ok: tcp/connect host to-integer port  _make-tcp-session ok host to-integer port]^/"
+            "_tcp-write-helper: func [sess data] [if not sess/active? [return sess]  tcp/send data  sess]^/"
+            "_tcp-read-helper: func [sess sz timeout-ms /local buf] [if not sess/active? [return reduce [sess {}]]  tcp/set-timeout to-integer timeout-ms  buf: tcp/receive to-integer sz  either buf [reduce [sess to string! buf]] [reduce [sess {}]]]^/"
+            "_tcp-close-helper: func [sess] [if not sess/active? [return sess]  tcp/close  _make-tcp-session false sess/host sess/port]^/^/"
             "; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---^/"
             "either empty? system/options/args [^/"
             "    view layout [^/"

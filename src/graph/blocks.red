@@ -380,44 +380,69 @@ block 'subvi 'function [
 ]
 
 ; ── Hardware: TCP/IP (Fase 4 — Issue #19) ───────────────────────────────────
-; Bloques genéricos de comunicación TCP cliente. La API tcp/* viene del fork
-; anlaco/red (ver docs/tcp-api.md). El usuario envía cualquier string/bytes
-; (comandos de instrumento, Modbus, HTTP, propios) — QTorres no asume protocolo.
+; Bloques TCP v2: session-through (patrón VISA de LabVIEW).
+; Los wires de tipo 'tcp-session encadenan los nodos forzando orden topológico.
+; Pendiente: añadir error-in/error-out en Fase 4-E (error cluster).
 
-; Helper runtime para tcp-read: tcp/receive retorna binary! o none!, aquí se
-; convierte a string vacío si hay fallo/timeout (evita error si buf es none).
-tcp-read-helper: func [sz [integer! float!] timeout-ms [integer! float!] /local buf] [
+_make-tcp-session: func [a? h p] [
+    make object! [active?: a?  host: h  port: p]
+]
+
+_tcp-connect-helper: func [host port /local ok] [
+    ok: tcp/connect host to-integer port
+    _make-tcp-session ok host to-integer port
+]
+
+_tcp-write-helper: func [sess data] [
+    if not sess/active? [return sess]
+    tcp/send data
+    sess
+]
+
+_tcp-read-helper: func [sess sz timeout-ms /local buf] [
+    if not sess/active? [return reduce [sess ""]]
     tcp/set-timeout to-integer timeout-ms
     buf: tcp/receive to-integer sz
-    either buf [to string! buf] [""]
+    either buf [reduce [sess to string! buf]] [reduce [sess ""]]
+]
+
+_tcp-close-helper: func [sess] [
+    if not sess/active? [return sess]
+    tcp/close
+    _make-tcp-session false sess/host sess/port
 ]
 
 block 'tcp-connect 'hardware [
     config host 'string "127.0.0.1"
     config port 'number 5000
-    out connected 'boolean
-    emit [connected: tcp/connect host to-integer port]
+    out session-out 'tcp-session
+    emit [session-out: _tcp-connect-helper host port]
 ]
 
 block 'tcp-write 'hardware [
-    in connected 'boolean
+    in session-in 'tcp-session
     in data 'string
-    out done 'boolean
-    emit [done: either connected [tcp/send data] [false]]
+    out session-out 'tcp-session
+    emit [session-out: _tcp-write-helper session-in data]
 ]
 
 block 'tcp-read 'hardware [
-    in connected 'boolean
+    in session-in 'tcp-session
     config size 'number 1024
     config timeout 'number 2000
+    out session-out 'tcp-session
     out response 'string
-    emit [response: either connected [tcp-read-helper size timeout] [""]]
+    emit [
+        _r: _tcp-read-helper session-in size timeout
+        session-out: _r/1
+        response:    _r/2
+    ]
 ]
 
 block 'tcp-close 'hardware [
-    in connected 'boolean
-    out done 'boolean
-    emit [done: either connected [tcp/close] [false]]
+    in session-in 'tcp-session
+    out session-out 'tcp-session
+    emit [session-out: _tcp-close-helper session-in]
 ]
 
 #include %../compiler/compiler.red

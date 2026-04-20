@@ -22,6 +22,7 @@ col-wire:       195.95.20
 col-wire-bool:  20.160.20
 col-wire-str:   220.100.160
 col-wire-cluster: 139.69.19
+col-wire-session: 107.142.35   ; verde oliva — VISA session (estilo LabVIEW)
 col-wire-sel:   0.160.200
 col-port-in:    50.110.200
 col-port-out:   195.80.25
@@ -164,11 +165,12 @@ port-in-type: func [node port-name /local bdef p] [
 ; Devuelve el color de wire para un tipo de dato.
 wire-data-color: func [data-type] [
     case [
-        data-type = 'boolean [col-wire-bool]
-        data-type = 'string  [col-wire-str]
-        data-type = 'cluster [col-wire-cluster]
-        data-type = 'array   [col-wire]   ; mismo naranja que number, diferenciado por línea doble
-        true                 [col-wire]
+        data-type = 'boolean     [col-wire-bool]
+        data-type = 'string      [col-wire-str]
+        data-type = 'cluster     [col-wire-cluster]
+        data-type = 'array       [col-wire]   ; mismo naranja que number, diferenciado por línea doble
+        data-type = 'tcp-session [col-wire-session]
+        true                     [col-wire]
     ]
 ]
 

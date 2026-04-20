@@ -1,6 +1,6 @@
 # QTorres — Contexto para Claude Code
 
-> Última actualización: 2026-03-31
+> Última actualización: 2026-04-20
 
 ## Reglas absolutas — NUNCA violar
 
@@ -403,6 +403,7 @@ Cubre sintaxis core, View, Draw, VID, Parse, patrones idiomáticos y gotchas.
 - Riesgos conocidos: `docs/retos.md`
 - Bugs GTK Linux: `docs/GTK_ISSUES.md`
 - **Arquitectura LabVIEW:** `docs/labview-comportamiento.md` — **leer antes de tomar decisiones sobre renderizado de widgets, modos edit/run, o controles custom**
+- **TCP/IP API:** `docs/tcp-api.md` — soporte nativo para Fase 4 (hardware SCPI, RS-232, Modbus, etc.)
 
 ## Problemas conocidos de arquitectura
 

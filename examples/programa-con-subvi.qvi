@@ -27,11 +27,11 @@ qvi-diagram: [
 arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]
 
 ; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
-_saved-qtorres-runtime: value? 'qtorres-runtime
-qtorres-runtime: true
+_saved-telekino-runtime: value? 'telekino-runtime
+telekino-runtime: true
 #include %suma-subvi.qvi
-; --- Restaurar qtorres-runtime si estaba definido ---
-if not _saved-qtorres-runtime [unset 'qtorres-runtime]
+; --- Restaurar telekino-runtime si estaba definido ---
+if not _saved-telekino-runtime [unset 'telekino-runtime]
 
 either empty? system/options/args [
     view layout [

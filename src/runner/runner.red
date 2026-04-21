@@ -1,6 +1,6 @@
 Red [
-    Title:   "QTorres — Runner"
-    Purpose: "Ejecuta un diagrama en memoria desde QTorres sin tocar el disco"
+    Title:   "Telekino — Runner"
+    Purpose: "Ejecuta un diagrama en memoria desde Telekino sin tocar el disco"
 ]
 
 ; ══════════════════════════════════════════════════
@@ -11,10 +11,10 @@ Red [
 ; No escribe ningún fichero al disco (DT-010).
 ;
 ; Flujo:
-;   1. qtorres-runtime: true  → sub-VIs no se auto-ejecutan al ser cargados
+;   1. telekino-runtime: true  → sub-VIs no se auto-ejecutan al ser cargados
 ;   2. compile-body genera el bloque de código headless
 ;   3. do ejecuta el bloque en el contexto actual
-;   4. qtorres-runtime: false
+;   4. telekino-runtime: false
 ;
 ; El runner reutiliza el mismo compilador que save-vi, pero en lugar de
 ; escribir el fichero devuelve el resultado de la ejecución.
@@ -23,7 +23,7 @@ run: func [
     diagram [object!]
     /local code result subvi-node
 ][
-    qtorres-runtime: true
+    telekino-runtime: true
 
     ; Cargar contextos de sub-VIs referenciados en el diagrama
     foreach subvi-node diagram/nodes [
@@ -45,7 +45,7 @@ run: func [
         print rejoin ["[runner] Código: " mold/only code]
     ]
 
-    qtorres-runtime: false
+    telekino-runtime: false
     true
 ]
 

@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — Compilador (orquestador)"
+    Title:   "Telekino — Compilador (orquestador)"
     Purpose: "Transforma un diagrama (modelo de grafo) en código Red dentro del .qvi"
 ]
 

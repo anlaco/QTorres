@@ -1,4 +1,4 @@
-# Retos y dificultades — QTorres
+# Retos y dificultades — Telekino
 
 ## Riesgo alto
 
@@ -8,7 +8,7 @@
 
 **Estado actual:** Red es alpha stage, 32-bit. El backend GTK de Linux tiene bugs críticos (ver sección específica más abajo). El backend Windows (Win32 API nativo) es el más estable.
 
-**Impacto:** Puede haber bugs o carencias en Red/View que haya que resolver nosotros mismos. En Linux, algunos bugs son bloqueantes para funcionalidad core de QTorres.
+**Impacto:** Puede haber bugs o carencias en Red/View que haya que resolver nosotros mismos. En Linux, algunos bugs son bloqueantes para funcionalidad core de Telekino.
 
 **Mitigación:**
 - Contribuir fixes y mejoras upstream a `red/red` cuando se encuentren problemas (estrategia principal para los bugs GTK)
@@ -33,7 +33,7 @@
 
 **Riesgo:** Dibujar wires que no se solapen, que rodeen bloques y que sean legibles es un problema de layout no trivial.
 
-**Impacto:** Un diagrama ilegible hace que QTorres sea inutilizable incluso si todo funciona.
+**Impacto:** Un diagrama ilegible hace que Telekino sea inutilizable incluso si todo funciona.
 
 **Mitigación:**
 - Fase 1 con wires rectos (línea directa entre puertos)
@@ -55,7 +55,7 @@
 
 **Riesgo:** Sin mensajes de error claros, el usuario no sabe por qué su diagrama no compila o no funciona.
 
-**Impacto:** Usabilidad baja → abandonan QTorres.
+**Impacto:** Usabilidad baja → abandonan Telekino.
 
 **Mitigación:**
 - Definir desde el inicio qué errores se detectan: tipos incompatibles, ciclos, puertos sin conectar
@@ -83,14 +83,14 @@ No está en Fase 1 pero es imprescindible para cualquier editor. La arquitectura
 
 ### Bugs del backend GTK en Linux
 
-**Riesgo:** Alto — **BLOQUEANTE para QTorres en Linux**
+**Riesgo:** Alto — **BLOQUEANTE para Telekino en Linux**
 **Estado:** Caracterizados — pendiente de contribuir fixes a `red/red`
 
-El canvas visual de QTorres depende de posicionamiento preciso: un cable que conecta dos nodos no puede aparecer desplazado entre plataformas. Los bugs del backend GTK son por tanto bloqueantes para el uso en Linux.
+El canvas visual de Telekino depende de posicionamiento preciso: un cable que conecta dos nodos no puede aparecer desplazado entre plataformas. Los bugs del backend GTK son por tanto bloqueantes para el uso en Linux.
 
 **Bugs confirmados** (ver detalle completo en [`docs/GTK_ISSUES.md`](GTK_ISSUES.md)):
 
-| Bug | Impacto en QTorres |
+| Bug | Impacto en Telekino |
 |-----|--------------------|
 | `system/view/metrics/dpi` retorna `none` | Offsets incorrectos en el canvas |
 | Coordenadas: Windows usa DPI virtual, Linux usa píxeles físicos | Posiciones distintas entre plataformas |
@@ -100,7 +100,7 @@ El canvas visual de QTorres depende de posicionamiento preciso: un cable que con
 | Backend GTK es 32-bit, requiere libs i386 en sistemas 64-bit | Instalación compleja; muchas distros eliminan soporte 32-bit |
 
 **Estrategia:**
-- Contribuir los fixes directamente al repo `red/red`, no workarounds locales en QTorres.
+- Contribuir los fixes directamente al repo `red/red`, no workarounds locales en Telekino.
 - La migración a 64-bit está en el roadmap de Red: v1.0 → core 64-bit, v1.1 → View engine 64-bit.
 - Ver [`CONTRIBUTING.md`](../CONTRIBUTING.md) para el proceso de contribución a `red/red`.
 
@@ -130,7 +130,7 @@ Resuelto: el .qvi contiene cabecera gráfica (inerte para Red) + código generad
 
 ### Sub-VIs y reutilización
 
-Resuelto: VIs con connector pane generan una `func` Red. La guarda `qtorres-runtime` distingue ejecución standalone de carga como sub-VI. El VI padre hace `do %sub-vi.qvi` y llama la función.
+Resuelto: VIs con connector pane generan una `func` Red. La guarda `telekino-runtime` distingue ejecución standalone de carga como sub-VI. El VI padre hace `do %sub-vi.qvi` y llama la función.
 
 ### Colisiones de nombres en librerías
 

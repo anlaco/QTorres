@@ -1,12 +1,12 @@
-# Contribuir a QTorres
+# Contribuir a Telekino
 
-QTorres es un proyecto open source en desarrollo inicial. Las contribuciones son bienvenidas.
+Telekino es un proyecto open source en desarrollo inicial. Las contribuciones son bienvenidas.
 
 ## Tipos de contribución
 
-### 1. Contribuciones al código de QTorres
+### 1. Contribuciones al código de Telekino
 
-Todo el código de QTorres está en Red-Lang. Ver [`CLAUDE.md`](CLAUDE.md) para el contexto completo del proyecto, la arquitectura, el stack y el orden de trabajo recomendado.
+Todo el código de Telekino está en Red-Lang. Ver [`CLAUDE.md`](CLAUDE.md) para el contexto completo del proyecto, la arquitectura, el stack y el orden de trabajo recomendado.
 
 **Antes de contribuir:**
 - Lee [`docs/PLANNING.md`](docs/PLANNING.md) para entender qué decisiones arquitecturales están pendientes. No implementar módulos bloqueados por decisiones no tomadas (especialmente P1 — formato `.qvi`).
@@ -23,11 +23,11 @@ Todo el código de QTorres está en Red-Lang. Ver [`CLAUDE.md`](CLAUDE.md) para 
 
 > Esta es una de las contribuciones más valiosas que alguien puede hacer al proyecto ahora mismo.
 
-QTorres en Linux depende del backend GTK de Red (`red/red`), que tiene varios bugs críticos que bloquean el funcionamiento del canvas visual. Ver [`docs/GTK_ISSUES.md`](docs/GTK_ISSUES.md) para la lista completa de bugs con descripción y estado.
+Telekino en Linux depende del backend GTK de Red (`red/red`), que tiene varios bugs críticos que bloquean el funcionamiento del canvas visual. Ver [`docs/GTK_ISSUES.md`](docs/GTK_ISSUES.md) para la lista completa de bugs con descripción y estado.
 
-**Por qué contribuir a `red/red` en lugar de parchear QTorres:**
-- Los fixes en `red/red` benefician a todo el ecosistema Red en Linux, no solo a QTorres.
-- Un workaround local en QTorres sería frágil y crearía deuda técnica.
+**Por qué contribuir a `red/red` en lugar de parchear Telekino:**
+- Los fixes en `red/red` benefician a todo el ecosistema Red en Linux, no solo a Telekino.
+- Un workaround local en Telekino sería frágil y crearía deuda técnica.
 - La estrategia del proyecto es trabajar *con* Red, no alrededor de él.
 
 **Proceso para contribuir un fix GTK a `red/red`:**
@@ -54,7 +54,7 @@ QTorres en Linux depende del backend GTK de Red (`red/red`), que tiene varios bu
 
 6. **Actualiza `docs/GTK_ISSUES.md`** en este repositorio con el link al issue/PR de `red/red`
 
-**Bugs prioritarios para QTorres** (en orden de impacto):
+**Bugs prioritarios para Telekino** (en orden de impacto):
 
 | Bug | Descripción | Detalle |
 |-----|-------------|---------|
@@ -85,7 +85,7 @@ Los ejemplos de `.qvi` viven en `examples/`. Un ejemplo nuevo que demuestre una 
 
 ## Links útiles
 
-- Repositorio QTorres: https://github.com/anlaco/QTorres
+- Repositorio Telekino: https://github.com/anlaco/Telekino
 - Backlog: https://github.com/users/anlaco/projects/1
 - Repositorio Red: https://github.com/red/red
 - Documentación Red: https://www.red-lang.org/

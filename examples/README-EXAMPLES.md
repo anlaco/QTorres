@@ -1,4 +1,4 @@
-# Ejemplos QTorres
+# Ejemplos Telekino
 
 Corpus de VIs funcionales que demuestran features del proyecto.
 

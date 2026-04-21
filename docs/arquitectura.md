@@ -1,10 +1,10 @@
-# Arquitectura — QTorres
+# Arquitectura — Telekino
 
 ## Visión general
 
 ```
 ┌────────────────────────────────────────────────┐
-│                   QTorres App                  │
+│                   Telekino App                  │
 │                                                │
 │  ┌──────────────┐       ┌──────────────────┐   │
 │  │  Front Panel │◄─────►│  Block Diagram   │   │
@@ -44,20 +44,20 @@
 
 ## Modelo de ejecución: dataflow
 
-QTorres implementa el mismo modelo de ejecución que LabVIEW: **dataflow**.
+Telekino implementa el mismo modelo de ejecución que LabVIEW: **dataflow**.
 
 ### Principios fundamentales
 
 - **Nodo listo = nodo ejecutable:** un nodo ejecuta automáticamente cuando todos sus puertos de entrada tienen datos disponibles.
 - **El grafo define el orden:** el orden de ejecución se deduce de las conexiones del diagrama, no lo especifica el programador explícitamente.
-- **Compilación a imperativo:** QTorres compila el grafo dataflow a código Red secuencial ordenado topológicamente. El usuario programa como dataflow puro; el compilador genera el código imperativo.
+- **Compilación a imperativo:** Telekino compila el grafo dataflow a código Red secuencial ordenado topológicamente. El usuario programa como dataflow puro; el compilador genera el código imperativo.
 - **Ejecución continua:** la ejecución es un loop continuo, no single-shot.
 - **Paralelismo futuro:** cuando Red tenga concurrencia madura, el mismo `.qvi` se ejecutará con paralelismo automático sin cambios para el usuario.
 
 ### Flujo Run vs Save
 
 **Al pulsar Run:**
-1. QTorres serializa el estado en memoria al `.qvi` en disco (mismo que Save)
+1. Telekino serializa el estado en memoria al `.qvi` en disco (mismo que Save)
 2. Ejecuta el `.qvi` con Red directamente
 
 **Al pulsar Save:**
@@ -128,7 +128,7 @@ view layout [
 
 - Envuelve el código en una `func` Red
 - No genera ninguna llamada a `view`
-- La guarda `if not value? 'qtorres-runtime [...]` permite ejecución standalone
+- La guarda `if not value? 'telekino-runtime [...]` permite ejecución standalone
 - El VI padre hace `do %sub-vi.qvi` para cargar la función
 
 **En ambos casos el compilador:**
@@ -144,7 +144,7 @@ view layout [
 
 Ejecuta el diagrama:
 
-- Define `qtorres-runtime: true` en el entorno
+- Define `telekino-runtime: true` en el entorno
 - Compila en memoria (misma lógica que el compilador)
 - Ejecuta con `do`
 - Captura salida y la escribe en los indicadores del Front Panel
@@ -166,7 +166,7 @@ Serialización/deserialización de VIs y proyectos. Al guardar, el `.qvi` se gen
 ```
 Usuario arrastra bloque  →  Modelo se actualiza  →  Canvas se redibuja
 Usuario conecta wire     →  Modelo se actualiza  →  Canvas se redibuja
-Usuario pulsa Run        →  Runner define qtorres-runtime → Compilador genera Red → do ejecuta → Panel muestra resultado
+Usuario pulsa Run        →  Runner define telekino-runtime → Compilador genera Red → do ejecuta → Panel muestra resultado
 Usuario pulsa Save       →  Compilador genera código + cabecera gráfica → Se escribe fichero .qvi completo
 Usuario abre .qvi        →  load lee el fichero → qvi-diagram se parsea → Canvas + Panel se reconstruyen
 ```
@@ -178,7 +178,7 @@ Un `.qvi` guardado es directamente ejecutable con Red (`red mi-vi.qvi`):
 1. Red ejecuta `qvi-diagram: [...]` → asigna el bloque a una variable, sin efectos
 2. Red ejecuta el código generado debajo → resultado
 
-La clave es que la cabecera es una asignación inerte. El código vive debajo. Un mismo fichero, dos usos (QTorres para editar, Red para ejecutar).
+La clave es que la cabecera es una asignación inerte. El código vive debajo. Un mismo fichero, dos usos (Telekino para editar, Red para ejecutar).
 
 ## Sub-VIs
 
@@ -186,7 +186,7 @@ Cuando un VI se usa dentro de otro:
 
 1. El sub-VI define un **connector pane** (entradas/salidas expuestas)
 2. Su código generado se envuelve en una `func` Red en lugar de código lineal
-3. La guarda `if not value? 'qtorres-runtime` permite ejecución standalone
+3. La guarda `if not value? 'telekino-runtime` permite ejecución standalone
 4. El VI padre emite `do %sub-vi.qvi` para cargar la función, y la llama como `nombre-funcion arg1 arg2`
 
 ## Namespacing con `context`
@@ -195,7 +195,7 @@ Los VIs dentro de una `.qlib` (librería) se aíslan usando `context` de Red:
 
 ```
 LabVIEW:   Utilidades.lvlib » Suma.vi
-QTorres:   utilidades/suma
+Telekino:   utilidades/suma
 ```
 
 Esto evita colisiones de nombres: `utilidades/suma` y `matematica/suma` coexisten sin problema. Es el mecanismo nativo de Red, no una convención de nombres.
@@ -204,11 +204,11 @@ Esto evita colisiones de nombres: `utilidades/suma` y `matematica/suma` coexiste
 
 Cada tipo de bloque se registra con el dialecto `block-def` (ver sección Dialectos).
 
-Esto permite extender QTorres con nuevos bloques sin modificar el núcleo: basta con escribir una nueva definición `block` siguiendo la gramática del dialecto.
+Esto permite extender Telekino con nuevos bloques sin modificar el núcleo: basta con escribir una nueva definición `block` siguiendo la gramática del dialecto.
 
-## Dialectos de QTorres
+## Dialectos de Telekino
 
-QTorres define tres dialectos Red propios. Cada uno tiene una gramática procesable con `parse` y una función específica dentro del sistema. No son convenciones — son mini-lenguajes enforzados por el procesador.
+Telekino define tres dialectos Red propios. Cada uno tiene una gramática procesable con `parse` y una función específica dentro del sistema. No son convenciones — son mini-lenguajes enforzados por el procesador.
 
 ### 1. `block-def` — Definición de tipos de bloques
 
@@ -298,11 +298,11 @@ emit [result: a + b]
 
 **Por qué es un dialecto:** Es código Red que el compilador manipula como datos antes de emitirlo como código. La sustitución de puertos por variables es la operación del procesador. No es interpolación de strings — es manipulación de bloques Red (homoiconicidad en acción).
 
-### Dialectos de Red que QTorres usa (no propios)
+### Dialectos de Red que Telekino usa (no propios)
 
-Además de los tres dialectos propios, QTorres usa estos dialectos nativos de Red:
+Además de los tres dialectos propios, Telekino usa estos dialectos nativos de Red:
 
-| Dialecto | Uso en QTorres |
+| Dialecto | Uso en Telekino |
 |----------|---------------|
 | **Draw** | Renderizar bloques y wires en el canvas del Block Diagram |
 | **View/VID** | Construir el Front Panel (controles, indicadores, layout) |

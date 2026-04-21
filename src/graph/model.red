@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — Modelo del grafo"
+    Title:   "Telekino — Modelo del grafo"
     Purpose: "Modelo de datos en memoria + constructores (DT-022, DT-023, DT-024)"
 ]
 

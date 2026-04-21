@@ -1,4 +1,4 @@
-Red [Title: "QTorres — Tests Array 1D"]
+Red [Title: "Telekino — Tests Array 1D"]
 
 do %../src/graph/blocks.red
 

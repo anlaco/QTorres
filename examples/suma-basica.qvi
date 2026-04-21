@@ -1,7 +1,7 @@
 Red [title: "Suma básica"]
 
 ; ── CABECERA GRÁFICA ─────────────────────────────
-; QTorres lee esta sección para reconstruir la vista.
+; Telekino lee esta sección para reconstruir la vista.
 ; Para Red es solo una asignación sin efectos.
 
 qvi-diagram: [
@@ -26,7 +26,7 @@ qvi-diagram: [
 ]
 
 ; ── CÓDIGO GENERADO ──────────────────────────────
-; Generado por QTorres al guardar. Ejecutable con Red directamente.
+; Generado por Telekino al guardar. Ejecutable con Red directamente.
 ; Las variables usan name (DT-024), los textos visibles usan label/text.
 
 ctrl_1: 5.0

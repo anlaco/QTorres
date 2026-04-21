@@ -43,7 +43,7 @@ suma: context [
 ]
 
 ; --- Standalone guard ---
-if not value? 'qtorres-runtime [
+if not value? 'telekino-runtime [
     view layout [
         text "A" f_1: field "0.0"
         text "B" f_2: field "0.0"

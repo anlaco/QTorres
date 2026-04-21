@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — panel-render"
+    Title:   "Telekino — panel-render"
     Purpose: "Render puro del Front Panel: constantes visuales, helpers de tipo y Draw."
     Needs:   'View
 ]

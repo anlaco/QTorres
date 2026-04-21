@@ -1,8 +1,8 @@
 # Bugs del backend GTK — Red en Linux
 
-> **Contexto:** QTorres usa Red/View para su interfaz gráfica. En Linux, Red/View usa el backend GTK3, que actualmente tiene varios bugs críticos. El canvas visual de QTorres depende de posicionamiento preciso — un cable que conecta dos nodos no puede aparecer desplazado entre plataformas. Estos bugs son por tanto **bloqueantes** para QTorres en Linux.
+> **Contexto:** Telekino usa Red/View para su interfaz gráfica. En Linux, Red/View usa el backend GTK3, que actualmente tiene varios bugs críticos. El canvas visual de Telekino depende de posicionamiento preciso — un cable que conecta dos nodos no puede aparecer desplazado entre plataformas. Estos bugs son por tanto **bloqueantes** para Telekino en Linux.
 >
-> **Estrategia:** Contribuir los fixes directamente al repositorio `red/red`, no añadir workarounds locales en QTorres. Ver [`CONTRIBUTING.md`](../CONTRIBUTING.md) para el proceso.
+> **Estrategia:** Contribuir los fixes directamente al repositorio `red/red`, no añadir workarounds locales en Telekino. Ver [`CONTRIBUTING.md`](../CONTRIBUTING.md) para el proceso.
 
 ---
 
@@ -11,7 +11,7 @@
 ### GTK-001: `system/view/metrics/dpi` retorna `none`
 
 **Severidad:** Crítica
-**Impacto en QTorres:** Offsets incorrectos en el canvas. Las coordenadas de nodos y wires se calculan sin información de DPI, produciendo posicionamiento incorrecto.
+**Impacto en Telekino:** Offsets incorrectos en el canvas. Las coordenadas de nodos y wires se calculan sin información de DPI, produciendo posicionamiento incorrecto.
 
 **Descripción:**
 En Linux, `system/view/metrics/dpi` devuelve `none` en lugar del valor de DPI de la pantalla. En Windows devuelve el valor correcto.
@@ -23,7 +23,7 @@ En Linux, `system/view/metrics/dpi` devuelve `none` en lugar del valor de DPI de
 ### GTK-002: Coordenadas en píxeles físicos vs DPI virtual
 
 **Severidad:** Crítica
-**Impacto en QTorres:** Las posiciones guardadas en un `.qvi` en Windows no reproducen el mismo layout visual en Linux, y viceversa.
+**Impacto en Telekino:** Las posiciones guardadas en un `.qvi` en Windows no reproducen el mismo layout visual en Linux, y viceversa.
 
 **Descripción:**
 Windows usa DPI virtual (coordenadas independientes de la densidad de píxeles). Linux usa píxeles físicos directamente. Esto genera posiciones distintas para el mismo diagrama entre plataformas. Un diagrama creado en Windows aparece con elementos descolocados en Linux.
@@ -33,7 +33,7 @@ Windows usa DPI virtual (coordenadas independientes de la densidad de píxeles).
 ### GTK-003: Eventos `resize` reportan tamaños incorrectos
 
 **Severidad:** Alta
-**Impacto en QTorres:** El canvas no se adapta correctamente cuando el usuario redimensiona la ventana de QTorres en Linux.
+**Impacto en Telekino:** El canvas no se adapta correctamente cuando el usuario redimensiona la ventana de Telekino en Linux.
 
 **Descripción:**
 Los eventos de cambio de tamaño de ventana reportan dimensiones incorrectos en el backend GTK. La ventana visualmente cambia de tamaño, pero los valores que recibe el código son incorrectos.
@@ -47,7 +47,7 @@ Además, en GTK el canvas **no se redimensiona en vivo** durante el drag del bor
 ### GTK-004: Bug de locale — aritmética float incorrecta sin `LC_ALL=C`
 
 **Severidad:** Alta
-**Impacto en QTorres:** Los cálculos numéricos del programa del usuario pueden producir resultados incorrectos en Linux con locales que usan coma decimal (ej. `es_ES.UTF-8`).
+**Impacto en Telekino:** Los cálculos numéricos del programa del usuario pueden producir resultados incorrectos en Linux con locales que usan coma decimal (ej. `es_ES.UTF-8`).
 
 **Descripción:**
 Red en Linux tiene un bug de locale donde la aritmética de punto flotante produce resultados incorrectos a menos que se establezca `LC_ALL=C`. Afecta a cualquier sistema con locale de coma decimal (la mayoría de Europa).
@@ -59,7 +59,7 @@ Red en Linux tiene un bug de locale donde la aritmética de punto flotante produ
 ### GTK-005: `system/view/metrics/colors` retorna `none`
 
 **Severidad:** Media
-**Impacto en QTorres:** No se pueden usar los colores del tema del sistema para la identidad visual. Los colores de la UI de QTorres deben definirse completamente de forma explícita.
+**Impacto en Telekino:** No se pueden usar los colores del tema del sistema para la identidad visual. Los colores de la UI de Telekino deben definirse completamente de forma explícita.
 
 **Descripción:**
 En Linux, `system/view/metrics/colors` devuelve `none`. En Windows devuelve los colores del tema del sistema operativo.
@@ -69,7 +69,7 @@ En Linux, `system/view/metrics/colors` devuelve `none`. En Windows devuelve los 
 ### GTK-006: Backend GTK es 32-bit, requiere librerías i386
 
 **Severidad:** Alta (tendencia creciente)
-**Impacto en QTorres:** Instalación compleja en Linux moderno. En algunas distribuciones, QTorres directamente no puede ejecutarse.
+**Impacto en Telekino:** Instalación compleja en Linux moderno. En algunas distribuciones, Telekino directamente no puede ejecutarse.
 
 **Descripción:**
 Red es actualmente 32-bit. El backend GTK requiere las librerías GTK3 i386 en sistemas de 64-bit. Muchas distribuciones Linux modernas están eliminando o han eliminado el soporte para librerías 32-bit (ej. Ubuntu 24.04+ requiere configuración adicional).
@@ -78,7 +78,7 @@ Red es actualmente 32-bit. El backend GTK requiere las librerías GTK3 i386 en s
 - Red v1.0: migración del core a 64-bit
 - Red v1.1: migración del View engine a 64-bit
 
-Cuando Red migre a 64-bit, este problema desaparece. QTorres debe seguir ese roadmap.
+Cuando Red migre a 64-bit, este problema desaparece. Telekino debe seguir ese roadmap.
 
 ---
 
@@ -95,7 +95,7 @@ Cuando Red migre a 64-bit, este problema desaparece. QTorres debe seguir ese roa
 | GTK-007 Modal pierde foco teclado | — | Pendiente de crear |
 | GTK-008 `request-file/save` abre diálogo de carpetas | — | Workaround: diálogo VID propio |
 | GTK-009 `request-file` no permite controlar tamaño | — | Posible: file browser VID propio |
-| GTK-010 `on-change` de field queda enganchado tras Run | — | Issue anlaco/QTorres#49 — **Pendiente revalidación con fork actualizado (2026-04-17)** |
+| GTK-010 `on-change` de field queda enganchado tras Run | — | Issue anlaco/Telekino#49 — **Pendiente revalidación con fork actualizado (2026-04-17)** |
 | GTK-014 `face/size` flip-flop CSD↔cliente tras alt+tab | — | **RESUELTO (2026-04-17)**: fork anlaco/red commit `496a7c5` |
 | GTK-015 Tab crashea navegación foco en window con solo `base` | — | Pendiente de crear — no fatal |
 | GTK-016 Access violation en show/draw bajo maximize/resize | — | Crítico — sin workaround user-land |
@@ -106,7 +106,7 @@ Cuando Red migre a 64-bit, este problema desaparece. QTorres debe seguir ese roa
 ### GTK-007: `view/flags [modal]` pierde foco de teclado del window padre
 
 **Severidad:** Alta
-**Impacto en QTorres:** Tras cerrar un diálogo modal, `on-key` deja de dispararse en la ventana principal. Delete, Backspace y cualquier tecla dejan de funcionar permanentemente.
+**Impacto en Telekino:** Tras cerrar un diálogo modal, `on-key` deja de dispararse en la ventana principal. Delete, Backspace y cualquier tecla dejan de funcionar permanentemente.
 
 **Descripción:**
 Al cerrar un diálogo creado con `view/flags [modal]`, el window padre pierde el foco de teclado GTK. Los eventos de ratón siguen funcionando (clicks, drag), pero los eventos de teclado no llegan al `on-key` del window. El bug es permanente: ni clics ni `show` restauran el foco.
@@ -126,7 +126,7 @@ La causa probable es que Red/View no llama a `gtk_window_set_transient_for()` o 
 ### GTK-014: `face/size` reporta dos interpretaciones distintas según el estado de foco — flip-flop tras alt+tab / maximize / restore
 
 **Severidad:** Alta
-**Impacto en QTorres:** El canvas del BD y del FP se dimensionaban mal tras alt+tab o restore de maximize, saliéndose por la derecha y/o abajo de la ventana, o quedándose demasiado pequeño con huecos visibles.
+**Impacto en Telekino:** El canvas del BD y del FP se dimensionaban mal tras alt+tab o restore de maximize, saliéndose por la derecha y/o abajo de la ventana, o quedándose demasiado pequeño con huecos visibles.
 
 **Descripción:**
 En GTK3 con CSD (Client-Side Decorations), `face/size` de una ventana reporta **dos valores distintos para el mismo estado visual**, y cambia entre ellos tras eventos de foco sin intervención del usuario:
@@ -152,14 +152,14 @@ La detección bidireccional del flip fue explorada y descartada: los deltas -98x
 
 **Verificación del fix (2026-04-17):** El fork `anlaco/red` implementa `face/size` reportando el client area correctamente en todos los estados (maximize, alt+tab, restore, resize). Los problemas (maximize mal, alt+tab mal, resize diferido) eran exclusivos del backend GTK upstream y están resueltos.
 
-**Workaround histórico:** Ventanas de tamaño fijo (900x600) sin `flags: [resize]` (Issue #65). Ya no es necesario con el fork actualizado. Se puede reabrir Issue #65 como "ventanas redimensionables con fork" para migrar a `flags: [resize]` en qtorres.red.
+**Workaround histórico:** Ventanas de tamaño fijo (900x600) sin `flags: [resize]` (Issue #65). Ya no es necesario con el fork actualizado. Se puede reabrir Issue #65 como "ventanas redimensionables con fork" para migrar a `flags: [resize]` en telekino.red.
 
 ---
 
 ### GTK-015: Pulsar `Tab` en ventana con solo `base` face crashea en navegación de foco
 
 **Severidad:** Media (no fatal)
-**Impacto en QTorres:** Si el usuario pulsa Tab con foco en el canvas del BD o FP, aparece un error en stderr. La aplicación **no muere** — el event loop continúa funcionando normalmente.
+**Impacto en Telekino:** Si el usuario pulsa Tab con foco en el canvas del BD o FP, aparece un error en stderr. La aplicación **no muere** — el event loop continúa funcionando normalmente.
 
 **Descripción:**
 Al pulsar Tab en una ventana cuyo `pane` solo contiene faces de tipo `base` (no focusables), el handler interno de navegación de foco de Red/View intenta recorrer `p/parent/pane` y falla porque `parent` es `none`:
@@ -179,7 +179,7 @@ Al pulsar Tab en una ventana cuyo `pane` solo contiene faces de tipo `base` (no 
 4. **`set-focus tab-sink` en `on-create`** falla porque los widgets hijos aún no están realizados en ese momento.
 5. **El crash es no-fatal** — el event loop sigue vivo y los siguientes eventos de teclado se procesan normalmente.
 
-**Workaround temporal:** Ninguno limpio desde user-land. Se acepta como limitación conocida de Red/View GTK. El BD/FP de QTorres no usa Tab como interacción normal.
+**Workaround temporal:** Ninguno limpio desde user-land. Se acepta como limitación conocida de Red/View GTK. El BD/FP de Telekino no usa Tab como interacción normal.
 
 **Test reproducible:** `tests/test-overhead.red` — pulsar Tab muestra el error repetidamente en stderr pero la aplicación sigue funcionando.
 
@@ -188,7 +188,7 @@ Al pulsar Tab en una ventana cuyo `pane` solo contiene faces de tipo `base` (no 
 ### GTK-016: Access violation en `show`/`draw` bajo maximize/resize repetidos
 
 **Severidad:** Crítica
-**Impacto en QTorres:** Bajo presión de eventos de resize (maximize/restore rápido, o drag agresivo del borde) el runtime de Red/View genera un `*** Runtime Error 1: access violation` nativo en una dirección dentro del runtime (ej. `at: 0809DC91h`). En un caso observado el crash arrastró al sistema entero hasta colgarlo.
+**Impacto en Telekino:** Bajo presión de eventos de resize (maximize/restore rápido, o drag agresivo del borde) el runtime de Red/View genera un `*** Runtime Error 1: access violation` nativo en una dirección dentro del runtime (ej. `at: 0809DC91h`). En un caso observado el crash arrastró al sistema entero hasta colgarlo.
 
 **Descripción:**
 El crash ocurre esporádicamente al combinar:
@@ -210,7 +210,7 @@ La pila de ejecución nunca llega al user-land — es un `access violation` en m
 - Usar `show/with` o `show face/pane` en lugar de `show child`
 - Evitar modificar `face/size` dentro del handler y hacerlo en un tick posterior
 
-**Siguiente paso:** Caso mínimo reproducible para bug report upstream a Red-Lang. Mientras tanto, QTorres debe asumir que el resize agresivo puede matar la app.
+**Siguiente paso:** Caso mínimo reproducible para bug report upstream a Red-Lang. Mientras tanto, Telekino debe asumir que el resize agresivo puede matar la app.
 
 **Test reproducible:** `tests/test-overhead.red` — maximize/restore repetido acaba disparando el crash en una fracción de los intentos.
 
@@ -219,12 +219,12 @@ La pila de ejecución nunca llega al user-land — es un `access violation` en m
 ### GTK-010: `on-change` de field nativo queda enganchado tras ejecutar Run
 
 **Severidad:** Media
-**Impacto en QTorres:** Tras pulsar Run una vez, los controles string del Front Panel se auto-actualizan al escribir, sin necesidad de volver a pulsar Run. El comportamiento esperado es que los indicadores solo se actualicen al pulsar Run explícitamente.
+**Impacto en Telekino:** Tras pulsar Run una vez, los controles string del Front Panel se auto-actualizan al escribir, sin necesidad de volver a pulsar Run. El comportamiento esperado es que los indicadores solo se actualicen al pulsar Run explícitamente.
 
 **Descripción:**
 El handler del botón Run conecta algún callback que queda enganchado al evento `on-change` del field nativo del FP. A partir del primer Run, cualquier cambio en el texto del field dispara la ejecución del diagrama automáticamente.
 
-**Issue:** anlaco/QTorres#49
+**Issue:** anlaco/Telekino#49
 
 **Workaround temporal:** Ninguno conocido. Reabrir la aplicación limpia el estado.
 

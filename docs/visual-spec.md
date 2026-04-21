@@ -1,6 +1,6 @@
-# Especificación visual — QTorres
+# Especificación visual — Telekino
 
-Documento vivo que define la identidad visual de QTorres.
+Documento vivo que define la identidad visual de Telekino.
 Principio rector: **igual que LabVIEW en forma, tamaños y comportamiento; no en estilos.**
 Un programador de LabVIEW debe sentirse cómodo desde el primer momento.
 
@@ -12,7 +12,7 @@ Este documento crecerá conforme se implementen nuevos tipos y funcionalidades.
 
 ### 1.1 Sin zoom
 
-QTorres no implementa zoom, igual que LabVIEW. Esto es una decisión de diseño
+Telekino no implementa zoom, igual que LabVIEW. Esto es una decisión de diseño
 deliberada para evitar que los diagramas crezcan al infinito.
 
 ### 1.2 Scrollbars dinámicas
@@ -167,7 +167,7 @@ Cuando se conecta un wire entre terminales de tipos incompatibles:
 - Al pasar el ratón por el wire roto: tooltip con el motivo
   ("Type mismatch: expected DBL, got TF")
 
-*Nota: el comportamiento actual de QTorres impide dibujar el wire. Hay que
+*Nota: el comportamiento actual de Telekino impide dibujar el wire. Hay que
 cambiar a este modelo donde se dibuja pero se marca como roto.*
 
 ### 5.2 Una entrada, un solo wire
@@ -178,7 +178,7 @@ cambiar a este modelo donde se dibuja pero se marca como roto.*
 - Intentar conectar un segundo wire a una entrada que ya tiene uno
   es un error → wire roto o rechazo
 
-*Nota: el comportamiento actual de QTorres permite múltiples wires a una
+*Nota: el comportamiento actual de Telekino permite múltiples wires a una
 entrada. Hay que corregir esto.*
 
 ### 5.3 Coercion dots (futuro — Fase 2 tardía o Fase 3)

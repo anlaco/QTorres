@@ -1,6 +1,6 @@
-# Comportamiento de LabVIEW — referencia para QTorres
+# Comportamiento de LabVIEW — referencia para Telekino
 
-> **Propósito:** Documentar cómo funciona LabVIEW internamente para que las decisiones de arquitectura de QTorres estén informadas. No se pretende replicar LabVIEW — se pretende entender los principios y adaptarlos a Red/View.
+> **Propósito:** Documentar cómo funciona LabVIEW internamente para que las decisiones de arquitectura de Telekino estén informadas. No se pretende replicar LabVIEW — se pretende entender los principios y adaptarlos a Red/View.
 
 ---
 
@@ -24,9 +24,9 @@ Red/View mapea sus faces (`field`, `button`, `slider`) a **widgets nativos del S
 
 **Fuente:** Red 0.6.0 blog — *"Red relies on native widgets, Rebol has custom ones only"*
 
-### Implicación para QTorres
+### Implicación para Telekino
 
-QTorres NO puede usar la misma face en ambos modos como hace LabVIEW, porque Red/View no tiene un engine de renderizado propio para widgets. La solución adoptada es:
+Telekino NO puede usar la misma face en ambos modos como hace LabVIEW, porque Red/View no tiene un engine de renderizado propio para widgets. La solución adoptada es:
 
 - **Editor:** Draw dialect sobre `base` face (renderizado custom)
 - **Runtime (.qvi):** Mix de widgets nativos y Draw según el tipo de control
@@ -64,7 +64,7 @@ Desde LabVIEW 8, la **auto-selección de herramienta** (activada por defecto) in
 
 Internamente es un **dispatcher de eventos**: el panel intercepta eventos antes de que lleguen al control y los enruta según la herramienta activa. El control no sabe en qué modo está.
 
-### En QTorres
+### En Telekino
 
 No implementamos paleta de herramientas. El comportamiento es:
 
@@ -94,7 +94,7 @@ LabVIEW tiene 5 familias de estilo. Son **evolución histórica**, no diferencia
 
 **LabVIEW NO tiene un motor de theming** (no hay CSS). Cambiar estilo es reemplazar controles manualmente.
 
-### En QTorres
+### En Telekino
 
 No implementamos estilos múltiples. Hay un único estilo visual definido en `docs/visual-spec.md`. A futuro, el sistema Draw permite crear estilos alternativos como funciones `render-*` distintas.
 
@@ -120,7 +120,7 @@ Cada control numérico tiene:
 
 Estos tres ejes son independientes. Un U16 puede mostrarse en hex ("0x00FF") o en decimal ("255") — el valor interno es el mismo.
 
-### En QTorres
+### En Telekino
 
 Adoptamos el modelo de tres ejes. Ver DT-026 para el formato en `qvi-diagram`.
 
@@ -148,7 +148,7 @@ El Facade VI puede usar un **2D Picture control** para dibujo completamente libr
 - Performance: si el Facade no procesa eventos rápido, se encolan
 - La comunidad los considera "casi completos pero nunca completos"
 
-### En QTorres
+### En Telekino
 
 No implementamos un sistema de XControls. El equivalente futuro es:
 
@@ -161,7 +161,7 @@ No implementamos un sistema de XControls. El equivalente futuro es:
 
 ## 6. Resumen de diferencias clave
 
-| Aspecto | LabVIEW | QTorres |
+| Aspecto | LabVIEW | Telekino |
 |---------|---------|---------|
 | Engine de renderizado | Custom propio | Red/View nativo + Draw sobre `base` |
 | Controles en editor | Mismo objeto que runtime | Draw puro (sin faces reales) |

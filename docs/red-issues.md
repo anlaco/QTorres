@@ -1,4 +1,4 @@
-# QTorres — Informe de problemas Red-Lang
+# Telekino — Informe de problemas Red-Lang
 
 Análisis estático de los fichero `.red` del proyecto contra las buenas prácticas del
 lenguaje Red (style guide oficial, SKILL.md del proyecto y gotchas documentados).
@@ -74,7 +74,7 @@ Corrección aplicada: Añadido `lbl-spec: copy lbl-spec` antes de hacer `append`
 
 ## 0008 — WARN · `src/runner/runner.red:26–29` ✅ RESUELTO
 
-**`qtorres-runtime` queda a `true` si `do code` lanza error**
+**`telekino-runtime` queda a `true` si `do code` lanza error**
 
 Corrección aplicada:
 ```red
@@ -171,7 +171,7 @@ Corrección aplicada: Usado template de bloque con `reduce` y `compose` para el 
 
 ---
 
-## 0020 — STYLE · `src/qtorres.red` ✅ RESUELTO
+## 0020 — STYLE · `src/telekino.red` ✅ RESUELTO
 
 **Punto de entrada sin `Needs: 'View` cuando la UI lo requerirá**
 
@@ -242,7 +242,7 @@ Corrección aplicada: Añadidos los casos `mul ["MUL *"]`, `div ["DIV /"]`, `dis
 | `src/graph/blocks.red` | 1 | — | — | 1 |
 | `src/io/file-io.red` | 1 | 1 | 1 | 3 |
 | `src/runner/runner.red` | — | 1 | — | 1 |
-| `src/qtorres.red` | — | — | 1 | 1 |
+| `src/telekino.red` | — | — | 1 | 1 |
 | **Total** | **8** | **10** | **4** | **22** |
 
 Todos los issues resueltos. ✅

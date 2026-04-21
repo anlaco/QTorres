@@ -145,7 +145,7 @@ Fichero generado desde la UI con formato diferente (nodos en múltiples líneas,
 
 El default `"localhost"` puede no resolver en sistemas sin `/etc/hosts` configurado o en contenedores Docker. Considerar cambiar a `"127.0.0.1"` para consistencia con la documentación (`docs/tcp-api.md`) y el ejemplo `tcp-echo-demo.qvi`.
 
-> **Nota (Claude, 2026-04-21):** Preferencia, no bug. `localhost` resuelve por defecto en Linux/macOS/Windows estándar. Docker sin `/etc/hosts` no es escenario realista para QTorres (desktop-oriented). Dejarlo como `"localhost"` es más legible para el usuario. **Rechazado.**
+> **Nota (Claude, 2026-04-21):** Preferencia, no bug. `localhost` resuelve por defecto en Linux/macOS/Windows estándar. Docker sin `/etc/hosts` no es escenario realista para Telekino (desktop-oriented). Dejarlo como `"localhost"` es más legible para el usuario. **Rechazado.**
 
 ## Acciones pendientes
 

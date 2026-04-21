@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — Block Diagram Canvas"
+    Title:   "Telekino — Block Diagram Canvas"
     Purpose: "Canvas modular: render-diagram recibe modelo explícito (Issue #11)"
     Needs:   'View
 ]
@@ -1239,7 +1239,7 @@ if find form system/options/script "canvas.red" [
 
     view make face! [
         type:   'window
-        text:   "QTorres — Canvas modular (Issue #11)"
+        text:   "Telekino — Canvas modular (Issue #11)"
         size:   900x540
         offset: 80x60
         pane:   reduce [

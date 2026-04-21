@@ -1,4 +1,4 @@
-# Decisiones técnicas — QTorres
+# Decisiones técnicas — Telekino
 
 Registro de decisiones clave del proyecto. Cada decisión documentada para referencia futura.
 
@@ -9,7 +9,7 @@ Registro de decisiones clave del proyecto. Cada decisión documentada para refer
 **Fecha:** 2026-03-14  
 **Estado:** Adoptada  
 
-**Contexto:** QTorres se construye íntegramente en Red-Lang. No hay alternativas — si algo no existe en Red, se crea en Red.
+**Contexto:** Telekino se construye íntegramente en Red-Lang. No hay alternativas — si algo no existe en Red, se crea en Red.
 
 **Decisión:** Todo en Red-Lang. Sin excepciones.
 
@@ -29,7 +29,7 @@ Registro de decisiones clave del proyecto. Cada decisión documentada para refer
 
 **Contexto:** Definir el formato de guardado de VIs y proyectos dentro de Red.
 
-**Decisión:** Todos los ficheros QTorres (.qvi, .qproj, .qlib, .qclass, .qctl) son bloques Red válidos, cargables con `load`.
+**Decisión:** Todos los ficheros Telekino (.qvi, .qproj, .qlib, .qclass, .qctl) son bloques Red válidos, cargables con `load`.
 
 **Razones:**
 - Sin parser adicional que mantener
@@ -46,7 +46,7 @@ Registro de decisiones clave del proyecto. Cada decisión documentada para refer
 
 **Contexto:** Definir el alcance mínimo del sistema de tipos.
 
-**Decisión:** QTorres empieza manejando valores numéricos (`float!`). Un solo tipo de wire.
+**Decisión:** Telekino empieza manejando valores numéricos (`float!`). Un solo tipo de wire.
 
 **Razones:**
 - Simplifica el compilador (no hay conversiones de tipo)
@@ -62,15 +62,15 @@ Registro de decisiones clave del proyecto. Cada decisión documentada para refer
 **Fecha:** 2026-03-14  
 **Estado:** Adoptada  
 
-**Contexto:** Definir cómo se organizan los ficheros de un proyecto QTorres.
+**Contexto:** Definir cómo se organizan los ficheros de un proyecto Telekino.
 
-**Decisión:** La estructura de ficheros replica las convenciones de LabVIEW. Los tipos de fichero son análogos: `.qvi` (VI), `.qproj` (proyecto), `.qlib` (librería), `.qclass` (clase), `.qctl` (type definition). La diferencia es que donde LabVIEW guarda binarios opacos, QTorres guarda Red en texto plano.
+**Decisión:** La estructura de ficheros replica las convenciones de LabVIEW. Los tipos de fichero son análogos: `.qvi` (VI), `.qproj` (proyecto), `.qlib` (librería), `.qclass` (clase), `.qctl` (type definition). La diferencia es que donde LabVIEW guarda binarios opacos, Telekino guarda Red en texto plano.
 
 **Razones:**
 - Un usuario de LabVIEW reconoce la estructura de proyecto inmediatamente
 - Curva de aprendizaje cero en la organización de ficheros
 - Al abrir cualquier fichero, en vez de un binario se encuentra Red legible
-- La extensión `.qtorres` genérica se reemplaza por extensiones con significado semántico (`.qvi`, `.qproj`, etc.)
+- La extensión `.telekino` genérica se reemplaza por extensiones con significado semántico (`.qvi`, `.qproj`, etc.)
 
 **Implementación inicial:** Solo `.qvi` y `.qproj`. Los demás tipos se añaden en fases posteriores.
 
@@ -85,9 +85,9 @@ Registro de decisiones clave del proyecto. Cada decisión documentada para refer
 
 **Decisión:** Cada `.qvi` contiene dos secciones en el mismo fichero Red:
 1. **Cabecera gráfica** (`qvi-diagram: [...]`): representación completa del Front Panel y Block Diagram. Para Red es una asignación sin efectos.
-2. **Código generado**: código Red ejecutable, generado por QTorres al guardar (compilación del diagrama).
+2. **Código generado**: código Red ejecutable, generado por Telekino al guardar (compilación del diagrama).
 
-El `.qvi` se ejecuta directamente con `red mi-vi.qvi` sin QTorres instalado.
+El `.qvi` se ejecuta directamente con `red mi-vi.qvi` sin Telekino instalado.
 
 **Razones:**
 - Un solo fichero contiene toda la verdad: diagrama visual + código ejecutable
@@ -99,7 +99,7 @@ El `.qvi` se ejecuta directamente con `red mi-vi.qvi` sin QTorres instalado.
 
 ---
 
-## DT-006: Sub-VIs como funciones Red + guarda qtorres-runtime
+## DT-006: Sub-VIs como funciones Red + guarda telekino-runtime
 
 **Fecha:** 2026-03-14  
 **Estado:** Parcialmente superseded por DT-017  
@@ -108,9 +108,9 @@ El `.qvi` se ejecuta directamente con `red mi-vi.qvi` sin QTorres instalado.
 
 **Decisión:** 
 - Un VI con **connector pane** genera su código envuelto en una `func` Red.
-- La guarda `if not value? 'qtorres-runtime [...]` permite ejecución standalone.
+- La guarda `if not value? 'telekino-runtime [...]` permite ejecución standalone.
 - El VI padre incluye `do %sub-vi.qvi` para cargar la función y la llama directamente.
-- QTorres define `qtorres-runtime: true` antes de ejecutar, para que los sub-VIs solo definan la función sin auto-ejecutarse.
+- Telekino define `telekino-runtime: true` antes de ejecutar, para que los sub-VIs solo definan la función sin auto-ejecutarse.
 
 **Razones:**
 - El sub-VI sigue siendo ejecutable por sí solo (`red suma.qvi`)
@@ -130,7 +130,7 @@ El `.qvi` se ejecuta directamente con `red mi-vi.qvi` sin QTorres instalado.
 
 **Ejemplo:**
 - LabVIEW: `Utilidades.lvlib » Suma.vi`
-- QTorres: `utilidades/suma`
+- Telekino: `utilidades/suma`
 
 **Razones:**
 - `context` es el mecanismo nativo de Red para aislamiento de nombres
@@ -147,7 +147,7 @@ El `.qvi` se ejecuta directamente con `red mi-vi.qvi` sin QTorres instalado.
 
 **Contexto:** Definir qué genera el compilador cuando se guarda un VI principal (top-level). La pregunta es si el `.qvi` ejecutable muestra una ventana o solo corre en terminal.
 
-**Decisión:** QTorres sigue el modelo de LabVIEW: el VI principal **siempre muestra el Front Panel** al ejecutarse. El compilador genera código Red/View completo que construye la ventana con los controles de entrada y los indicadores de salida. Al ejecutar `red mi-programa.qvi` aparece la interfaz gráfica, no output de terminal.
+**Decisión:** Telekino sigue el modelo de LabVIEW: el VI principal **siempre muestra el Front Panel** al ejecutarse. El compilador genera código Red/View completo que construye la ventana con los controles de entrada y los indicadores de salida. Al ejecutar `red mi-programa.qvi` aparece la interfaz gráfica, no output de terminal.
 
 Los sub-VIs (VIs con connector pane) siguen el comportamiento contrario: generan una `func` Red sin UI. Su Front Panel no se muestra cuando son llamados por otro VI, salvo que se configure explícitamente.
 
@@ -196,9 +196,9 @@ view layout [
 **Fecha:** 2026-03-14  
 **Estado:** Adoptada  
 
-**Contexto:** El manifiesto de QTorres cita los dialectos de Red como una de las razones clave del proyecto. Definir dónde se usan dialectos reales (no datos pasivos ni interpolación de strings).
+**Contexto:** El manifiesto de Telekino cita los dialectos de Red como una de las razones clave del proyecto. Definir dónde se usan dialectos reales (no datos pasivos ni interpolación de strings).
 
-**Decisión:** QTorres define tres dialectos propios, cada uno con gramática procesable con `parse`:
+**Decisión:** Telekino define tres dialectos propios, cada uno con gramática procesable con `parse`:
 
 1. **`block-def`** — Define tipos de bloques de forma declarativa. Vocabulario: `block`, `in`, `out`, `config`, `emit`. Procesado al cargar la paleta de bloques.
 
@@ -240,11 +240,11 @@ view layout [
 **Fecha:** 2026-03-16
 **Estado:** Adoptada
 
-**Decisión:** La sección `qvi-diagram` es la única fuente de verdad de un VI. El código generado es un artefacto derivado que QTorres regenera automáticamente al guardar.
+**Decisión:** La sección `qvi-diagram` es la única fuente de verdad de un VI. El código generado es un artefacto derivado que Telekino regenera automáticamente al guardar.
 
 **Consecuencias:**
-- QTorres siempre recompila desde `qvi-diagram` al cargar un `.qvi`. No usa el código guardado para edición.
-- Un `.qvi` con solo la sección `qvi-diagram` (sin código generado) es un fichero válido. QTorres lo abrirá y compilará al guardar.
+- Telekino siempre recompila desde `qvi-diagram` al cargar un `.qvi`. No usa el código guardado para edición.
+- Un `.qvi` con solo la sección `qvi-diagram` (sin código generado) es un fichero válido. Telekino lo abrirá y compilará al guardar.
 - Una IA o un humano que quiera crear o editar un VI solo necesita escribir/modificar `qvi-diagram`.
 - No se debe editar la sección de código generado manualmente — los cambios se sobreescriben al guardar.
 
@@ -278,9 +278,9 @@ El código generado usa `system/options/args` de Red para detectar el modo.
 **Fecha:** 2026-03-16
 **Estado:** Adoptada
 
-**Contexto:** Los bloques primitivos (suma, resta, etc.) no deben ser código hardcodeado en QTorres. Cualquier usuario debe poder crear nuevas primitivas.
+**Contexto:** Los bloques primitivos (suma, resta, etc.) no deben ser código hardcodeado en Telekino. Cualquier usuario debe poder crear nuevas primitivas.
 
-**Decisión:** Las primitivas son ficheros `.qprim` — un tipo de archivo diferente al `.qvi`. En QTorres se abren con un editor de código Red + una paleta de dibujo libre (no el editor Front Panel + Block Diagram del `.qvi`).
+**Decisión:** Las primitivas son ficheros `.qprim` — un tipo de archivo diferente al `.qvi`. En Telekino se abren con un editor de código Red + una paleta de dibujo libre (no el editor Front Panel + Block Diagram del `.qvi`).
 
 **Estructura de un `.qprim`:**
 ```red
@@ -322,10 +322,10 @@ qprim: [
 **Fecha:** 2026-03-16
 **Estado:** Adoptada
 
-**Decisión:** QTorres busca librerías en tres niveles, en orden de precedencia:
+**Decisión:** Telekino busca librerías en tres niveles, en orden de precedencia:
 
-1. **Librería estándar** — entregada con QTorres (bloques math, lógica, string, etc.)
-2. **Librería global de usuario** — `~/.qtorres/libs/` en Linux/macOS, `%APPDATA%\QTorres\libs\` en Windows
+1. **Librería estándar** — entregada con Telekino (bloques math, lógica, string, etc.)
+2. **Librería global de usuario** — `~/.telekino/libs/` en Linux/macOS, `%APPDATA%\Telekino\libs\` en Windows
 3. **Librería de proyecto** — referenciada explícitamente en el `.qproj`
 
 Una `.qlib` puede contener tanto `.qvi` (sub-VIs) como `.qprim` (primitivas).
@@ -375,7 +375,7 @@ suma: func [A [float!] B [float!] /local Resultado] [
 ]
 
 ; Variables de ejecución standalone aisladas
-if not value? 'qtorres-runtime [
+if not value? 'telekino-runtime [
     context [
         A: 5.0  B: 3.0
         view layout [...]
@@ -430,7 +430,7 @@ meta: [
 **Fecha:** 2026-03-16
 **Estado:** Adoptada
 
-**Decisión:** QTorres tiene tres audiencias que deben poder trabajar con el sistema:
+**Decisión:** Telekino tiene tres audiencias que deben poder trabajar con el sistema:
 
 1. **Ingenieros de LabVIEW** — mismo modelo mental, transición natural
 2. **Programadores generales** — sin conocimiento previo de LabVIEW
@@ -448,9 +448,9 @@ meta: [
 **Fecha:** 2026-03-17
 **Estado:** Adoptada
 
-**Contexto:** QTorres usa dialectos propios (`qvi-diagram`, `block-def`, `qprim`, etc.) que deben servir a tres propósitos: funcionar correctamente en entornos industriales, ser legibles para humanos, y ser generables por agentes de IA. Estos propósitos pueden entrar en conflicto.
+**Contexto:** Telekino usa dialectos propios (`qvi-diagram`, `block-def`, `qprim`, etc.) que deben servir a tres propósitos: funcionar correctamente en entornos industriales, ser legibles para humanos, y ser generables por agentes de IA. Estos propósitos pueden entrar en conflicto.
 
-**Decisión:** El diseño de todos los dialectos de QTorres sigue esta jerarquía estricta de prioridades:
+**Decisión:** El diseño de todos los dialectos de Telekino sigue esta jerarquía estricta de prioridades:
 
 1. **Funcionalidad industrial correcta** — si el formato necesita expresar `U64`, `float32`, un registro Modbus con endianness, un timeout en milisegundos, o cualquier detalle técnico necesario para que el sistema funcione correctamente en producción, se expresa. Nunca se simplifica un formato para facilitar la generación por IA si eso compromete la precisión técnica.
 
@@ -466,22 +466,22 @@ meta: [
 
 **Cuando hay conflicto:** prevalece la funcionalidad de la herramienta. Si la precisión técnica requiere complejidad adicional en el dialecto, se añade esa complejidad y se documenta en `docs/ai-reference.md` para que los agentes de IA puedan manejarla.
 
-**Justificación:** La homoiconicidad de Red hace que los dialectos se comporten como datos estructurados, el formato ideal para un LLM. Pero QTorres es una herramienta industrial primero — la IA es una audiencia de primera clase (DT-019), no la audiencia principal.
+**Justificación:** La homoiconicidad de Red hace que los dialectos se comporten como datos estructurados, el formato ideal para un LLM. Pero Telekino es una herramienta industrial primero — la IA es una audiencia de primera clase (DT-019), no la audiencia principal.
 
 ---
 
-## DT-021: Generación de ficheros QTorres por IA — vibe coding y spec-driven design
+## DT-021: Generación de ficheros Telekino por IA — vibe coding y spec-driven design
 
 **Fecha:** 2026-03-17
 **Estado:** Adoptada
 
-**Contexto:** QTorres genera código Red ejecutable a partir de dialectos en texto plano. Estos dialectos son Red puro, homoicónicos y legibles. Eso los hace naturalmente adecuados para generación por agentes de IA.
+**Contexto:** Telekino genera código Red ejecutable a partir de dialectos en texto plano. Estos dialectos son Red puro, homoicónicos y legibles. Eso los hace naturalmente adecuados para generación por agentes de IA.
 
-**Decisión:** QTorres se diseña para que agentes de IA externos puedan generar ficheros del ecosistema QTorres a partir de descripciones en lenguaje natural o especificaciones técnicas. Esto se desarrolla en dos niveles de madurez:
+**Decisión:** Telekino se diseña para que agentes de IA externos puedan generar ficheros del ecosistema Telekino a partir de descripciones en lenguaje natural o especificaciones técnicas. Esto se desarrolla en dos niveles de madurez:
 
 ### Nivel 1 — Vibe coding
 
-Un agente de IA externo (Claude Code, Kilo Code, Ollama, o cualquier herramienta) genera ficheros `.qvi` individuales a partir de una descripción en lenguaje natural. El agente solo trabaja con la sección `qvi-diagram` — el compilador de QTorres genera el código ejecutable.
+Un agente de IA externo (Claude Code, Kilo Code, Ollama, o cualquier herramienta) genera ficheros `.qvi` individuales a partir de una descripción en lenguaje natural. El agente solo trabaja con la sección `qvi-diagram` — el compilador de Telekino genera el código ejecutable.
 
 **Requisito:** el agente necesita una referencia del formato (`docs/ai-reference.md`) con la gramática, los bloques disponibles y ejemplos funcionales.
 
@@ -490,7 +490,7 @@ Un agente de IA externo (Claude Code, Kilo Code, Ollama, o cualquier herramienta
 "Crea un VI que lea temperatura por Modbus del registro 40001,
  compare con un umbral de 75°C, y active una bomba en el registro 00001"
 → El agente genera un .qvi con el qvi-diagram correcto
-→ QTorres lo abre, lo compila, y funciona
+→ Telekino lo abre, lo compila, y funciona
 ```
 
 ### Nivel 2 — Spec-driven design (visión a largo plazo)
@@ -506,7 +506,7 @@ Un agente de IA genera un proyecto completo (`.qproj` con todos sus `.qvi`, `.qp
 
 ### Integración en la aplicación (futuro)
 
-El objetivo final es que desde dentro de la propia aplicación QTorres se pueda pasar una especificación y generar un primer proyecto viable. Esto requiere una capa de integración IA dentro de la app que no es prioridad ahora pero debe considerarse en la arquitectura.
+El objetivo final es que desde dentro de la propia aplicación Telekino se pueda pasar una especificación y generar un primer proyecto viable. Esto requiere una capa de integración IA dentro de la app que no es prioridad ahora pero debe considerarse en la arquitectura.
 
 **Justificación:** La combinación de homoiconicidad de Red (DT-001), formatos en texto plano (DT-002), fuente de verdad en `qvi-diagram` (DT-011), metadatos descriptivos (DT-018), y diseño para tres audiencias (DT-019) crea las condiciones para que la generación por IA sea una consecuencia natural del buen diseño del sistema, no un añadido.
 
@@ -517,7 +517,7 @@ El objetivo final es que desde dentro de la propia aplicación QTorres se pueda 
 **Fecha:** 2026-03-18
 **Estado:** Adoptada
 
-**Contexto:** En LabVIEW, la label es una sub-entidad con estado y comportamiento propio: tiene texto, visibilidad, posición relativa e independencia del elemento al que pertenece. Nodos, wires, controles e indicadores comparten el mismo concepto de label. El modelo anterior de QTorres representaba la label como un campo `string!` plano en el nodo (`label: "Suma"`), lo cual impedía expresar visibilidad, posición y reutilización.
+**Contexto:** En LabVIEW, la label es una sub-entidad con estado y comportamiento propio: tiene texto, visibilidad, posición relativa e independencia del elemento al que pertenece. Nodos, wires, controles e indicadores comparten el mismo concepto de label. El modelo anterior de Telekino representaba la label como un campo `string!` plano en el nodo (`label: "Suma"`), lo cual impedía expresar visibilidad, posición y reutilización.
 
 **Decisión:** La label es un `object!` propio construido con `make-label`, no un campo escalar del nodo. Se compone (has-a) dentro de nodos, wires y elementos del Front Panel.
 
@@ -572,7 +572,7 @@ node [id: 3  type: 'add  x: 200  y: 120  name: "add_1"  label: [text: "Add"]]
 
 **Contexto:** Red implementa objetos por prototipos (como JavaScript), no por clases (como Java). No existe `class`, `extends`, `super`, `interface` ni dispatch virtual. Se investigó si una jerarquía de herencia estilo Java era viable en Red para modelar los distintos tipos de elementos del diagrama (nodos, wires, controles).
 
-**Decisión:** El modelo de datos de QTorres usa **composición + prototipos + constructores**, el patrón idiomático de Red. No se usan jerarquías de herencia profundas.
+**Decisión:** El modelo de datos de Telekino usa **composición + prototipos + constructores**, el patrón idiomático de Red. No se usan jerarquías de herencia profundas.
 
 **Patrón adoptado:**
 
@@ -692,34 +692,34 @@ node [id: 1  type: 'control  x: 40  y: 80  name: "ctrl_1"  label: [text: "Temper
 **Fecha:** 2026-03-22
 **Estado:** Adoptada
 
-**Contexto:** QTorres necesita cargar sus módulos internos con `#include` para que `redc -e` los empaquete en el ejecutable. Pero `red-cli` y `redc -e` resuelven las rutas de `#include` de forma distinta cuando los módulos incluidos tienen cabecera `Red []`:
+**Contexto:** Telekino necesita cargar sus módulos internos con `#include` para que `redc -e` los empaquete en el ejecutable. Pero `red-cli` y `redc -e` resuelven las rutas de `#include` de forma distinta cuando los módulos incluidos tienen cabecera `Red []`:
 
 | Herramienta | Resolución de paths | Context-shift tras `Red []` |
 |-------------|--------------------|-----------------------------|
 | `red-cli` (intérprete) | relativo al fichero que contiene el `#include` | **No** |
 | `redc -e` (compilador) | relativo al fichero que contiene el `#include` | **Sí** — tras cada `Red []` en un fichero incluido, el contexto de directorio se desplaza al directorio de ese fichero |
 
-Esto hace que un único set de `#include` planos en `qtorres.red` NO funcione para ambas herramientas. Ejemplo:
+Esto hace que un único set de `#include` planos en `telekino.red` NO funcione para ambas herramientas. Ejemplo:
 
 ```red
-; qtorres.red (en src/)
+; telekino.red (en src/)
 #include %graph/model.red    ; OK: ambas resuelven src/graph/model.red
 #include %graph/blocks.red   ; red-cli: src/graph/blocks.red OK
                              ; redc: context ya es src/graph/ (por model.red)
                              ;       → busca src/graph/graph/blocks.red FALLA
 ```
 
-**Decisión: chain loading.** Cada módulo incluye al siguiente al final del fichero. `qtorres.red` solo tiene un `#include`:
+**Decisión: chain loading.** Cada módulo incluye al siguiente al final del fichero. `telekino.red` solo tiene un `#include`:
 
 ```red
-; qtorres.red
+; telekino.red
 #include %graph/model.red   ; único punto de entrada
 ```
 
 Cadena completa (cada include es relativo al módulo que lo contiene):
 
 ```
-qtorres.red (src/)
+telekino.red (src/)
   └─ #include %graph/model.red          → src/graph/model.red
        └─ #include %blocks.red          → src/graph/blocks.red
             └─ #include %../compiler/compiler.red → src/compiler/
@@ -729,7 +729,7 @@ qtorres.red (src/)
                                 └─ #include %../panel/panel.red → src/ui/panel/
 ```
 
-**Por qué funciona:** cada `#include` es relativo al fichero que lo contiene, NO a `qtorres.red`. Así el context-shift de `redc` no afecta — cada módulo resuelve la ruta al siguiente desde su propia ubicación.
+**Por qué funciona:** cada `#include` es relativo al fichero que lo contiene, NO a `telekino.red`. Así el context-shift de `redc` no afecta — cada módulo resuelve la ruta al siguiente desde su propia ubicación.
 
 **Funciona con las 3 vías de carga:**
 - `#include` en `red-cli` — paths relativos al fichero, sin context-shift
@@ -753,10 +753,10 @@ fichero usuario → do (cargado en runtime, p.ej. .qvi)
 | `_base: what-dir` + `do` | Funciona con `red-cli` pero `redc -e` ignora los `do` dinámicos — módulos no se empaquetan |
 | Paths planos desde `src/` | Funciona con `red-cli` pero falla con `redc -e` por context-shift tras `Red []` |
 | Quitar `Red []` de módulos | Evita context-shift pero `do` en tests requiere `Red []` — tests fallan |
-| Entry points separados | Funciona pero el usuario quiere un único `qtorres.red` |
+| Entry points separados | Funciona pero el usuario quiere un único `telekino.red` |
 
 **Limitaciones aceptadas:**
-- El orden de carga está distribuido en 7 ficheros (no en un único manifiesto). El comentario en `qtorres.red` documenta la cadena completa.
+- El orden de carga está distribuido en 7 ficheros (no en un único manifiesto). El comentario en `telekino.red` documenta la cadena completa.
 - Añadir un módulo requiere editar 2 ficheros (el predecesor y el nuevo).
 - Tests que hacen `do %modulo.red` cargan la cadena completa (más de lo necesario), pero es inocuo porque las definiciones de funciones son idempotentes y el código demo está protegido con guards `if find form system/options/script`.
 
@@ -782,7 +782,7 @@ Se investigó cómo resuelven esto herramientas similares:
 | **Node-RED** | Separación total: editor (canvas) ≠ runtime (dashboard web). |
 | **myOpenLab** | Formas simples en editor, widgets Swing reales en runtime. |
 
-**Dato clave verificado:** Red/View usa widgets nativos del SO (confirmado en el blog de Red 0.6.0: *"Red relies on native widgets"*). Solo `base` + `draw` ofrece renderizado custom. Esto significa que QTorres NO puede usar la misma face en ambos modos como hace LabVIEW, porque LabVIEW tiene un engine propio.
+**Dato clave verificado:** Red/View usa widgets nativos del SO (confirmado en el blog de Red 0.6.0: *"Red relies on native widgets"*). Solo `base` + `draw` ofrece renderizado custom. Esto significa que Telekino NO puede usar la misma face en ambos modos como hace LabVIEW, porque LabVIEW tiene un engine propio.
 
 **Decisión:** Todos los controles del Front Panel se renderizan con **Draw dialect sobre `base` face** en el editor. En el código compilado (.qvi), el compilador genera la UI apropiada para cada control (puede ser VID, puede ser `base` + Draw, según el tipo).
 
@@ -847,11 +847,11 @@ El patrón Draw-based permite diseñar widgets propios sin límite:
 
 **Problema:** Red ejecuta en un solo hilo. Un `while` bloqueante congela la GUI. Dos loops "paralelos" no pueden ejecutarse simultáneamente.
 
-**Decisión:** QTorres adopta un modelo de **concurrencia cooperativa** basado en `rate`/`on-time` de Red/View. Cada estructura que necesite ejecución continuada (While Loop, Event Structure, proceso en segundo plano) se implementa como un **callback de timer** que ejecuta una iteración por tick. El loop de eventos de Red/View actúa como scheduler central.
+**Decisión:** Telekino adopta un modelo de **concurrencia cooperativa** basado en `rate`/`on-time` de Red/View. Cada estructura que necesite ejecución continuada (While Loop, Event Structure, proceso en segundo plano) se implementa como un **callback de timer** que ejecuta una iteración por tick. El loop de eventos de Red/View actúa como scheduler central.
 
 **Modelo de ejecución:**
 
-| Concepto LabVIEW | Implementación QTorres | Mecanismo Red |
+| Concepto LabVIEW | Implementación Telekino | Mecanismo Red |
 |------------------|----------------------|---------------|
 | While Loop | Timer que ejecuta una iteración por tick | `face/rate` + `on-time` |
 | Event Structure | Timer que comprueba cola de eventos | `face/rate` + `on-time` con cola |
@@ -901,14 +901,14 @@ view layout [
 
 **Rendimiento vs LabVIEW:**
 
-| Escenario | LabVIEW | QTorres | Impacto |
+| Escenario | LabVIEW | Telekino | Impacto |
 |-----------|---------|---------|---------|
 | Un loop + UI responsiva | Hilo dedicado | Timer cooperativo | ~10-30% overhead por cesión a GUI |
 | Dos loops en paralelo | Dos hilos reales | Dos timers, time-slicing | ~50% throughput por loop |
 | Adquisición con esperas | Hilo bloqueado, otros siguen | Timer con callback, funciona | Similar (cuello de botella = hardware) |
 | Cálculo numérico intensivo | Multihilo, N cores | Single-thread | N veces más lento |
 
-Para instrumentación y control (target de QTorres), la diferencia es pequeña. El cuello de botella es siempre el hardware.
+Para instrumentación y control (target de Telekino), la diferencia es pequeña. El cuello de botella es siempre el hardware.
 
 **Evolución futura:**
 
@@ -938,25 +938,25 @@ Para instrumentación y control (target de QTorres), la diferencia es pequeña. 
 **Fecha:** 2026-03-24
 **Estado:** Adoptada
 
-**Contexto:** Un objetivo clave de QTorres es que el `.qvi` generado se pueda compilar con `red -c` a un ejecutable nativo standalone. Esto es una ventaja competitiva frente a LabVIEW (que necesita el runtime completo). El compilador de Red (`red -c`) tiene limitaciones con código dinámico.
+**Contexto:** Un objetivo clave de Telekino es que el `.qvi` generado se pueda compilar con `red -c` a un ejecutable nativo standalone. Esto es una ventaja competitiva frente a LabVIEW (que necesita el runtime completo). El compilador de Red (`red -c`) tiene limitaciones con código dinámico.
 
-**Problema:** `do` con bloques construidos en runtime NO funciona en código compilado. Red necesita el intérprete para evaluar código dinámico. Si el compilador de QTorres genera código que use `do` dinámico, `load` en runtime, o `compose` evaluado en runtime, el `.qvi` no será compilable.
+**Problema:** `do` con bloques construidos en runtime NO funciona en código compilado. Red necesita el intérprete para evaluar código dinámico. Si el compilador de Telekino genera código que use `do` dinámico, `load` en runtime, o `compose` evaluado en runtime, el `.qvi` no será compilable.
 
-**Decisión:** Todo el código que genera el compilador de QTorres es **estático y resolvible en tiempo de compilación**. El código generado es un bloque Red literal que no se auto-construye ni se auto-modifica.
+**Decisión:** Todo el código que genera el compilador de Telekino es **estático y resolvible en tiempo de compilación**. El código generado es un bloque Red literal que no se auto-construye ni se auto-modifica.
 
-**Reglas para el compilador de QTorres:**
+**Reglas para el compilador de Telekino:**
 
 | Permitido | Prohibido |
 |-----------|-----------|
 | `view layout [...]` estático | `do` con bloques construidos en runtime |
 | Funciones con nombre (`loop-1-tick: func [...]`) | `load` de strings en runtime |
-| `compose` evaluado al generar el `.qvi` (tiempo de compilación QTorres) | `compose` evaluado en runtime del `.qvi` |
+| `compose` evaluado al generar el `.qvi` (tiempo de compilación Telekino) | `compose` evaluado en runtime del `.qvi` |
 | Variables globales predefinidas | `make function!` dinámico |
 | `on-time [loop-1-tick]` (referencia a función existente) | `on-time [do dynamic-block]` |
 
 **Ejemplo correcto:**
 ```red
-; El compilador de QTorres genera este código LITERAL en el .qvi
+; El compilador de Telekino genera este código LITERAL en el .qvi
 loop-1-tick: func [] [
     if not loop-1-state/running [exit]
     loop-1-state/i: loop-1-state/i + 1
@@ -985,7 +985,7 @@ do code
 - `call` con scripts Red
 - Cualquier forma de eval en runtime
 
-**Consecuencia:** El compilador de QTorres trabaja con bloques Red (DT-008) y usa `compose` internamente para construir el código generado. Pero el resultado final — el código que se escribe en el `.qvi` — es estático. `compose` se ejecuta en el compilador de QTorres, no en el `.qvi` generado.
+**Consecuencia:** El compilador de Telekino trabaja con bloques Red (DT-008) y usa `compose` internamente para construir el código generado. Pero el resultado final — el código que se escribe en el `.qvi` — es estático. `compose` se ejecuta en el compilador de Telekino, no en el `.qvi` generado.
 
 **Verificación:** Cualquier `.qvi` generado debe poder compilarse con `red -c nombre.qvi` sin errores. Esto se puede añadir como test de CI cuando tengamos pipeline.
 
@@ -996,7 +996,7 @@ do code
 **Fecha:** 2026-03-24
 **Estado:** Adoptada
 
-**Contexto:** LabVIEW propaga errores por el diagrama usando un "error cluster" — un cable que pasa de nodo a nodo con información de error. Si un nodo falla, los siguientes ven el error y no ejecutan su lógica. Esto es imprescindible para hardware (comunicaciones que fallan constantemente). QTorres necesita un plan de error handling que no bloquee el desarrollo actual pero que no haga imposible la implementación futura.
+**Contexto:** LabVIEW propaga errores por el diagrama usando un "error cluster" — un cable que pasa de nodo a nodo con información de error. Si un nodo falla, los siguientes ven el error y no ejecutan su lógica. Esto es imprescindible para hardware (comunicaciones que fallan constantemente). Telekino necesita un plan de error handling que no bloquee el desarrollo actual pero que no haga imposible la implementación futura.
 
 **Problema:** Si el modelo de datos (nodos, puertos, wires) no contempla puertos de error desde el inicio, añadirlos después requiere cambiar el modelo, el compilador, el canvas, el wiring — un refactoring masivo.
 
@@ -1080,7 +1080,7 @@ _err: tcp-read-block 256 _err
 **Fecha:** 2026-04-10
 **Estado:** Adoptada
 
-**Contexto:** QTorres necesita un editor visual con nodos arrastrables, wires, scrollbars, controles custom, inline text editing, tree views (project explorer) y más. Red/View proporciona ventanas y eventos, Draw proporciona renderizado 2D, pero no hay widget toolkit intermedio. Se evaluó si construir sobre Red/View+Draw, GTK directo, o Qt.
+**Contexto:** Telekino necesita un editor visual con nodos arrastrables, wires, scrollbars, controles custom, inline text editing, tree views (project explorer) y más. Red/View proporciona ventanas y eventos, Draw proporciona renderizado 2D, pero no hay widget toolkit intermedio. Se evaluó si construir sobre Red/View+Draw, GTK directo, o Qt.
 
 **Alternativas evaluadas:**
 
@@ -1098,14 +1098,14 @@ _err: tcp-read-block 256 _err
 Red/View (ventanas + event loop)
   └── Draw (renderizado 2D)
        └── QT-Widgets (capa propia: hit-test, scroll, controles Draw-based)
-            └── QTorres UI (canvas, panel, diálogos, project explorer)
+            └── Telekino UI (canvas, panel, diálogos, project explorer)
 ```
 
 **Razones:**
 
-1. **El canvas del diagrama es custom sí o sí.** Incluso con Qt/QGraphicsScene, los nodos QTorres, los wires con tipado por color, las estructuras de control y el connector pane necesitan renderizado propio. El 80% de la complejidad no se ahorra con un toolkit externo.
+1. **El canvas del diagrama es custom sí o sí.** Incluso con Qt/QGraphicsScene, los nodos Telekino, los wires con tipado por color, las estructuras de control y el connector pane necesitan renderizado propio. El 80% de la complejidad no se ahorra con un toolkit externo.
 
-2. **Identidad del proyecto.** "Todo en Red, un binario < 1 MB, sin dependencias" es la propuesta de valor que diferencia a QTorres de LabVIEW. Meter Qt o GTK la destruye.
+2. **Identidad del proyecto.** "Todo en Red, un binario < 1 MB, sin dependencias" es la propuesta de valor que diferencia a Telekino de LabVIEW. Meter Qt o GTK la destruye.
 
 3. **Ya estamos construyendo el framework.** canvas-render.red (932 líneas), panel-render.red (411 líneas), el hit-testing en canvas.red — eso ya ES un framework UI custom, solo falta formalizarlo.
 
@@ -1124,10 +1124,10 @@ Red/View (ventanas + event loop)
 
 **Contexto:** Todo editor visual necesita undo/redo. LabVIEW tiene un stack global. GRC Qt
 tiene QUndoStack por flowgraph. Orange tiene QUndoCommand. Rete.js tiene HistoryPlugin.
-QTorres, al integrar red-sg (Fase 4.5), dispone de `sg-undo.red` ya implementado y
+Telekino, al integrar red-sg (Fase 4.5), dispone de `sg-undo.red` ya implementado y
 testeado como parte del toolkit.
 
-**Decisión:** Usar el stack de undo/redo de red-sg (`sg-undo`). QTorres define comandos
+**Decisión:** Usar el stack de undo/redo de red-sg (`sg-undo`). Telekino define comandos
 específicos del dominio (`add-node`, `move-node`, etc.) y los registra en el stack de
 red-sg. No reimplementar desde cero — red-sg ya tiene el motor probado y esa es
 precisamente la razón de la separación aplicación/toolkit (ver DT-030).
@@ -1142,7 +1142,7 @@ sg-can-undo? scene                 ; hay algo que deshacer?
 sg-can-redo? scene                 ; hay algo que rehacer?
 ```
 
-**Comandos QTorres:**
+**Comandos Telekino:**
 
 | Comando | do | undo |
 |---------|-------|------|
@@ -1157,7 +1157,7 @@ sg-can-redo? scene                 ; hay algo que rehacer?
 
 **Consecuencias:**
 
-- QTorres no mantiene código de undo/redo propio — delega en red-sg.
+- Telekino no mantiene código de undo/redo propio — delega en red-sg.
 - La migración a Fase 4.5 es prerrequisito para activar undo/redo.
 - Los comandos de Front Panel (posición, tamaño de controles) quedan fuera del primer
   alcance; se añaden cuando FP tenga su propio modelo de comandos.
@@ -1200,7 +1200,7 @@ tipo.
 - `blocks.red` gana peso semántico: deja de ser solo "registro de bloques" y pasa a ser
   "registro de tipos + bloques".
 
-**Referencia:** GRC usa `.block.yml` como fuente única de verdad por bloque. QTorres
+**Referencia:** GRC usa `.block.yml` como fuente única de verdad por bloque. Telekino
 aplica la misma idea con Red nativo en vez de YAML.
 
 **Planificación:** Fase 3.3 (PRIORIDAD MEDIA en el roadmap).
@@ -1235,7 +1235,7 @@ Cada widget sigue el patrón: función `render-*` que devuelve bloque Draw + fun
   preocuparse por reutilización prematura.
 - Fase 5+: cuando aparezca el tercer o cuarto widget, hacer la extracción con los
   patrones ya claros.
-- Si red-sg entrega widgets Draw-based equivalentes antes de Fase 5, **QTorres los usa
+- Si red-sg entrega widgets Draw-based equivalentes antes de Fase 5, **Telekino los usa
   directamente** y este DT se revisa.
 
 **Referencias:** DT-030 (arquitectura UI general); `docs/roadmap-9-10.md` apéndice.
@@ -1247,33 +1247,33 @@ Cada widget sigue el patrón: función `render-*` que devuelve bloque Draw + fun
 **Fecha:** 2026-04-17  
 **Estado:** Adoptada
 
-**Contexto:** Red-Lang upstream mueve lentamente o no acepta fixes para bugs GTK específicos que QTorres requiere (GTK-014: `face/size` flip-flop, GTK-003 A/B: resize events no se disparan en maximize/restore). Bloquear QTorres en upstream lentifica el proyecto. Se investigó mantener un fork propio con fixes compilados.
+**Contexto:** Red-Lang upstream mueve lentamente o no acepta fixes para bugs GTK específicos que Telekino requiere (GTK-014: `face/size` flip-flop, GTK-003 A/B: resize events no se disparan en maximize/restore). Bloquear Telekino en upstream lentifica el proyecto. Se investigó mantener un fork propio con fixes compilados.
 
-**Decisión:** QTorres mantiene un fork oficial de Red en `https://github.com/anlaco/red.git` (copia local en `/home/alaforga/Anlaco/01-PRODUCTOS/red/`, rama `fix/gtk3-resize-bugs`). Los binarios `red-cli`, `red-view` y `redc` commiteados en el repo QTorres se compilan desde este fork, **no** desde Red upstream.
+**Decisión:** Telekino mantiene un fork oficial de Red en `https://github.com/anlaco/red.git` (copia local en `/home/alaforga/Anlaco/01-PRODUCTOS/red/`, rama `fix/gtk3-resize-bugs`). Los binarios `red-cli`, `red-view` y `redc` commiteados en el repo Telekino se compilan desde este fork, **no** desde Red upstream.
 
 **Política de mantenimiento:**
 
-1. **Sincronización con upstream:** El fork rebase regularmente (mensual) contra `red/red` main para absorber fixes de Red que beneficien QTorres (seguridad, rendimiento, nuevas features).
+1. **Sincronización con upstream:** El fork rebase regularmente (mensual) contra `red/red` main para absorber fixes de Red que beneficien Telekino (seguridad, rendimiento, nuevas features).
 
 2. **Criterio de fix propio:** Un fix entra en el fork si cumple **todos** estos criterios:
-   - Afecta a QTorres en GTK (no es reparación genérica de Red)
+   - Afecta a Telekino en GTK (no es reparación genérica de Red)
    - Tiene caso mínimo reproducible documentado
    - No entra en upstream en plazo <2 semanas (se intenta PR, si no se acepta entra al fork)
    - Incluye test reproducible en `tests/` del fork
 
-3. **Trazabilidad:** Cada actualización de binarios (`red-cli`, `red-view`) lleva un commit QTorres con el mensaje `Update red-cli/red-view from anlaco/red commit HASH` y un fichero `red-fork-version.txt` con el hash del fork usado.
+3. **Trazabilidad:** Cada actualización de binarios (`red-cli`, `red-view`) lleva un commit Telekino con el mensaje `Update red-cli/red-view from anlaco/red commit HASH` y un fichero `red-fork-version.txt` con el hash del fork usado.
 
 4. **Coexistencia:** El fork es copia local; Red upstream sigue siendo upstream. Los `.qvi` generados son Red estándar y compilables con cualquier Red válido. El fork es una optimización de desarrollo, no una dependencia del formato.
 
 **Implicación:** 
 
-- QTorres no espera a Red upstream para funcionalidad GTK.
+- Telekino no espera a Red upstream para funcionalidad GTK.
 - Los tests en CI (`tests/run-all.red`) se ejecutan contra los binarios del fork, validando fixes aplicados.
 - Cuando Red upstream implemente 64-bit, el fork puede descartarse (migración 1:1, no cambios de API).
 
 **Alternativas descartadas:**
 
-- Patches locales en QTorres: violaría DT-001 (todo en Red, sin workarounds).
+- Patches locales en Telekino: violaría DT-001 (todo en Red, sin workarounds).
 - Esperar a Red upstream: ralentización inaceptable (GTK bugs llevan meses).
 - Usar Rebol 3: sin View funcional completo, no es opción.
 

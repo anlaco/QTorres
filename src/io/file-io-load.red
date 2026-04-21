@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — File I/O (carga de .qvi)"
+    Title:   "Telekino — File I/O (carga de .qvi)"
     Purpose: "load-vi + helpers — reconstruye el modelo desde un .qvi"
 ]
 
@@ -8,7 +8,7 @@ Red [
 ; ══════════════════════════════════════════════════
 ;
 ; Lee un fichero .qvi, extrae qvi-diagram y reconstruye el modelo en memoria.
-; El código generado se ignora — QTorres recompila desde qvi-diagram (DT-011).
+; El código generado se ignora — Telekino recompila desde qvi-diagram (DT-011).
 ; Un .qvi con solo qvi-diagram (sin código generado) es válido.
 
 ; Convierte set-words a words en un bloque (recursivo para sub-bloques).

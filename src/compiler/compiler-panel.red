@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — Compilador (Front Panel)"
+    Title:   "Telekino — Compilador (Front Panel)"
     Purpose: "Compila el Front Panel a código View (movido desde panel.red — 4A refactor)"
 ]
 
@@ -108,7 +108,7 @@ compile-panel: func [model /local cmds item ctrl-field-name ind-var-name fn ft f
 gen-standalone-code: func [model /local vid-code] [
     vid-code: compile-panel model
     rejoin [
-        "Red [title: {QTorres Panel Demo} Needs: 'View]" newline
+        "Red [title: {Telekino Panel Demo} Needs: 'View]" newline
         "qvi-diagram: []" newline
         "view layout [" newline
         "    " mold vid-code newline

@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — Test window raise cross-platform"
+    Title:   "Telekino — Test window raise cross-platform"
     Purpose: "Verificar si show/view/no-wait eleva una ventana al frente en la plataforma actual"
     Needs:   'View
 ]

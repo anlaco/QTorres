@@ -48,7 +48,7 @@ Guideline del proyecto: "Si un módulo >800 líneas, extraer responsabilidades".
 
 ### Fichero principal: compiler.red (reemplazar por orquestador)
 ```red
-Red [Title: "QTorres — Compilador (orquestador)"]
+Red [Title: "Telekino — Compilador (orquestador)"]
 #include %compiler-topo.red
 #include %compiler-emit.red
 #include %compiler-structures.red
@@ -81,7 +81,7 @@ Red [Title: "QTorres — Compilador (orquestador)"]
 
 ### Fichero principal: file-io.red
 ```red
-Red [Title: "QTorres — File I/O (orquestador)"]
+Red [Title: "Telekino — File I/O (orquestador)"]
 #include %file-io-serialize.red
 #include %file-io-load.red
 #include %file-io-save.red
@@ -134,7 +134,7 @@ execute-headless: func [model] [...]
 update-indicators: func [model fp-face] [...]
 ```
 
-Esto afecta a qtorres.red (120 líneas inline → 5 líneas de llamadas).
+Esto afecta a telekino.red (120 líneas inline → 5 líneas de llamadas).
 
 ---
 

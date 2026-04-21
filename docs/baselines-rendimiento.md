@@ -1,4 +1,4 @@
-# Baselines de Rendimiento — QTorres 2026-04-17
+# Baselines de Rendimiento — Telekino 2026-04-17
 
 Métricas de referencia para detectar regresiones. Medidas en fork `anlaco/red` commit `2a93443f3` con binarios 32-bit.
 

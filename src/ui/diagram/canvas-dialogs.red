@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — canvas-dialogs"
+    Title:   "Telekino — canvas-dialogs"
     Purpose: "Diálogos de edición de nodos, paleta de bloques y SR helpers."
     Needs:   'View
 ]
@@ -420,7 +420,7 @@ open-palette: func [face x y /struct target-struct
     ][
         first split-path app-model/current-file
     ][
-        _qtorres-project-dir
+        _telekino-project-dir
     ]
     qlibs: find-qlibs/from _qlib-search-dir
     if not empty? qlibs [

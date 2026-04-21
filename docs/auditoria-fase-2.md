@@ -1,4 +1,4 @@
-# Auditoría de Código — QTorres Fase 2 Completada
+# Auditoría de Código — Telekino Fase 2 Completada
 
 **Fecha:** 2026-04-03  
 **Modelo:** ollama-cloud/qwen3-coder:480b  
@@ -66,7 +66,7 @@ panel.red pasó de 928 a 1255 líneas en issue #13 (Waveform). Ya estaba en el l
 - **Esfuerzo:** 1-2 días
 
 #### 5. Estado global compartido
-- `app-model` es mutado desde `qtorres.red`, `canvas.red`, `panel.red` a través de `face/extra`
+- `app-model` es mutado desde `telekino.red`, `canvas.red`, `panel.red` a través de `face/extra`
 - **Sin mecanismo de notificación** entre módulos
 - **Impacto:** Cambios en un módulo pueden desincronizar otros (como vimos con Cluster)
 - **Solución propuesta:** Observer pattern o callback registry

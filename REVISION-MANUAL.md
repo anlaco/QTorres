@@ -10,7 +10,7 @@
 ## 1. Arrancar la aplicación ✅ COMPLETADO
 
 ```bash
-red-view src/qtorres.red
+red-view src/telekino.red
 ```
 
 Verificar que:
@@ -64,7 +64,7 @@ Verificar que:
 - [x] Doble clic de nuevo sobre el mismo nodo → los campos siguen ahí (persistencia) — ✅ BUG #54 RESUELTO
 
 ### 💡 Observaciones:
-- **Constante de cluster:** No está implementada (feature request para Fase 3). En LabVIEW sí existe, pero QTorres solo tiene control/indicador de cluster por ahora.
+- **Constante de cluster:** No está implementada (feature request para Fase 3). En LabVIEW sí existe, pero Telekino solo tiene control/indicador de cluster por ahora.
 - **Mejora visual:** Los puertos deberían tener el **color del tipo de dato** (number=naranja, string=rosa, etc.) según la especificación visual. Actualmente todos son del mismo color.
 
 ---

@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — Front Panel"
+    Title:   "Telekino — Front Panel"
     Purpose: "Panel de controles e indicadores (Issue #7)"
     Needs:   'View
 ]
@@ -571,7 +571,7 @@ if find form system/options/script "panel.red" [
 
     view make face! [
         type:   'window
-        text:   "QTorres — Front Panel (Issue #7)"
+        text:   "Telekino — Front Panel (Issue #7)"
         size:   420x540
         offset: 80x60
         pane:   reduce [

@@ -3,5 +3,5 @@
     "./CLAUDE.md",
     "./skills/red-lang/SKILL.md"
   ],
-  "system_prompt": "You are a coding assistant for QTorres, a LabVIEW alternative built in Red-Lang. You have full knowledge of the project conventions, architecture, and Red-Lang syntax. Always follow the project rules in CLAUDE.md. When writing Red code, follow the patterns in the Red-Lang skill. Be concise."
+  "system_prompt": "You are a coding assistant for Telekino, a LabVIEW alternative built in Red-Lang. You have full knowledge of the project conventions, architecture, and Red-Lang syntax. Always follow the project rules in CLAUDE.md. When writing Red code, follow the patterns in the Red-Lang skill. Be concise."
 }

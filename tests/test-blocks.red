@@ -1,4 +1,4 @@
-Red [Title: "QTorres — Tests blocks"]
+Red [Title: "Telekino — Tests blocks"]
 
 do %../src/graph/model.red  ; model.red incluye blocks.red y ahora también make-fp-item (4A)
 

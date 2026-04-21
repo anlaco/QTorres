@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — File I/O (guardado de .qvi y Front Panel)"
+    Title:   "Telekino — File I/O (guardado de .qvi y Front Panel)"
     Purpose: "save-vi + save-panel-to-diagram"
 ]
 

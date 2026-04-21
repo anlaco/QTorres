@@ -3,7 +3,7 @@
 > **Propósito:** Checklist exhaustivo para detectar bugs visuales e interactivos.
 > Ejecutar entre cada fase del proyecto, guiado por una IA o manualmente.
 >
-> **Cómo usar:** Abrir QTorres (`red-view src/qtorres.red`), seguir los pasos en orden.
+> **Cómo usar:** Abrir Telekino (`red-view src/telekino.red`), seguir los pasos en orden.
 > Marcar cada test como PASS/FAIL. Anotar bugs con descripción y screenshot si es posible.
 >
 > **Última ejecución:** 2026-03-30 (en curso)
@@ -24,7 +24,7 @@
 
 | # | Paso | Resultado esperado | PASS/FAIL |
 |---|------|--------------------|-----------|
-| 1.1 | Abrir QTorres | Ventana con BD (izquierda) y FP (derecha), toolbar arriba con Run/Save/Load | |
+| 1.1 | Abrir Telekino | Ventana con BD (izquierda) y FP (derecha), toolbar arriba con Run/Save/Load | |
 | 1.2 | Verificar que BD y FP están vacíos | Sin nodos, wires ni controles | |
 
 ---
@@ -371,7 +371,7 @@ Para cada tipo de nodo, hacer **Alt+Click en el BD** y seleccionar el botón cor
 | # | Paso | Resultado esperado | PASS/FAIL |
 |---|------|--------------------|-----------|
 | 17.1 | Con un pipeline completo montado, pulsar Save | Diálogo de guardado → guardar como "qa-test.qvi" | |
-| 17.2 | Cerrar y reabrir QTorres | Ventana limpia | |
+| 17.2 | Cerrar y reabrir Telekino | Ventana limpia | |
 | 17.3 | Load → seleccionar "qa-test.qvi" | Diagrama completo restaurado: nodos, wires, estructuras, FP | |
 | 17.4 | Verificar que todos los wires están conectados | Sin wires rotos ni sueltos | |
 | 17.5 | Verificar que los valores de controles se preservan | Los defaults están como se guardaron | |

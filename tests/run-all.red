@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — Runner de tests"
+    Title:   "Telekino — Runner de tests"
     Purpose: "Ejecuta todos los tests y muestra resumen PASS/FAIL"
 ]
 

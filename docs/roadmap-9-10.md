@@ -1,18 +1,18 @@
-# Hoja de ruta QTorres: refinamiento de calidad por fases
+# Hoja de ruta Telekino: refinamiento de calidad por fases
 
 > **Objetivo:** Convertir las debilidades identificadas en la auditoría en acciones concretas
 > integradas en las fases restantes (3 cierre, 4, 4.5, 5), con referencia cruzada a proyectos
 > comparables (Node-RED, GNU Radio, Orange, LabVIEW, Simulink).
 >
 > **Decisión estratégica:** El proyecto hermano `red-sg` (scene graph + widget toolkit)
-> existe como proyecto separado **por decisión deliberada**: QTorres se centra en el dominio
+> existe como proyecto separado **por decisión deliberada**: Telekino se centra en el dominio
 > LabVIEW (bloques, wires, compilador, hardware) y red-sg se encarga de la infraestructura
 > gráfica genérica (scene graph, transforms, hit-test, undo/redo, widgets). Es el patrón
 > clásico aplicación/toolkit, análogo a Qt/KDE o GTK/GNOME. La integración en Fase 4.5 no
 > es "migración oportunista" sino consecuencia natural de esta separación.
 >
-> **NOTA sobre zoom:** QTorres NO implementa zoom en el canvas (DT-005/visual-spec 1.1).
-> Esto es por diseño, igual que LabVIEW. red-sg soporta zoom internamente, pero QTorres
+> **NOTA sobre zoom:** Telekino NO implementa zoom en el canvas (DT-005/visual-spec 1.1).
+> Esto es por diseño, igual que LabVIEW. red-sg soporta zoom internamente, pero Telekino
 > no lo habilita. Lo que sí necesita es scroll (ya implementado via Issue #65) y coordenadas
 > locales que simplifiquen el hit-test y el renderizado.
 >
@@ -22,7 +22,7 @@
 
 ## Resumen ejecutivo
 
-Los cimientos de QTorres son sólidos, la velocidad de ejecución es excepcional, y el formato
+Los cimientos de Telekino son sólidos, la velocidad de ejecución es excepcional, y el formato
 `.qvi` es una ventaja competitiva real. Pero hay 5 áreas que frenan la calidad: ficheros
 monolíticos sin tests, deuda técnica en `btn-run`, conocimiento de tipos disperso, bugs GTK
 sin reportar upstream, y ausencia de undo/redo.
@@ -35,7 +35,7 @@ Este roadmap propone 5 ejes de trabajo distribuidos en las fases restantes:
 4. **Completar hardware (Fase 4)** — error cluster, timeouts, compilabilidad en CI
 5. **Integrar red-sg (Fase 4.5)** — consecuencia de la separación estratégica aplicación/toolkit
 
-> **Prioridad explícita:** Fase 4 (hardware) **antes** que Fase 5 (UX). Un QTorres que habla
+> **Prioridad explícita:** Fase 4 (hardware) **antes** que Fase 5 (UX). Un Telekino que habla
 > con instrumentos reales es más valioso para usuarios finales que uno con undo/redo pulido.
 > La UX se pule cuando hay algo útil que usar.
 
@@ -43,31 +43,31 @@ Este roadmap propone 5 ejes de trabajo distribuidos en las fases restantes:
 
 ## Benchmarking: lecciones de proyectos comparables
 
-### Formato de fichero — QTorres es el mejor de su clase
+### Formato de fichero — Telekino es el mejor de su clase
 
 | Proyecto | Formato | Ejecutable | Diff-friendly | Auto-descripción |
 |----------|---------|------------|---------------|------------------|
-| **QTorres** | `.qvi` (Red fuente) | **Sí** (`red archivo.qvi`) | **Sí** (texto) | **Sí** (meta) |
+| **Telekino** | `.qvi` (Red fuente) | **Sí** (`red archivo.qvi`) | **Sí** (texto) | **Sí** (meta) |
 | Node-RED | JSON (`flows.json`) | No | Pobre (monolítico) | No |
 | GNU Radio | YAML (`.grc`) | No (genera Python) | Sí | Parcial |
 | Orange | XML (`.ows`) | No | Parcial (verboso) | No |
 | LabVIEW | Binario (`.vi`) | No (necesita runtime) | No (requiere LVCompare) | No |
 | Simulink | ZIP+XML (`.slx`) | No | Pobre (XML inestable) | No |
 
-**Lección:** El formato `.qvi` es la mayor ventaja competitiva de QTorres. Protegerlo con
+**Lección:** El formato `.qvi` es la mayor ventaja competitiva de Telekino. Protegerlo con
 tests de round-trip es la inversión más rentable.
 
-### Model-View Separation — QTorres está bien encaminado
+### Model-View Separation — Telekino está bien encaminado
 
 | Proyecto | Modelo | Vista | Acoplamiento |
 |----------|--------|-------|-------------|
 | **GNU Radio Qt** | `grc/core/` puro | `grc/gui/` separado | **Excelente** |
 | **Orange** | `Scheme` | `QGraphicsScene` | **Excelente** (MVC) |
 | **Rete.js** | `NodeEditor` puro | Plugins intercambiables | **Excelente** |
-| **QTorres** | `model.red` | `canvas.red`/`panel.red` | **Bueno** (M↔V cruzado) |
+| **Telekino** | `model.red` | `canvas.red`/`panel.red` | **Bueno** (M↔V cruzado) |
 | Node-RED | Entrelazado | Entrelazado | Pobre |
 
-**Lección:** QTorres tiene la separación correcta en módulos puros (model, compiler, file-io).
+**Lección:** Telekino tiene la separación correcta en módulos puros (model, compiler, file-io).
 El problema es que canvas.red (1265 líneas) mezcla lógica testeable con rendering. La
 estrategia es la misma que GRC usó: extraer la lógica pura a la capa core y dejar la vista
 como capa fina.
@@ -81,10 +81,10 @@ como capa fina.
 | **Rete.js** | HistoryPlugin + Command Pattern | **Excelente** (time-based grouping) |
 | Node-RED | Custom (incompleto para config nodes) | Regular |
 | LabVIEW | Stack global único | Pobre (sin API programática) |
-| **QTorres** | **No implementado** | **Ninguno** |
+| **Telekino** | **No implementado** | **Ninguno** |
 
 **Lección:** El command pattern con `do()`/`undo()` por operación es el estándar. GNU Radio
-tiene la implementación más limpia y documentada. QTorres debe implementar esto antes de
+tiene la implementación más limpia y documentada. Telekino debe implementar esto antes de
 Fase 5.
 
 ### Testing de editores visuales — estrategia por capas
@@ -93,26 +93,26 @@ La experiencia de todos los proyectos comparables converge en la misma estrategi
 
 | Capa | Qué testear | Cómo | Proyecto referencia |
 |------|------------|------|---------------------|
-| **Modelo** | CRUD nodos, wires, serialización | Unit tests puros, sin GUI | QTorres (ya existe) |
+| **Modelo** | CRUD nodos, wires, serialización | Unit tests puros, sin GUI | Telekino (ya existe) |
 | **Lógica UI** | Hit-test, validación de wires, comandos | Unit tests sobre funciones puras extraídas | GRC core |
-| **Compilación** | Generación de código, round-trip | Unit tests + `red -c` como smoke test | QTorres (ya existe) |
+| **Compilación** | Generación de código, round-trip | Unit tests + `red -c` como smoke test | Telekino (ya existe) |
 | **Render** | Apariencia visual | Smoke test manual + regresión visual (futuro) | Orange (WidgetPreview) |
 | **Integración** | Flujo completo crear→compilar→ejecutar | Tests headless end-to-end | Node-RED (test-helper) |
 
-**Lección:** QTorres ya tiene las capas 1 y 3. Necesita la capa 2 (lógica UI extraída del
+**Lección:** Telekino ya tiene las capas 1 y 3. Necesita la capa 2 (lógica UI extraída del
 canvas) y ampliar la capa 3 (round-trip de file-io). La capa 4 puede esperar.
 
-### Plugins/Extensiones — el modelo de GRC es el mejor para QTorres
+### Plugins/Extensiones — el modelo de GRC es el mejor para Telekino
 
 | Proyecto | Mecanismo | Granularidad | Hot-reload |
 |----------|-----------|-------------|------------|
 | **GNU Radio** | `.block.yml` + OOT modules | Por bloque | No |
 | **Node-RED** | npm packages | Por nodo | Sí |
 | **Orange** | setuptools entry points | Por categoría | No |
-| **QTorres (.qlib)** | `context` + `block-def` | Por librería | Pendiente |
+| **Telekino (.qlib)** | `context` + `block-def` | Por librería | Pendiente |
 
 **Lección:** El formato `.block.yml` de GRC es la inspiración directa para `block-def` de
-QTorres. La diferencia es que QTorres usa Red nativo en vez de YAML, lo cual es más
+Telekino. La diferencia es que Telekino usa Red nativo en vez de YAML, lo cual es más
 idiomático. La capacidad de hot-reload (Node-RED) es deseable pero no urgente.
 
 ### Rendimiento con diagramas grandes
@@ -122,9 +122,9 @@ idiomático. La capacidad de hot-reload (Node-RED) es deseable pero no urgente.
 | Node-RED | `JSON.stringify` bloquea el hilo | Streaming, per-tab splitting (propuesta) |
 | NiFi | Canvas degrada con cientos de nodos | Process Groups (jerarquía) |
 | GRC GTK | Re-render completo en cada redraw | Migración a Qt |
-| **QTorres** | `face/draw` se re-renderiza completo | **Pendiente** — necesitará optimización |
+| **Telekino** | `face/draw` se re-renderiza completo | **Pendiente** — necesitará optimización |
 
-**Lección:** Para Fase 5+, QTorres necesitará:
+**Lección:** Para Fase 5+, Telekino necesitará:
 1. Re-render parcial (solo la región dirty) en canvas-render.red
 2. Virtualización (no renderizar nodos fuera del viewport)
 3. Jerarquía (sub-VIs como nodos simples, expandibles bajo demanda)
@@ -135,7 +135,7 @@ idiomático. La capacidad de hot-reload (Node-RED) es deseable pero no urgente.
 
 El proyecto hermano `red-sg` (en `/home/alaforga/Anlaco/01-PRODUCTOS/red-sg/`) es un
 scene graph + widget toolkit para Red/View. **Existe como proyecto separado por decisión
-estratégica**, no como librería oportunista: QTorres se centra en el dominio LabVIEW
+estratégica**, no como librería oportunista: Telekino se centra en el dominio LabVIEW
 (bloques, wires, compilador, hardware, instrumentación) y red-sg absorbe la infraestructura
 gráfica genérica (scene graph, transforms, hit-test, event routing, undo/redo, widgets).
 
@@ -146,11 +146,11 @@ gráfica genérica (scene graph, transforms, hit-test, event routing, undo/redo,
 | KDE | Qt |
 | GNOME | GTK |
 | Claude Code | Ink / React |
-| **QTorres** | **red-sg** |
+| **Telekino** | **red-sg** |
 
 La integración en Fase 4.5 (documentada abajo) no es una "migración oportunista" ni un
 "multiplicador descubierto". Es la consecuencia natural de haber separado las preocupaciones
-desde el inicio: cuando red-sg esté estable, QTorres delega en él la capa gráfica.
+desde el inicio: cuando red-sg esté estable, Telekino delega en él la capa gráfica.
 
 **Estado actual de red-sg (2026-04-14):** 937 líneas de código y 578 líneas de tests con:
 
@@ -160,13 +160,13 @@ desde el inicio: cuando red-sg esté estable, QTorres delega en él la capa grá
 - **sg-events.red** (230 líneas) — routing de eventos face→nodo
 - **sg-undo.red** (139 líneas) — undo/redo stack genérico
 
-### Qué aporta red-sg a QTorres (consecuencias de la separación)
+### Qué aporta red-sg a Telekino (consecuencias de la separación)
 
-| Área QTorres | Responsabilidad que red-sg asume | Consecuencia esperada |
+| Área Telekino | Responsabilidad que red-sg asume | Consecuencia esperada |
 |---------------------|---------------------|---------|
 | canvas.red monolítico (1226 líneas) | Scene graph + render orquestado | Canvas se simplifica a orquestador (reducción estimada no medida; ver "Métricas pendientes") |
 | Hit-test hardcodeado por tipo | sg-hit-test con matrix inversa automática | Simplifica + queda preparado para cambios futuros |
-| Sin undo/redo | sg-undo stack genérico con Command Pattern | Feature nueva sin reimplementar en QTorres |
+| Sin undo/redo | sg-undo stack genérico con Command Pattern | Feature nueva sin reimplementar en Telekino |
 | Scroll manual con workarounds GTK | sg-transform con viewport translate | Menor superficie de código propio |
 | Coordenadas absolutas en todas partes | Coordenadas locales + transforms | Código más mantenible |
 | Sin inline text editing | sg-text-edit (Fase 1 de red-sg) | Feature nueva cuando red-sg la entregue |
@@ -176,11 +176,11 @@ desde el inicio: cuando red-sg esté estable, QTorres delega en él la capa grá
 
 ### Qué NO cambia con red-sg
 
-- **Zoom**: QTorres NO implementa zoom (DT-005). red-sg lo soporta internamente, pero
-  QTorres no lo habilita. Igual que LabVIEW.
+- **Zoom**: Telekino NO implementa zoom (DT-005). red-sg lo soporta internamente, pero
+  Telekino no lo habilita. Igual que LabVIEW.
 - **Formato .qvi**: No cambia. El scene graph es interno, no se serializa.
 - **Compilador**: No cambia. El compilador genera código Red/View, no red-sg.
-- **Modelo de datos**: No cambia. Los nodos/wires/estructuras de QTorres se mapean a
+- **Modelo de datos**: No cambia. Los nodos/wires/estructuras de Telekino se mapean a
   sg-nodos para renderizar, pero el modelo (`model.red`) sigue siendo la fuente de verdad.
 
 ### Estrategia de migración
@@ -191,7 +191,7 @@ La migración NO es un big-bang. Es incremental:
    independientes (3.1). Esto prepara el terreno — las funciones puras se quedan igual,
    solo cambia cómo se llama al render.
 
-2. **Fase 4 (hardware)**: QTorres funciona con el canvas actual. Se añaden bloques de
+2. **Fase 4 (hardware)**: Telekino funciona con el canvas actual. Se añaden bloques de
    hardware sin tocar la capa de render. red-sg sigue madurando en paralelo.
 
 3. **Fase 4.5 (puente)**: Migración incremental de canvas.red a red-sg:
@@ -201,28 +201,28 @@ La migración NO es un big-bang. Es incremental:
    - Cuarto: activar sg-undo para undo/redo
    - Quinto: migrar panel.red al mismo patrón
 
-4. **Fase 5 (UX)**: Con red-sg estable en QTorres, añadir inline text editing,
+4. **Fase 5 (UX)**: Con red-sg estable en Telekino, añadir inline text editing,
    project explorer con tree-view (usando sg-nodos), y welcome screen.
 
-### Mapeo QTorres → red-sg
+### Mapeo Telekino → red-sg
 
-| Concepto QTorres | Concepto red-sg | Notas |
+| Concepto Telekino | Concepto red-sg | Notas |
 |-----------------|----------------|-------|
-| `model/nodes` | `sg-node` con `draw-cmd` render del bloque | El modelo QTorres es la fuente de verdad; los sg-nodos son la vista |
+| `model/nodes` | `sg-node` con `draw-cmd` render del bloque | El modelo Telekino es la fuente de verdad; los sg-nodos son la vista |
 | `model/structures` | `sg-node` tipo `'group` con children | Estructuras contienen nodos internos como hijos |
 | `model/wires` | Draw-cmds en sg-nodos especiales tipo `'wire` | Los wires son render, no nodos del scene graph |
 | `model/front-panel` | `sg-node` tipo `'group` con widget children | Cada FP-item es un sg-node con su widget |
 | `canvas-face/draw` | `render-scene` genera el Draw block | Reemplaza `render-bd` y `render-fp-panel` |
 | Hit-test manual | `sg-hit-test` con matrix inversa | Elimina ~250 líneas de hit-test hardcodeado |
 | Scroll manual | `scene/view-x`, `scene/view-y` | Reemplaza scroll-x/scroll-y del app-model |
-| Undo/redo (nuevo) | `sg-undo` stack con Command Pattern | Cada operación QTorres envuelve un sg-command |
+| Undo/redo (nuevo) | `sg-undo` stack con Command Pattern | Cada operación Telekino envuelve un sg-command |
 
 ### Arquitectura post-migración
 
 ```
 Red/View (ventanas + event loop)
   └── red-sg (scene graph + transforms + hit-test + undo)
-       └── QTorres UI (canvas, panel, paleta, diálogos)
+       └── Telekino UI (canvas, panel, paleta, diálogos)
             ├── canvas.red (~400 líneas) — orquestador, usa sg-nodos
             ├── canvas-render.red (~600 líneas) — draw-cmds por tipo de bloque
             ├── canvas-wire.red (~200 líneas) — draw-cmds para wires
@@ -265,7 +265,7 @@ son las que red-sg reemplazará en la migración. Al separarlas ahora:
 - La migración a red-sg es incremental: se reemplazan funciones, no se reescribe todo
 - El orquestador (canvas.red) queda preparado para cambiar su motor de render
 
-**Referencia:** GRC separó `grc/core/` (modelo puro) de `grc/gui/` (vista). QTorres hace lo
+**Referencia:** GRC separó `grc/core/` (modelo puro) de `grc/gui/` (vista). Telekino hace lo
 mismo con hit/wire/struct extraídos del canvas.
 
 **Issue nuevo:** Refactor canvas: extraer hit-test, wire validation y structure CRUD
@@ -317,7 +317,7 @@ type-info: make map! [
 
 Los módulos de render consultan `type-info` en vez de hacer `switch` por tipo.
 
-**Referencia:** GRC usa `.block.yml` como fuente única de verdad para cada bloque. QTorres
+**Referencia:** GRC usa `.block.yml` como fuente única de verdad para cada bloque. Telekino
 usa `block-def` como fuente de verdad para puertos y emit, pero los hints visuales están
 dispersos. `type-info` centraliza los hints visuales junto a los puertos y emit.
 
@@ -345,7 +345,7 @@ indirecta a través de los tests del compilador.
 1. Ejecutar un diagrama simple (suma A+B) y verificar resultado
 2. Ejecutar un diagrama con while-loop y verificar resultado
 3. Ejecutar un diagrama con sub-VI y verificar resultado
-4. Verificar que `qtorres-runtime` se limpia correctamente
+4. Verificar que `telekino-runtime` se limpia correctamente
 
 **Issue nuevo:** Tests unitarios para runner: ejecución en memoria, sub-VIs, limpieza
 
@@ -370,8 +370,8 @@ mínimos reproducibles:
 
 ### Fase 4 — Hardware (TCP/IP, USBTMC, Serial, DAQ)
 
-> **Prioridad estratégica:** Fase 4 va **antes** que Fase 5 (UX). Un QTorres que habla con
-> instrumentos reales aporta valor a ingenieros de laboratorio; un QTorres con undo/redo
+> **Prioridad estratégica:** Fase 4 va **antes** que Fase 5 (UX). Un Telekino que habla con
+> instrumentos reales aporta valor a ingenieros de laboratorio; un Telekino con undo/redo
 > pero sin hardware solo aporta valor a quien ya tiene otras herramientas. La UX se pule
 > cuando hay algo útil que usar.
 
@@ -391,7 +391,7 @@ para instrumentación.
 - Modelo de datos ya lo soporta (`type: 'error` en puertos)
 
 **Referencia:** LabVIEW propaga errores por cable. Es el estándar de la industria para
-instrumentación. Sin esto, QTorres no es viable para hardware real.
+instrumentación. Sin esto, Telekino no es viable para hardware real.
 
 **Issue existente:** Parte de DT-029, planificado para Fase 4.
 
@@ -438,24 +438,24 @@ CI que lo verifique.
 ~2000 líneas de UI, aporta undo/redo probado, y establece coordenadas locales. Se ejecuta
 después de Fase 4 (hardware funciona) y antes de Fase 5 (UX).
 
-**NOTA sobre zoom:** QTorres NO implementa zoom (DT-005, visual-spec 1.1). Igual que
-LabVIEW. red-sg soporta zoom internamente, pero QTorres no lo habilita. Lo que sí usa
+**NOTA sobre zoom:** Telekino NO implementa zoom (DT-005, visual-spec 1.1). Igual que
+LabVIEW. red-sg soporta zoom internamente, pero Telekino no lo habilita. Lo que sí usa
 de red-sg es: scene graph, coordenadas locales, hit-test con transforms inversas,
 event routing y undo/redo.
 
 #### 4.5.1 Migrar hit-test a sg-hit-test (PRIORIDAD ALTA)
 
 **Acción:** Reemplazar las funciones `hit-*` de `canvas-hit.red` por `sg-hit-test`:
-- Los nodos QTorres se mapean a `sg-node` con su draw-cmd
+- Los nodos Telekino se mapean a `sg-node` con su draw-cmd
 - `sg-hit-test` hace el walk del árbol con matrix inversa
 - Elimina ~250 líneas de hit-test manual
 
 **Precondición:** canvas-hit.red ya extraído (3.1).
-**Postcondición:** Las funciones de hit-test de QTorres delegan en red-sg.
+**Postcondición:** Las funciones de hit-test de Telekino delegan en red-sg.
 
 #### 4.5.2 Migrar render de nodos a sg-nodos (PRIORIDAD ALTA)
 
-**Acción:** Cada nodo QTorres (add, sub, control, etc.) se convierte en un `sg-node`
+**Acción:** Cada nodo Telekino (add, sub, control, etc.) se convierte en un `sg-node`
 con su `draw-cmd` generado por `canvas-render.red`:
 
 ```red
@@ -464,7 +464,7 @@ face/draw: render-bd model
 
 ; Después: cada nodo es un sg-node, render-scene genera el Draw
 node: make-sg-node [
-    type: 'qtorres-block
+    type: 'telekino-block
     x: n/x  y: n/y
     draw-cmd: render-node-draw n  ; función existente, adaptada a coords locales
 ]
@@ -517,7 +517,7 @@ un `sg-node` con su draw-cmd. Los widgets de instrumentación (numeric, boolean,
 son sg-nodos con draw-cmds específicos.
 
 **Conexión con red-sg Fase 2:** Cuando red-sg tenga widgets Draw-based (numeric field,
-boolean LED, slider), QTorres puede usarlos directamente en vez de draw-cmds custom.
+boolean LED, slider), Telekino puede usarlos directamente en vez de draw-cmds custom.
 
 **Issue nuevo:** Migración incremental a red-sg: hit-test → render → scroll → undo → panel
 
@@ -536,7 +536,7 @@ de UX más importante para un editor visual.
 **Acción:** Usar `sg-undo.red` de red-sg como motor de undo/redo. La librería ya tiene
 un stack genérico con `sg-push-undo`/`sg-undo`/`sg-redo` probado con tests.
 
-Integración en QTorres:
+Integración en Telekino:
 
 ```red
 ; Cada operación del canvas envuelve una acción sg-undo
@@ -566,7 +566,7 @@ sg-push-undo scene compose [
 | add-structure | Añadir estructura | Eliminar estructura |
 
 **Ventaja sobre implementación desde cero:** red-sg ya tiene el stack probado con tests.
-QTorres solo necesita definir los comandos específicos del dominio (add-node, move-node, etc.)
+Telekino solo necesita definir los comandos específicos del dominio (add-node, move-node, etc.)
 y conectarlos al stack existente.
 
 **Atajo Ctrl+Z / Ctrl+Y:** Conectar al stack en el `on-key` de las ventanas BD y FP.
@@ -629,7 +629,7 @@ flags (5.2) para indicar cambios sin guardar.
 | Documentación | Muy buena | Muy buena | Muy buena | Muy buena | Muy buena |
 
 La integración con red-sg (Fase 4.5) no es un "multiplicador" extraordinario sino la
-consecuencia esperada de la separación aplicación/toolkit. Sin ella, QTorres tendría
+consecuencia esperada de la separación aplicación/toolkit. Sin ella, Telekino tendría
 que reimplementar el scene graph, el hit-test con transforms, el undo/redo genérico y
 los widgets Draw-based dentro de su propio código, duplicando esfuerzo y desenfocándose
 de su dominio (bloques, wires, compilación, hardware).
@@ -661,7 +661,7 @@ fixes upstream.
 | Bugs GTK sin fix upstream | Alto — canvas visual roto en Linux | Media | Reportar bugs con casos mínimos. Workaround: ventanas fijas (ya hecho). |
 | Red nunca llega a 1.0 | Crítico — proyecto huérfano | Baja (proyecto activo) | El código generado es Red estándar. Si Red muere, se puede reescribir el editor en otra tecnología manteniendo el formato .qvi. |
 | Red no añade concurrencia | Medio — loops paralelos limitados | Media | DT-027 ya define el modelo cooperativo. Si Red añade actors/CSP, se migra sin cambiar la arquitectura. |
-| Red migra a 64-bit | Positivo — soluciona GTK y i386 | Alta (en roadmap) | QTorres se beneficia automáticamente. Los .qvi generados no cambian. |
+| Red migra a 64-bit | Positivo — soluciona GTK y i386 | Alta (en roadmap) | Telekino se beneficia automáticamente. Los .qvi generados no cambian. |
 
 ---
 
@@ -679,21 +679,21 @@ eliminan o dificultan las libs i386 por defecto. Sin ellas, `red-view` no arranc
 
 1. **Corto plazo (Fase 3):** Documentar en `README.md` las instrucciones exactas para
    instalar libs 32-bit en las 3 distros principales (Ubuntu, Fedora, Arch). Verificado
-   al ejecutar `red-view src/qtorres.red`.
+   al ejecutar `red-view src/telekino.red`.
 2. **Medio plazo (Fase 4):** Crear imagen Docker oficial con Red 32-bit + dependencias
    GTK + tests en verde. Uso doble: CI reproducible + onboarding de nuevos contributors
    en distros hostiles.
 3. **Seguimiento trimestral:** Monitorear el roadmap 64-bit de Red (issues en `red/red`).
    Probar cualquier branch/preview 64-bit en cuanto esté disponible.
 4. **Cuando Red publique 64-bit:** migración es transparente para `.qvi` (código Red
-   estándar). Los cambios se concentran en QTorres/red-sg para cualquier API rota.
+   estándar). Los cambios se concentran en Telekino/red-sg para cualquier API rota.
 
 ### Riesgo 2 (ALTO): Red nunca llega a 1.0
 
-**Problema:** Si el proyecto Red se detiene, QTorres queda huérfano de runtime.
+**Problema:** Si el proyecto Red se detiene, Telekino queda huérfano de runtime.
 
 **Mitigación estructural:** El formato `.qvi` es Red estándar. Si Red muere, el editor
-QTorres puede reescribirse en otra tecnología (Rust + egui, C++ + Qt) **preservando los
+Telekino puede reescribirse en otra tecnología (Rust + egui, C++ + Qt) **preservando los
 ficheros de usuario** — los `.qvi` siguen siendo válidos como descripción del diagrama
 aunque se pierda la ejecución directa. Es la ventaja de `qvi-diagram` como fuente de
 verdad (DT-011).
@@ -768,9 +768,9 @@ mejora será anecdótica.
 
 **Contexto:** Todo editor visual necesita undo/redo. LabVIEW tiene un stack global. GRC Qt
 tiene QUndoStack por flowgraph. Orange tiene QUndoCommand. Rete.js tiene HistoryPlugin.
-QTorres tiene red-sg con `sg-undo.red` ya implementado y testeado.
+Telekino tiene red-sg con `sg-undo.red` ya implementado y testeado.
 
-**Decisión:** Usar el stack de undo/redo de red-sg (`sg-undo`). QTorres define comandos
+**Decisión:** Usar el stack de undo/redo de red-sg (`sg-undo`). Telekino define comandos
 específicos del dominio (add-node, move-node, etc.) y los registra en el stack de red-sg.
 No reimplementar desde cero — red-sg ya tiene el motor probado.
 
@@ -785,7 +785,7 @@ sg-can-undo? scene                 ; hay algo que deshacer?
 sg-can-redo? scene                 ; hay algo que rehacer?
 ```
 
-**Comandos QTorres:**
+**Comandos Telekino:**
 
 | Comando | do | undo |
 |---------|-------|------|
@@ -856,7 +856,7 @@ una verdad revelada, se listan aquí sus puntos débiles conocidos:
    reales suelen añadir código de puente antes de reducir. La cifra real se conocerá
    al cerrar 4.5.
 2. **"Undo/redo de red-sg es probado"** — red-sg tiene tests propios, pero **nunca se
-   ha integrado en QTorres**. La integración puede descubrir cosas que los tests
+   ha integrado en Telekino**. La integración puede descubrir cosas que los tests
    aislados no cubren.
 3. **Priorización ALTA/MEDIA/BAJA** — sigue siendo subjetiva. Menos deshonesta que la
    puntuación decimal original, pero no es objetiva.
@@ -876,7 +876,7 @@ una verdad revelada, se listan aquí sus puntos débiles conocidos:
 ### Qué hace frágil este roadmap
 
 - **Dependencia fuerte de red-sg:** si red-sg se retrasa o cambia de alcance, Fase 4.5
-  se bloquea y hay que reimplementar capacidades dentro de QTorres.
+  se bloquea y hay que reimplementar capacidades dentro de Telekino.
 - **Dependencia de Red 64-bit para Linux moderno:** fuera de nuestro control.
 - **Estimaciones de esfuerzo ausentes:** no se dice "Fase 3 tarda 2 semanas". Quien
   lea esto no puede planificar recursos.

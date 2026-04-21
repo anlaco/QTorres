@@ -36,22 +36,22 @@ El binario contiene el intérprete de Red compilado a nativo, y tu código Red c
 - `-c` compila **todo** el código Red a Red/System nativo → binario más rápido, más restrictivo
 - `-e` embebe el intérprete completo → más tolerante con código dinámico, ligeramente más lento
 
-### Por qué se usa encap en QTorres
+### Por qué se usa encap en Telekino
 
 El compilador `-c` puede fallar con código dinámico (metaprogramming, `compose` dinámico,
-`do` de bloques en runtime). QTorres usa patrones dinámicos extensamente (build-emit,
+`do` de bloques en runtime). Telekino usa patrones dinámicos extensamente (build-emit,
 compile-diagram). Encap los tolera todos porque el intérprete embebido es el mismo que
 el modo interpretado normal.
 
-## Plan para compilar QTorres IDE
+## Plan para compilar Telekino IDE
 
 ### ¿Hay que cambiar `do` por `#include`? SÍ (para binario standalone)
 
 `do %file.red` con ruta relativa busca el fichero en el **CWD desde donde se lanza el
 binario**, no donde está el binario. Esto significa que:
 
-- `cd src && ../qtorres` → funciona (CWD = src/ donde están los módulos)
-- `./qtorres` desde raíz → falla (`graph/model.red` no existe en raíz)
+- `cd src && ../telekino` → funciona (CWD = src/ donde están los módulos)
+- `./telekino` desde raíz → falla (`graph/model.red` no existe en raíz)
 
 Para un binario verdaderamente standalone hay que usar `#include`, que embebe el código
 del módulo dentro del binario en tiempo de compilación.
@@ -70,7 +70,7 @@ incluido. Los `#include` siguientes se resuelven desde ahí, no desde el fichero
 
 **Ejemplo del problema:**
 ```red
-; En src/qtorres.red — contexto inicial: src/
+; En src/telekino.red — contexto inicial: src/
 #include %graph/model.red     ; OK → src/graph/model.red
                                ; ⚠ contexto pasa a src/graph/
 #include %graph/blocks.red    ; FALLA — busca src/graph/graph/blocks.red
@@ -91,17 +91,17 @@ ctx src/io/       → #include %../ui/diagram/canvas.red
 ctx src/ui/diagram/ → #include %../panel/panel.red
 ```
 
-Esta es la estructura actual de `src/qtorres.red`.
+Esta es la estructura actual de `src/telekino.red`.
 
-### Para compilar QTorres IDE a binario standalone:
+### Para compilar Telekino IDE a binario standalone:
 
 ```bash
-./redc -e -o qtorres src/qtorres.red
-./qtorres   # funciona desde cualquier directorio
+./redc -e -o telekino src/telekino.red
+./telekino   # funciona desde cualquier directorio
 ```
 
 ### Estado de verificación:
-- [x] Compilar `qtorres.red` con `--encap` — OK, 120 KB, exit code 0 (2026-03-21)
+- [x] Compilar `telekino.red` con `--encap` — OK, 120 KB, exit code 0 (2026-03-21)
 - [x] Probar GUI del binario encap — OK, ventana abierta desde cualquier directorio (2026-03-21)
 - [ ] Probar compilación normal (`-c`) de `.qvi` (sin encap, más pequeño)
 - [ ] Investigar exit code 255 (probablemente normal en Red para scripts que terminan sin `halt`)
@@ -115,17 +115,17 @@ Esta es la estructura actual de `src/qtorres.red`.
 | Código dinámico que el compilador no tolera | `do [block-literal]` — interpretado, sin I/O |
 | Definiciones FFI / código C | `routine!` + `#system` — compilados a nativo incluso en encap |
 
-**Regla para QTorres:**
-- Los módulos `src/` → `#include` (van dentro del binario `qtorres`)
+**Regla para Telekino:**
+- Los módulos `src/` → `#include` (van dentro del binario `telekino`)
 - Los ficheros `.qvi` del usuario → `do` en runtime (son datos externos, no código fijo)
 - El compilador interno (`compile-diagram`) → `do [block]` (código generado dinámicamente)
 
 ## Comandos de referencia
 
 ```bash
-# Compilar QTorres IDE a binario standalone
-./redc -e -o qtorres src/qtorres.red
-./qtorres   # funciona desde cualquier directorio
+# Compilar Telekino IDE a binario standalone
+./redc -e -o telekino src/telekino.red
+./telekino   # funciona desde cualquier directorio
 
 # Compilar un .qvi a ejecutable standalone (encap)
 ./redc -e -o nombre examples/suma-basica.qvi

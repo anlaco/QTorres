@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — Test exhaustivo: pen colorea texto en Draw"
+    Title:   "Telekino — Test exhaustivo: pen colorea texto en Draw"
     Purpose: {
         Sabemos que pen controla el color del texto en Draw dialect.
         Este test intenta romperlo con todos los casos extremos relevantes
@@ -161,7 +161,7 @@ print "8 bloques — describe cada resultado para diagnostico completo"
 print ""
 
 view/no-wait layout [
-    title "test-pen-text — QTorres"
+    title "test-pen-text — Telekino"
     backdrop 200.203.210
     base 600x425 draw d
     button "Cerrar" [quit]

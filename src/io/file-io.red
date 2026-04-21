@@ -1,6 +1,6 @@
 Red [
-    Title:   "QTorres — File I/O (orquestador)"
-    Purpose: "Guardar y cargar VIs (.qvi), proyectos (.qproj) y otros tipos de fichero QTorres"
+    Title:   "Telekino — File I/O (orquestador)"
+    Purpose: "Guardar y cargar VIs (.qvi), proyectos (.qproj) y otros tipos de fichero Telekino"
 ]
 
 ; Módulos de I/O (orden importa por dependencias):

@@ -1,6 +1,6 @@
 Red [
-    Title:   "QTorres"
-    Author:  "QTorres contributors"
+    Title:   "Telekino"
+    Author:  "Telekino contributors"
     Version: 0.2.0
     Purpose: "Entorno de programación visual tipo LabVIEW sobre Red-Lang"
     Needs:   'View
@@ -10,7 +10,7 @@ Red [
 ; Red cambia what-dir al directorio del script al cargarlo (src/).
 ; Capturamos la raíz del proyecto (un nivel arriba de src/) antes
 ; de cualquier #include para que la paleta encuentre los .qlib.
-_qtorres-project-dir: clean-path to-file rejoin [form what-dir "../"]
+_telekino-project-dir: clean-path to-file rejoin [form what-dir "../"]
 
 ; ── Módulos internos — se empaquetan con redc -e ─────────────────
 ; Chain loading (DT-025): cada módulo incluye al siguiente al final.
@@ -105,10 +105,10 @@ btn-run: make face! [
             ; 2. Cargar contextos de sub-VIs referenciados
             foreach n model/nodes [
                 if all [n/type = 'subvi  file? n/file  exists? n/file] [
-                    _pref: value? 'qtorres-runtime
-                    qtorres-runtime: true
+                    _pref: value? 'telekino-runtime
+                    telekino-runtime: true
                     attempt [do n/file]
-                    if not _pref [unset 'qtorres-runtime]
+                    if not _pref [unset 'telekino-runtime]
                 ]
             ]
 

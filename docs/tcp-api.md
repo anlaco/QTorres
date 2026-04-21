@@ -141,7 +141,7 @@ tcp/close
 ```
 
 > Para enviar comandos de instrumentación (texto plano como `*IDN?`, `MEAS:VOLT?`,
-> cadenas Modbus, etc.) basta con poner el string adecuado en `tcp/send`. QTorres no
+> cadenas Modbus, etc.) basta con poner el string adecuado en `tcp/send`. Telekino no
 > incluye bloques específicos por protocolo — el usuario elige qué cadena enviar.
 
 ### Lectura secuencial (con timeout)
@@ -183,7 +183,7 @@ tcp/close
 - **Sin hilos:** Red no tiene multihilo. Para múltiples conexiones, usar polling no-bloqueante + `on-time` / timers (DT-027)
 - **Error handling:** revisar `tcp/last-error` si `connect` o `send` fallan
 
-## Integración QTorres (Fase 4)
+## Integración Telekino (Fase 4)
 
 Los bloques de hardware (#19, #22) usarán esta API de forma genérica:
 
@@ -192,7 +192,7 @@ Los bloques de hardware (#19, #22) usarán esta API de forma genérica:
 - **Timeout configurable** → parámetro de bloque → `tcp/set-timeout`
 - **Modbus TCP** (#22) → syntactic sugar que construye la trama Modbus y la envía con `tcp/send`
 
-> QTorres no incluye bloques específicos por protocolo (HTTP, SCPI, MQTT, …). Cada
+> Telekino no incluye bloques específicos por protocolo (HTTP, SCPI, MQTT, …). Cada
 > protocolo de texto se usa pasando la cadena adecuada al bloque `tcp-write`.
 > Protocolos binarios (Modbus, custom) pueden construirse con `to-binary!`.
 

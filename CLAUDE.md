@@ -1,4 +1,4 @@
-# QTorres — Contexto para Claude Code
+# Telekino — Contexto para Claude Code
 
 > Última actualización: 2026-04-20
 
@@ -22,10 +22,10 @@ Estas reglas son inviolables. No importa qué Issue estés implementando ni qué
 
 ## Qué es este proyecto
 
-QTorres es una alternativa open source a LabVIEW construida íntegramente en Red-Lang. El usuario construye programas arrastrando bloques y conectándolos con wires, igual que en LabVIEW. Al guardar, QTorres genera un fichero `.qvi` con código Red/View completo que al ejecutarse muestra el Front Panel como una ventana, igual que LabVIEW.
+Telekino es una alternativa open source a LabVIEW construida íntegramente en Red-Lang. El usuario construye programas arrastrando bloques y conectándolos con wires, igual que en LabVIEW. Al guardar, Telekino genera un fichero `.qvi` con código Red/View completo que al ejecutarse muestra el Front Panel como una ventana, igual que LabVIEW.
 
-**Nombre:** QTorres (por Torres Quevedo)
-**Repositorio:** https://github.com/anlaco/QTorres
+**Nombre:** Telekino (por Torres Quevedo)
+**Repositorio:** https://github.com/anlaco/Telekino
 **Backlog:** https://github.com/users/anlaco/projects/1
 
 ## Stack tecnológico
@@ -43,7 +43,7 @@ Sin dependencias externas. Un solo binario. Funciona en Linux, Windows y macOS.
 ## Estructura del proyecto
 
 ```
-QTorres/
+Telekino/
 ├── CLAUDE.md               # Este fichero — contexto principal para IA
 ├── README.md
 ├── docs/
@@ -53,11 +53,11 @@ QTorres/
 │   ├── PLANNING.md         # Decisiones pendientes críticas
 │   ├── retos.md            # Riesgos y dificultades
 │   ├── visual-spec.md      # Especificación visual (documento vivo)
-│   ├── tipos-de-fichero.md # Mapeo LabVIEW → QTorres
+│   ├── tipos-de-fichero.md # Mapeo LabVIEW → Telekino
 │   ├── labview-comportamiento.md # Arquitectura LabVIEW: renderizado, modos, estilos
 │   └── GTK_ISSUES.md       # Bugs del backend GTK en Linux
 ├── src/
-│   ├── qtorres.red         # Punto de entrada + toolbar + ventana principal
+│   ├── telekino.red         # Punto de entrada + toolbar + ventana principal
 │   ├── graph/
 │   │   ├── model.red       # Modelo: make-label, make-node, make-wire, make-fp-item, set-config, find-node-by-id (635 líneas)
 │   │   └── blocks.red      # Registro de bloques + dialecto block-def — 40 bloques
@@ -139,7 +139,7 @@ QTorres/
 
 **Refactor 4B ✅ COMPLETADO (2026-04-17):** `compiler.red` (1255 → 18 líneas orquestador + 5 módulos) y `file-io.red` (939 → 17 líneas orquestador + 4 módulos). Todos los módulos <400 líneas excepto `file-io-serialize.red` (468) por `format-qvi` monolítica. 482/482 tests PASS. Ver `docs/refactor-4b-plan.md` para el plan original.
 
-**Prioridad:** Fase 4 hardware antes que Fase 5 UX. Un QTorres que habla con instrumentos reales es más valioso que uno con undo/redo pulido. La Fase 4.5 (red-sg) se sitúa entre ambas como puente natural de la separación aplicación/toolkit (ver DT-030 y `docs/roadmap-9-10.md`).
+**Prioridad:** Fase 4 hardware antes que Fase 5 UX. Un Telekino que habla con instrumentos reales es más valioso que uno con undo/redo pulido. La Fase 4.5 (red-sg) se sitúa entre ambas como puente natural de la separación aplicación/toolkit (ver DT-030 y `docs/roadmap-9-10.md`).
 
 **Nota sobre el fork `anlaco/red`:** Los binarios `red-cli` y `red-view` se compilan desde un fork propio del repositorio Red, mantenido en `/home/alaforga/Anlaco/01-PRODUCTOS/red/` con origen `https://github.com/anlaco/red.git`. Este fork aplica fixes GTK3 (GTK-014, GTK-003 A/B) que upstream no ha cerrado. Ver `docs/GTK_ISSUES.md` para estado de cada bug y sus commits resolutivos en el fork. El fork se sincroniza periódicamente con `red/red` upstream pero se mantiene como copia local para independencia de Red upstream.
 
@@ -184,14 +184,14 @@ view layout [
 3. **emit** — define qué código Red genera cada bloque al compilar
 
 ### DT-005: El .qvi tiene dos secciones
-1. `qvi-diagram: [...]` — cabecera gráfica (inerte para Red, usada por QTorres para reconstruir la vista)
+1. `qvi-diagram: [...]` — cabecera gráfica (inerte para Red, usada por Telekino para reconstruir la vista)
 2. Código Red/View generado — ejecutable directamente con `red mi-vi.qvi`
 
 ### DT-010: Runner en memoria (decisión clave)
 Run compila en memoria y ejecuta con `do`. Save escribe el `.qvi` al disco. Son independientes.
 
 ### DT-011: qvi-diagram es la fuente de verdad
-El código generado es un artefacto. QTorres siempre recompila desde `qvi-diagram` al cargar.
+El código generado es un artefacto. Telekino siempre recompila desde `qvi-diagram` al cargar.
 Un `.qvi` con solo `qvi-diagram` (sin código generado) es válido.
 
 ### DT-017: El tipo de VI lo determina el contexto de llamada
@@ -211,7 +211,7 @@ Prototipo `base-element` + constructores `make-node`, `make-wire`. Patrón idiom
 Son independientes. El compilador usa `name`, la UI usa `label/text`.
 
 ### DT-027 — CRÍTICO: Concurrencia cooperativa (rate/on-time)
-Red no tiene multihilo. QTorres simula concurrencia con timers de Red/View:
+Red no tiene multihilo. Telekino simula concurrencia con timers de Red/View:
 - While Loop = timer (`face/rate` + `on-time`) que ejecuta una iteración por tick
 - Múltiples loops = múltiples timers independientes, Red despacha en round-robin
 - Event Structure = timer que comprueba cola de eventos
@@ -223,7 +223,7 @@ Red no tiene multihilo. QTorres simula concurrencia con timers de Red/View:
 El `.qvi` generado **debe compilarse** con `red -c` a ejecutable nativo.
 - **PROHIBIDO** en código generado: `do` con bloques dinámicos, `load` de strings, `compose` en runtime
 - **PERMITIDO**: `view layout [...]` estático, funciones con nombre, `face/rate` + `on-time`
-- `compose` se ejecuta en el compilador de QTorres (al generar), NO en el `.qvi` generado
+- `compose` se ejecuta en el compilador de Telekino (al generar), NO en el `.qvi` generado
 
 ### DT-029: Error handling progresivo
 - **Nivel 0 (Fase 2)**: Error nativo de Red — programa se para. Sin cables de error.
@@ -256,11 +256,11 @@ qvi-diagram: [
 ## Flujo de trabajo
 
 ### Cómo trabajar un Issue
-1. Leer el Issue en GitHub (`gh issue view N --repo anlaco/QTorres`)
+1. Leer el Issue en GitHub (`gh issue view N --repo anlaco/Telekino`)
 2. Implementar en el módulo correspondiente de `src/`
 3. Verificar con los ejemplos de `examples/`
 4. Ejecutar los tests (`red-cli tests/run-all.red`) y verificar que pasan
-5. Cerrar el Issue cuando esté completo (`gh issue close N --repo anlaco/QTorres`)
+5. Cerrar el Issue cuando esté completo (`gh issue close N --repo anlaco/Telekino`)
 
 ### Orden de los Issues (backlog)
 Trabajar siempre en orden de Fase. No empezar una fase sin completar la anterior.
@@ -304,7 +304,7 @@ Spec visual: cada tipo implementa su aspecto según `docs/visual-spec.md`.
 - #22 Modbus TCP y servidor TCP/IP (depende de #19)
 - #23 DAQ analógico (comedi/libcomedi)
 
-> **Nota:** NO se implementan bloques SCPI específicos. SCPI es un protocolo de comandos en texto que se envía como string vía `tcp-write` o `usbtmc-write`. Esto mantiene QTorres genérico y sirve también para Modbus, protocolos propios y cualquier otro protocolo sobre TCP/USB.
+> **Nota:** NO se implementan bloques SCPI específicos. SCPI es un protocolo de comandos en texto que se envía como string vía `tcp-write` o `usbtmc-write`. Esto mantiene Telekino genérico y sirve también para Modbus, protocolos propios y cualquier otro protocolo sobre TCP/USB.
 
 **Fase 5 — UX y gestión de proyectos:**
 - Splash / Welcome screen (Create New VI, Open Existing, proyectos recientes)
@@ -316,7 +316,7 @@ Los binarios `red-cli` y `red-view` se compilan desde el fork `https://github.co
 
 ## Ollama MCP — Delegación de tareas a modelo local
 
-QTorres tiene un MCP server que conecta con Ollama (modelo local). Ollama tiene cargado automáticamente CLAUDE.md y el skill de Red-Lang como contexto del proyecto.
+Telekino tiene un MCP server que conecta con Ollama (modelo local). Ollama tiene cargado automáticamente CLAUDE.md y el skill de Red-Lang como contexto del proyecto.
 
 ### Cuándo usar Ollama (herramienta `ollama_delegate`)
 
@@ -356,7 +356,7 @@ El contexto se define en `.ollama-context.json` en la raíz del proyecto:
 ```json
 {
   "context_files": ["./CLAUDE.md", "./skills/red-lang/SKILL.md"],
-  "system_prompt": "You are a coding assistant for QTorres..."
+  "system_prompt": "You are a coding assistant for Telekino..."
 }
 ```
 
@@ -372,16 +372,16 @@ red examples/suma-basica.qvi
 red-cli tests/run-all.red
 
 # Ejecutar la aplicación completa
-red-view src/qtorres.red
+red-view src/telekino.red
 
 # Ver Issues pendientes
-gh issue list --repo anlaco/QTorres --label "fase-2"
+gh issue list --repo anlaco/Telekino --label "fase-2"
 
 # Ver un Issue concreto
-gh issue view 14 --repo anlaco/QTorres
+gh issue view 14 --repo anlaco/Telekino
 
 # Cerrar un Issue
-gh issue close 14 --repo anlaco/QTorres --comment "Implementado en src/..."
+gh issue close 14 --repo anlaco/Telekino --comment "Implementado en src/..."
 ```
 
 ## Convenciones de código
@@ -427,7 +427,7 @@ Cubre sintaxis core, View, Draw, VID, Parse, patrones idiomáticos y gotchas.
 | `make-fp-item`, `fp-cluster-fields`, `fp-default-label` | `model.red` | ✅ Movida |
 | `find-node-by-id` | `model.red` | ✅ Añadida |
 | `set-config` | `model.red` | ✅ Añadida |
-| Lógica de `btn-run` (50+ líneas inline) | qtorres.red | ⚠️ Pendiente Fase 3 |
+| Lógica de `btn-run` (50+ líneas inline) | telekino.red | ⚠️ Pendiente Fase 3 |
 
 ### Dependencia canvas.red <-> panel.red
 
@@ -467,9 +467,9 @@ El acoplamiento es **por diseño del dominio** (FP↔BD son una unidad 1:1) y no
 
 ### Estado global compartido
 
-`app-model` (definido en qtorres.red) es el único modelo compartido. canvas.red, panel.red y qtorres.red lo leen y mutan a través de `face/extra`. No hay mecanismo de notificación.
+`app-model` (definido en telekino.red) es el único modelo compartido. canvas.red, panel.red y telekino.red lo leen y mutan a través de `face/extra`. No hay mecanismo de notificación.
 
 ### Plan de corrección (pendiente Fase 3)
 
 1. Centralizar conocimiento de tipos en blocks.red (hints de renderizado)
-2. Extraer lógica de `btn-run` a función nombrada en qtorres.red
+2. Extraer lógica de `btn-run` a función nombrada en telekino.red

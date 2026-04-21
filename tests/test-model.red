@@ -1,4 +1,4 @@
-Red [Title: "QTorres — Tests model (make-structure)"]
+Red [Title: "Telekino — Tests model (make-structure)"]
 
 do %../src/graph/model.red
 

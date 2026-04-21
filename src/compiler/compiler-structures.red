@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — Compilador (estructuras de control)"
+    Title:   "Telekino — Compilador (estructuras de control)"
     Purpose: "Compilación de while-loop, for-loop y case-structure"
 ]
 

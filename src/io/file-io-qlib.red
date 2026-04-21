@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — File I/O (gestión de librerías .qlib)"
+    Title:   "Telekino — File I/O (gestión de librerías .qlib)"
     Purpose: "load-qlib + find-qlibs — librerías de VIs con namespacing"
 ]
 

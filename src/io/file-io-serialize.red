@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — File I/O (serialización + formato .qvi)"
+    Title:   "Telekino — File I/O (serialización + formato .qvi)"
     Purpose: "serialize-diagram + format-qvi: convierte modelo → texto .qvi"
 ]
 
@@ -388,9 +388,9 @@ format-qvi: func [
     includes-str: copy ""
     svf-list: select compiled 'subvi-files
     if all [block? svf-list  not empty? svf-list] [
-        ; Guardar valor actual de qtorres-runtime
-        append includes-str "_saved-qtorres-runtime: value? 'qtorres-runtime^/"
-        append includes-str "qtorres-runtime: true^/"
+        ; Guardar valor actual de telekino-runtime
+        append includes-str "_saved-telekino-runtime: value? 'telekino-runtime^/"
+        append includes-str "telekino-runtime: true^/"
         foreach svf svf-list [
             append includes-str rejoin ["#include " mold svf "^/"]
         ]
@@ -404,8 +404,8 @@ format-qvi: func [
         generated-code: rejoin [
             either empty? includes-str [""] [rejoin [
                 includes-str
-                "; --- Restaurar qtorres-runtime si estaba definido ---^/"
-                "if not _saved-qtorres-runtime [unset 'qtorres-runtime]^/^/"
+                "; --- Restaurar telekino-runtime si estaba definido ---^/"
+                "if not _saved-telekino-runtime [unset 'telekino-runtime]^/^/"
             ]]
             "; --- Helpers de runtime ---^/"
             "arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]^/"
@@ -421,7 +421,7 @@ format-qvi: func [
             "    ]^/"
             "]^/^/"
             "; --- Standalone guard ---^/"
-            "if not value? 'qtorres-runtime [^/"
+            "if not value? 'telekino-runtime [^/"
             "    view layout [^/"
             layout-str
             "    ]^/"
@@ -432,8 +432,8 @@ format-qvi: func [
         generated-code: rejoin [
             either empty? includes-str [""] [rejoin [
                 includes-str
-                "; --- Restaurar qtorres-runtime si estaba definido ---^/"
-                "if not _saved-qtorres-runtime [unset 'qtorres-runtime]^/^/"
+                "; --- Restaurar telekino-runtime si estaba definido ---^/"
+                "if not _saved-telekino-runtime [unset 'telekino-runtime]^/^/"
             ]]
             "; --- Helpers de runtime ---^/"
             "arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]^/"

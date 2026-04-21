@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — Test font/fill-pen color bleed en Draw dialect"
+    Title:   "Telekino — Test font/fill-pen color bleed en Draw dialect"
     Purpose: {
         Verifica cómo se colorea texto en Draw y si hay bleed entre items.
 
@@ -134,7 +134,7 @@ print ""
 
 ; ── Ventana ───────────────────────────────────────────────────────────
 view/no-wait layout [
-    title "test-font-bleed completo — QTorres"
+    title "test-font-bleed completo — Telekino"
     backdrop 210.213.220
     base 640x200 draw d
     button "Cerrar" [quit]

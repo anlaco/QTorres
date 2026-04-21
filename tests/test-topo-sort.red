@@ -1,4 +1,4 @@
-Red [Title: "QTorres — Tests topological-sort"]
+Red [Title: "Telekino — Tests topological-sort"]
 
 do %../src/graph/model.red
 do %../src/compiler/compiler.red

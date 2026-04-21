@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — Compilador (topological sort)"
+    Title:   "Telekino — Compilador (topological sort)"
     Purpose: "Ordenación topológica de nodos del diagrama (algoritmo de Kahn)"
 ]
 

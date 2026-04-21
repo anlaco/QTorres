@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — Registro de bloques"
+    Title:   "Telekino — Registro de bloques"
     Purpose: "Procesador del dialecto block-def y registro de tipos de bloques"
 ]
 

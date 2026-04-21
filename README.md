@@ -1,21 +1,21 @@
-# QTorres
+# Telekino
 
 > **v0.2.0** — Fase 2 completada (tipos, estructuras de control, waveform)
 
 **LabVIEW open source construido sobre Red-Lang.**  
-Si sabes programar en LabVIEW, sabes programar en QTorres.
+Si sabes programar en LabVIEW, sabes programar en Telekino.
 
 ## Qué es
 
-QTorres es un entorno de programación visual donde el programador trabaja con bloques, wires, Front Panel y Block Diagram — exactamente como en LabVIEW. La diferencia: cada diagrama compila a código Red-Lang puro, legible y ejecutable sin QTorres instalado.
+Telekino es un entorno de programación visual donde el programador trabaja con bloques, wires, Front Panel y Block Diagram — exactamente como en LabVIEW. La diferencia: cada diagrama compila a código Red-Lang puro, legible y ejecutable sin Telekino instalado.
 
 ### Modelo de ejecución: dataflow
 
-QTorres usa el mismo modelo de ejecución que LabVIEW — **dataflow**:
+Telekino usa el mismo modelo de ejecución que LabVIEW — **dataflow**:
 
 - Un nodo ejecuta automáticamente cuando todos sus inputs tienen datos disponibles.
 - El orden de ejecución lo deduce el sistema del grafo de conexiones, no el programador.
-- QTorres compila el grafo dataflow a código Red secuencial ordenado topológicamente.
+- Telekino compila el grafo dataflow a código Red secuencial ordenado topológicamente.
 - La ejecución es **continua en loop** (no single-shot).
 - **Paralelismo automático** planificado para cuando Red tenga concurrencia madura — mismo `.qvi`, sin cambios para el usuario.
 
@@ -31,10 +31,10 @@ Un `.qvi` es un **programa Red válido y directamente ejecutable** con el toolch
 red mi-programa.qvi   # abre la ventana del Front Panel directamente
 ```
 
-### Flujos de trabajo en QTorres
+### Flujos de trabajo en Telekino
 
 **Al pulsar Run:**
-1. QTorres serializa el estado en memoria al `.qvi` en disco
+1. Telekino serializa el estado en memoria al `.qvi` en disco
 2. Ejecuta el `.qvi` con Red directamente → aparece el Front Panel
 
 **Al pulsar Save:**
@@ -42,9 +42,9 @@ red mi-programa.qvi   # abre la ventana del Front Panel directamente
 
 ## Tipos de fichero
 
-La estructura de ficheros replica las convenciones de LabVIEW. Donde LabVIEW guarda binarios, QTorres guarda Red en texto plano.
+La estructura de ficheros replica las convenciones de LabVIEW. Donde LabVIEW guarda binarios, Telekino guarda Red en texto plano.
 
-| LabVIEW | QTorres | Descripción |
+| LabVIEW | Telekino | Descripción |
 |---------|---------|-------------|
 | `.lvproj` | `.qproj` | Proyecto |
 | `.vi` | `.qvi` | Virtual Instrument (front panel + block diagram) |
@@ -63,15 +63,15 @@ La estructura de ficheros replica las convenciones de LabVIEW. Donde LabVIEW gua
 ## Estructura del proyecto
 
 ```
-QTorres/
+Telekino/
 ├── docs/                    # Documentación del proyecto
 │   ├── plan.md              # Plan de desarrollo por fases
 │   ├── retos.md             # Retos, riesgos y dificultades
 │   ├── arquitectura.md      # Arquitectura de módulos
 │   ├── decisiones.md        # Registro de decisiones técnicas
-│   └── tipos-de-fichero.md  # Sistema de ficheros (mapeo LabVIEW → QTorres)
+│   └── tipos-de-fichero.md  # Sistema de ficheros (mapeo LabVIEW → Telekino)
 ├── src/                     # Código fuente
-│   ├── qtorres.red          # Punto de entrada principal
+│   ├── telekino.red          # Punto de entrada principal
 │   ├── graph/               # Modelo del grafo (nodos, wires)
 │   │   ├── model.red        # Estructuras de datos
 │   │   └── blocks.red       # Registro de tipos de bloques
@@ -91,7 +91,7 @@ QTorres/
 │   ├── suma-basica.qvi      # VI standalone
 │   ├── suma-subvi.qvi       # VI con connector (sub-VI)
 │   └── programa-con-subvi.qvi  # VI que usa un sub-VI
-├── QTorres.md               # Filosofía y visión del proyecto
+├── Telekino.md               # Filosofía y visión del proyecto
 └── README.md
 ```
 
@@ -113,7 +113,7 @@ Sin dependencias externas. Un solo binario.
 
 ## Nombre
 
-QTorres — por Torres Quevedo.
+Telekino — por Torres Quevedo.
 
 ## Licencia
 

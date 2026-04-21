@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — Compilador (body: compile-body, compile-diagram, sub-VI calls)"
+    Title:   "Telekino — Compilador (body: compile-body, compile-diagram, sub-VI calls)"
     Purpose: "Núcleo del compilador — orquesta emit + estructuras para generar cuerpo y layout"
 ]
 

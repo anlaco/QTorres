@@ -1,11 +1,11 @@
-# Red-Lang Skill para QTorres
+# Red-Lang Skill para Telekino
 
-> Referencia rápida de Red para codificar QTorres. Consultar antes de escribir código Red, especialmente Draw y View.
+> Referencia rápida de Red para codificar Telekino. Consultar antes de escribir código Red, especialmente Draw y View.
 
 **Repositorio Red oficial:** https://www.red-lang.org  
 **Documentación:** https://doc.red-lang.org  
 **Versión:** 0.6.6+  
-**QTorres:** Red 100% (DT-001)
+**Telekino:** Red 100% (DT-001)
 
 ---
 
@@ -404,13 +404,13 @@ if response [
 tcp/close
 ```
 
-> QTorres no incluye bloques específicos por protocolo. Para enviar comandos de texto
+> Telekino no incluye bloques específicos por protocolo. Para enviar comandos de texto
 > de instrumentación, Modbus, HTTP, MQTT o similar, basta con poner el string adecuado
 > en `tcp/send`. Ver `docs/tcp-api.md` para referencia completa.
 
 ---
 
-## Dialects propios de QTorres
+## Dialects propios de Telekino
 
 ### block-def — Definición de bloques
 
@@ -461,7 +461,7 @@ emit: [
 
 - ❌ `do` con bloques dinámicos en `.qvi` generado (debe compilarse con `red -c`)
 - ❌ `load` de strings → use parse
-- ❌ `compose` en runtime del VI generado (OK en compilador de QTorres)
+- ❌ `compose` en runtime del VI generado (OK en compilador de Telekino)
 - ❌ Herencia profunda (A → B → C) → usar composición
 - ❌ Faces nativas en canvas del editor (usar Draw)
 - ❌ Strings intermedios en compilador (manipular bloques Red)
@@ -492,8 +492,8 @@ emit: [
 - **Red/View:** https://doc.red-lang.org/en/view.html
 - **Red/Draw:** https://doc.red-lang.org/en/view.html#_draw-dialect
 - **Red/Parse:** https://doc.red-lang.org/en/parse.html
-- **TCP API:** Ver `docs/tcp-api.md` (específico de QTorres)
-- **Skill Red en QTorres:** Este fichero
+- **TCP API:** Ver `docs/tcp-api.md` (específico de Telekino)
+- **Skill Red en Telekino:** Este fichero
 
 ## Cuándo consultar esta skill
 

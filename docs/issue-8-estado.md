@@ -6,7 +6,7 @@ Rama: `feature/issue-8-connect-modules`
 
 ## Qué funciona
 
-- `red-view src/qtorres.red` abre dos ventanas: Block Diagram + Front Panel
+- `red-view src/telekino.red` abre dos ventanas: Block Diagram + Front Panel
 - **BD palette** (doble clic en espacio vacío del BD): Add, Sub, Mul, Div, Const, Display
 - **FP palette** (doble clic en espacio vacío del FP): Control, Indicator
 - Crear Control/Indicator en FP → nodo correspondiente aparece en BD automáticamente
@@ -39,7 +39,7 @@ El botón Run debería funcionar ahora con el último fix, pero no se pudo verif
 7. Pulsar Run → Indicator debe mostrar 8.0
 
 **Causa raíz del bug anterior (ya corregido):**
-Los nombres de puertos en `canvas.red` (`out-ports`/`in-ports`) no coincidían con los del compilador (`blocks.red` / shims en `qtorres.red`):
+Los nombres de puertos en `canvas.red` (`out-ports`/`in-ports`) no coincidían con los del compilador (`blocks.red` / shims en `telekino.red`):
 - `control` out-port era `'out` en canvas → debía ser `'result` (igual que el shim `out result 'number`)
 - `indicator` in-port era `'in` en canvas → debía ser `'value` (igual que el shim `in value 'number`)
 
@@ -52,7 +52,7 @@ El wire guardaba `from-port: 'out` pero `build-bindings` buscaba `port-var src '
 ### Load no restaura Front Panel
 `load-vi` en `file-io.red` no parsea la sección `front-panel` del `qvi-diagram`. Al cargar un `.qvi`, se recuperan los nodos y wires del BD pero el FP queda vacío.
 - `load-panel-from-diagram` ya existe en `panel.red` (línea 327)
-- Falta llamarla desde `btn-load` en `qtorres.red` y sincronizar con el modelo
+- Falta llamarla desde `btn-load` en `telekino.red` y sincronizar con el modelo
 
 ### Save no incluye wires del FP ↔ BD
 `save-vi-full` serializa el FP con `save-panel-to-diagram` pero los nodos del BD de tipo control/indicator que se crearon automáticamente al añadir items al FP son solo nodos normales — no hay vínculo explícito en el `.qvi` entre el nodo BD y su item FP. Al hacer Load, el vínculo se restauraría por nombre (`item/name = node/name`).
@@ -111,7 +111,7 @@ Si se añaden nuevos tipos de bloque hay que añadirlos en AMBOS sitios.
 ## Próximos pasos sugeridos
 
 1. **Verificar Run** con el diagrama de prueba descrito arriba
-2. **Load restaura FP**: llamar `load-panel-from-diagram` en `btn-load` de `qtorres.red`
+2. **Load restaura FP**: llamar `load-panel-from-diagram` en `btn-load` de `telekino.red`
 3. **Feedback de error en Run**: mostrar un dialog si `attempt [do code]` falla
 4. **PR y merge** de `feature/issue-8-connect-modules` → `main`
 5. Continuar con Issue #20 (borrar wire/nodo — ya funciona en esta rama) o #22 (identidad visual)

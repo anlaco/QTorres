@@ -1,4 +1,4 @@
-Red [Title: "QTorres — Tests compiler, file-io y runner"]
+Red [Title: "Telekino — Tests compiler, file-io y runner"]
 
 do %../src/graph/model.red
 do %../src/graph/blocks.red
@@ -150,7 +150,7 @@ assert "str-length de 'hola' es 4.0"               (4.0 = len_1_result)
 ; ── Tests save-vi / load-vi ──────────────────────────────────────────
 suite "save-vi / load-vi"
 
-test-file: %/tmp/qtorres-test.qvi
+test-file: %/tmp/telekino-test.qvi
 save-vi test-file td
 
 assert "save-vi crea el fichero"   (exists? test-file)
@@ -203,7 +203,7 @@ append rd/wires make-wire [from: 12  from-port: 'result  to: 13  to-port: 'value
 run-err: try [run rd]
 if error? run-err [print rejoin ["  Error en runner: " run-err/arg1]]
 assert "runner ejecuta sin error"   (not error? run-err)
-assert "qtorres-runtime se resetea" (false = qtorres-runtime)
+assert "telekino-runtime se resetea" (false = telekino-runtime)
 
 ; ── Tests FP round-trip ───────────────────────────────────────────────
 suite "FP round-trip (save-vi → load-vi)"
@@ -226,7 +226,7 @@ append fp-td/front-panel fp-c1
 append fp-td/front-panel fp-c2
 append fp-td/front-panel fp-i1
 
-fp-test-file: %/tmp/qtorres-fp-test.qvi
+fp-test-file: %/tmp/telekino-fp-test.qvi
 save-vi fp-test-file fp-td
 assert "save-vi FP crea el fichero"  (exists? fp-test-file)
 
@@ -374,7 +374,7 @@ assert "structures no está vacío"               (not empty? structs-rt)
 assert "primer elemento es while-loop"          ('while-loop = first structs-rt)
 
 ; Round-trip save/load
-wl-rt-file: %/tmp/qtorres-while-rt.qvi
+wl-rt-file: %/tmp/telekino-while-rt.qvi
 save-vi wl-rt-file wl-rt-diag
 assert "save-vi crea fichero con structures"    (exists? wl-rt-file)
 
@@ -417,7 +417,7 @@ assert "2 SRs serializados"                     (4 = length? sr-srs-blk)  ; 'sr 
 assert "primer token es 'sr"                    ('sr = first sr-srs-blk)
 
 ; Round-trip save/load
-sr-rt-file: %/tmp/qtorres-sr-rt.qvi
+sr-rt-file: %/tmp/telekino-sr-rt.qvi
 save-vi sr-rt-file sr-rt-diag
 assert "save-vi crea fichero con SRs"           (exists? sr-rt-file)
 
@@ -529,7 +529,7 @@ cfg-rt-nd: make-node [id: 400  type: 'const  name: "cfg_c"  x: 0  y: 0]
 cfg-rt-nd/config: reduce ['default 42.0]
 append cfg-rt-diag/nodes cfg-rt-nd
 
-cfg-rt-file: %/tmp/qtorres-cfg-rt.qvi
+cfg-rt-file: %/tmp/telekino-cfg-rt.qvi
 save-vi cfg-rt-file cfg-rt-diag
 cfg-rt-loaded: load-vi cfg-rt-file
 if exists? cfg-rt-file [delete cfg-rt-file]
@@ -626,7 +626,7 @@ fl-rt-st: make-structure [id: 801  type: 'for-loop  name: "for-loop_rt"  x: 100 
 append fl-rt-diag/structures fl-rt-st
 append fl-rt-diag/wires make-wire [from: 800  from-port: 'result  to: 801  to-port: "count"]
 
-fl-rt-file: %/tmp/qtorres-fl-rt.qvi
+fl-rt-file: %/tmp/telekino-fl-rt.qvi
 save-vi fl-rt-file fl-rt-diag
 fl-rt-loaded: load-vi fl-rt-file
 if exists? fl-rt-file [delete fl-rt-file]
@@ -749,7 +749,7 @@ append cs-rt-diag/structures cs-rt-st
 frame0: cs-rt-st/frames/1
 append frame0/nodes make-node [id: 961  type: 'add  name: "cs_rt_add"  x: 20  y: 20]
 
-cs-rt-file: %/tmp/qtorres-cs-rt.qvi
+cs-rt-file: %/tmp/telekino-cs-rt.qvi
 save-vi cs-rt-file cs-rt-diag
 assert "save-vi crea fichero case-structure"    (exists? cs-rt-file)
 

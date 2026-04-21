@@ -27,8 +27,8 @@ token.txt
 .env
 
 # Binarios compilados por Red (no van en git)
-QTorres-mvp
-QTorres
+Telekino-mvp
+Telekino
 prueba-bd
 prueba-view
 libRedRT.so

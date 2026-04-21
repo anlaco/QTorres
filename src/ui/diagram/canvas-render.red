@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — canvas-render"
+    Title:   "Telekino — canvas-render"
     Purpose: "Render puro del Block Diagram: constantes visuales, geometría y Draw."
     Needs:   'View
 ]

@@ -1,4 +1,4 @@
-Red [Title: "QTorres — Tests .qlib"]
+Red [Title: "Telekino — Tests .qlib"]
 
 do %../src/graph/model.red
 

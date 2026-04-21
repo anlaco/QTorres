@@ -1,10 +1,10 @@
-# Tipos de fichero — QTorres
+# Tipos de fichero — Telekino
 
-QTorres replica la estructura de ficheros de LabVIEW. Un usuario de LabVIEW reconoce la organización al instante. La diferencia: donde LabVIEW guarda binarios opacos, QTorres guarda Red en texto plano.
+Telekino replica la estructura de ficheros de LabVIEW. Un usuario de LabVIEW reconoce la organización al instante. La diferencia: donde LabVIEW guarda binarios opacos, Telekino guarda Red en texto plano.
 
-## Mapeo LabVIEW → QTorres
+## Mapeo LabVIEW → Telekino
 
-| LabVIEW | QTorres | Descripción |
+| LabVIEW | Telekino | Descripción |
 |---------|---------|-------------|
 | `.lvproj` | `.qproj` | Proyecto — referencias a ficheros, configuración de build, targets |
 | `.vi` | `.qvi` | Virtual Instrument — front panel + block diagram (la unidad fundamental) |
@@ -17,15 +17,15 @@ QTorres replica la estructura de ficheros de LabVIEW. Un usuario de LabVIEW reco
 
 **Todo fichero `.qvi` es código Red ejecutable.** Contiene dos secciones:
 
-1. **Fuente de verdad** (`qvi-diagram: [...]`): el diagrama completo — Front Panel, Block Diagram, icono, conector. QTorres la lee para reconstruir la vista visual. Para Red es una simple asignación sin efectos secundarios. Es la única sección que se edita (a mano, con QTorres, o con IA).
+1. **Fuente de verdad** (`qvi-diagram: [...]`): el diagrama completo — Front Panel, Block Diagram, icono, conector. Telekino la lee para reconstruir la vista visual. Para Red es una simple asignación sin efectos secundarios. Es la única sección que se edita (a mano, con Telekino, o con IA).
 
-2. **Código generado**: código Red/View puro, generado automáticamente por QTorres al guardar. No se edita manualmente — se sobreescribe en cada Save. Existe para que el fichero sea ejecutable directamente con Red sin QTorres instalado.
+2. **Código generado**: código Red/View puro, generado automáticamente por Telekino al guardar. No se edita manualmente — se sobreescribe en cada Save. Existe para que el fichero sea ejecutable directamente con Red sin Telekino instalado.
 
 Un `.qvi` se puede ejecutar de dos formas:
-- **Con QTorres:** abre la UI, muestra Front Panel y Block Diagram, permite editar y ejecutar interactivamente.
+- **Con Telekino:** abre la UI, muestra Front Panel y Block Diagram, permite editar y ejecutar interactivamente.
 - **Con Red directamente:** `red mi-vi.qvi` ejecuta el código generado. Sin argumentos abre el Front Panel; con argumentos ejecuta en modo headless.
 
-Un `.qvi` con solo la sección `qvi-diagram` (sin código generado) es válido — QTorres lo abrirá y generará el código al guardar.
+Un `.qvi` con solo la sección `qvi-diagram` (sin código generado) es válido — Telekino lo abrirá y generará el código al guardar.
 
 ## Estructura de un proyecto típico
 
@@ -53,7 +53,7 @@ Un VI sin conector solo puede ejecutarse standalone. No puede usarse como sub-VI
 Red [title: "Suma básica" Needs: 'View]
 
 ; ═══════════════════════════════════════════════════════════
-; FUENTE DE VERDAD — editar con QTorres, a mano, o con IA
+; FUENTE DE VERDAD — editar con Telekino, a mano, o con IA
 ; ═══════════════════════════════════════════════════════════
 
 qvi-diagram: [
@@ -67,7 +67,7 @@ qvi-diagram: [
 
     icon: [
         ; Draw dialect — 32x32 px — cómo se ve en el diagrama padre
-        ; (si en el futuro se usa como sub-VI, QTorres usa este icono)
+        ; (si en el futuro se usa como sub-VI, Telekino usa este icono)
         pen 2
         line 4x16 28x16
         line 16x4 16x28
@@ -95,7 +95,7 @@ qvi-diagram: [
 ]
 
 ; ═══════════════════════════════════════════════════════════
-; CÓDIGO GENERADO — no editar, se regenera al guardar en QTorres
+; CÓDIGO GENERADO — no editar, se regenera al guardar en Telekino
 ; ═══════════════════════════════════════════════════════════
 
 context [
@@ -172,7 +172,7 @@ qvi-diagram: [
 ]
 
 ; ═══════════════════════════════════════════════════════════
-; CÓDIGO GENERADO — no editar, se regenera al guardar en QTorres
+; CÓDIGO GENERADO — no editar, se regenera al guardar en Telekino
 ; ═══════════════════════════════════════════════════════════
 
 ; Función expuesta — disponible cuando otro VI hace do %suma.qvi
@@ -182,7 +182,7 @@ suma: func [ctrl_1 [float!] ctrl_2 [float!] /local ind_1] [
 ]
 
 ; Ejecución standalone — solo cuando se lanza directamente con Red
-if not value? 'qtorres-runtime [
+if not value? 'telekino-runtime [
     context [
         either empty? system/options/args [
             view layout [
@@ -265,7 +265,7 @@ context [
 
 ### `.qprim` — Primitiva
 
-Una primitiva es lógica Red pura con un icono de dibujo libre. Se abre en QTorres con editor de código + paleta de dibujo. Su código se **incrusta en tiempo de compilación** — no hay dependencia en tiempo de ejecución.
+Una primitiva es lógica Red pura con un icono de dibujo libre. Se abre en Telekino con editor de código + paleta de dibujo. Su código se **incrusta en tiempo de compilación** — no hay dependencia en tiempo de ejecución.
 
 ```red
 Red [title: "Add" type: 'primitive]
@@ -348,7 +348,7 @@ qlib [
 ]
 ```
 
-**Comportamiento en QTorres:**
+**Comportamiento en Telekino:**
 - La paleta del editor detecta automáticamente `.qlib` en el directorio de trabajo
 - Los VIs de la librería aparecen en sección "Librerías" de la paleta con etiqueta `nombre-lib/vi`
 - Al insertar un VI de librería se crea un nodo subvi igual que con cualquier sub-VI
@@ -356,11 +356,11 @@ qlib [
 
 **Código generado en el caller (usa `#include` selectivo):**
 ```red
-_saved-qtorres-runtime: value? 'qtorres-runtime
-qtorres-runtime: true
+_saved-telekino-runtime: value? 'telekino-runtime
+telekino-runtime: true
 #include %math.qlib/add.qvi       ; solo los miembros usados
 #include %math.qlib/subtract.qvi
-if not _saved-qtorres-runtime [unset 'qtorres-runtime]
+if not _saved-telekino-runtime [unset 'telekino-runtime]
 
 ; Llamadas con la convención nombre-context/exec:
 resultado-suma: add/exec A B
@@ -369,7 +369,7 @@ resultado-resta: subtract/exec A B
 
 **Instalación:**
 - Local al proyecto: copiar el directorio `.qlib` junto al `.qvi` principal
-- Global del usuario: copiar a `~/.qtorres/libs/` (pendiente de implementar)
+- Global del usuario: copiar a `~/.telekino/libs/` (pendiente de implementar)
 
 **Ver ejemplo:** `examples/math.qlib` + `examples/math/` + `examples/usa-libreria.qvi`
 
@@ -390,4 +390,4 @@ qctl [
 
 ## Tipos implementados
 
-QTorres implementa `.qvi` y `.qproj`. Los demás tipos (`.qlib`, `.qprim`, `.qctl`) se añaden en fases posteriores.
+Telekino implementa `.qvi` y `.qproj`. Los demás tipos (`.qlib`, `.qprim`, `.qctl`) se añaden en fases posteriores.

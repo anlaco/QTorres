@@ -14,7 +14,7 @@ comment {
     Comportamiento esperado: indicadores solo se actualizan al pulsar Run explícitamente.
 
     CÓMO REVALIDAR:
-    1. Abrir QTorres: ./red-view src/qtorres.red
+    1. Abrir Telekino: ./red-view src/telekino.red
     2. Crear VI simple con string control (default: "Hola") y string indicator (default: "---")
     3. Conectar control → indicator
     4. Pulsar Run — indicator muestra "Hola"

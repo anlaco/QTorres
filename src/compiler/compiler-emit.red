@@ -1,5 +1,5 @@
 Red [
-    Title:   "QTorres — Compilador (emit dialect)"
+    Title:   "Telekino — Compilador (emit dialect)"
     Purpose: "Sustitución de puertos por variables y emisión de código para bundle/unbundle/cluster"
 ]
 

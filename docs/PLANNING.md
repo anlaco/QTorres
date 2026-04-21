@@ -13,9 +13,9 @@ La decisión arquitectural más importante del proyecto. El formato `.qvi` debe 
 
 ### Requisitos
 
-1. Ser **código Red válido ejecutable** sin QTorres (con el toolchain estándar de Red, sin dependencias)
-2. Almacenar **metadata visual completa** (front panel + block diagram) para reconstruir la vista en QTorres
-3. Ser **parseable por QTorres** para reconstruir el canvas desde el fichero
+1. Ser **código Red válido ejecutable** sin Telekino (con el toolchain estándar de Red, sin dependencias)
+2. Almacenar **metadata visual completa** (front panel + block diagram) para reconstruir la vista en Telekino
+3. Ser **parseable por Telekino** para reconstruir el canvas desde el fichero
 4. Permitir **análisis estático del grafo** para compilación topológica
 5. Ser **legible por humanos** (texto plano, en cualquier editor)
 6. Escalar a **programas complejos** sin volverse ilegible o inmanejable
@@ -133,7 +133,7 @@ Cómo se traduce el grafo visual dataflow a ejecución real.
 
 2. **Compilabilidad del código generado — RESUELTO (DT-028):**
    - Todo el código generado es estático — cero `do` dinámico, cero `load` en runtime
-   - `compose` se ejecuta en el compilador de QTorres, no en el `.qvi` generado
+   - `compose` se ejecuta en el compilador de Telekino, no en el `.qvi` generado
    - Cualquier `.qvi` debe poder compilarse con `red -c` a ejecutable nativo
    - Restricción: funciones con nombre, no bloques dinámicos
 
@@ -155,7 +155,7 @@ Cómo se traduce el grafo visual dataflow a ejecución real.
 
 **Estado:** PENDIENTE
 
-QTorres se convertirá en un producto industrial desplegado en sistemas educativos y empresas. La estrategia de testing actual (423 tests headless + QA manual) es insuficiente para un producto de ese nivel.
+Telekino se convertirá en un producto industrial desplegado en sistemas educativos y empresas. La estrategia de testing actual (423 tests headless + QA manual) es insuficiente para un producto de ese nivel.
 
 ### Estado actual
 

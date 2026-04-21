@@ -29,7 +29,7 @@ block: func [
     name     [word! lit-word!]
     category [word! lit-word!]
     body     [block!]
-    /local entry n cat port-name port-type cfg-type cfg-default emit-body
+    /local entry n cat port-name port-type port-default cfg-type cfg-default emit-body
 ][
     n: to-word name
     cat: to-word category
@@ -43,8 +43,10 @@ block: func [
     ]
     parse body [
         any [
-              ['in  set port-name word!  set port-type lit-word!]
-              (append entry/inputs  make object! [name: port-name  type: port-type])
+              ['in  set port-name word!  set port-type lit-word!
+               (port-default: none)
+               opt [ahead [string! | integer! | float! | logic!] set port-default skip]]
+              (append entry/inputs  make object! [name: port-name  type: port-type  default: port-default])
             | ['out set port-name word!  set port-type lit-word!]
               (append entry/outputs make object! [name: port-name  type: port-type])
             | ['config set port-name word!  set cfg-type lit-word!  set cfg-default skip]
@@ -380,69 +382,84 @@ block 'subvi 'function [
 ]
 
 ; ── Hardware: TCP/IP (Fase 4 — Issue #19) ───────────────────────────────────
-; Bloques TCP v2: session-through (patrón VISA de LabVIEW).
-; Los wires de tipo 'tcp-session encadenan los nodos forzando orden topológico.
-; Pendiente: añadir error-in/error-out en Fase 4-E (error cluster).
+; Bloques TCP al estilo LabVIEW: connection refnum encadena nodos (dataflow).
+; host/port/timeout/bytes-to-read son puertos de entrada (cableables desde FP
+; o desde constantes), igual que en los nodos TCP nativos de LabVIEW.
+; Sin cluster de errores por ahora (se añadirá con VISA en Fase 4-E).
 
-_make-tcp-session: func [a? h p] [
+_make-tcp-connection: func [a? h p] [
     make object! [active?: a?  host: h  port: p]
 ]
 
-_tcp-connect-helper: func [host port /local ok] [
+_tcp-open-helper: func [host port timeout-ms /local ok] [
     ok: tcp/connect host to-integer port
-    _make-tcp-session ok host to-integer port
+    _make-tcp-connection ok host to-integer port
 ]
 
-_tcp-write-helper: func [sess data] [
-    if not sess/active? [return sess]
+_tcp-write-helper: func [conn data /local bytes] [
+    if not conn/active? [return reduce [conn 0]]
+    bytes: length? to-binary data
     tcp/send data
-    sess
+    reduce [conn bytes]
 ]
 
-_tcp-read-helper: func [sess sz timeout-ms /local buf] [
-    if not sess/active? [return reduce [sess ""]]
+_tcp-read-helper: func [conn sz timeout-ms /local buf bytes] [
+    if not conn/active? [return reduce [conn "" 0]]
     tcp/set-timeout to-integer timeout-ms
     buf: tcp/receive to-integer sz
-    either buf [reduce [sess to string! buf]] [reduce [sess ""]]
+    either buf [
+        bytes: length? buf
+        reduce [conn to string! buf bytes]
+    ][
+        reduce [conn "" 0]
+    ]
 ]
 
-_tcp-close-helper: func [sess] [
-    if not sess/active? [return sess]
+_tcp-close-helper: func [conn] [
+    if not conn/active? [return conn]
     tcp/close
-    _make-tcp-session false sess/host sess/port
+    _make-tcp-connection false conn/host conn/port
 ]
 
-block 'tcp-connect 'hardware [
-    config host 'string "127.0.0.1"
-    config port 'number 5000
-    out session-out 'tcp-session
-    emit [session-out: _tcp-connect-helper host port]
+block 'tcp-open 'hardware [
+    in  address        'string  "localhost"
+    in  remote-port    'number  5000
+    in  timeout-ms     'number  60000
+    out connection-out 'tcp-connection
+    emit [connection-out: _tcp-open-helper address remote-port timeout-ms]
 ]
 
 block 'tcp-write 'hardware [
-    in session-in 'tcp-session
-    in data 'string
-    out session-out 'tcp-session
-    emit [session-out: _tcp-write-helper session-in data]
+    in  connection-in  'tcp-connection
+    in  data           'string  ""
+    out connection-out 'tcp-connection
+    out bytes-written  'number
+    emit [
+        _w: _tcp-write-helper connection-in data
+        connection-out: _w/1
+        bytes-written:  _w/2
+    ]
 ]
 
 block 'tcp-read 'hardware [
-    in session-in 'tcp-session
-    config size 'number 1024
-    config timeout 'number 2000
-    out session-out 'tcp-session
-    out response 'string
+    in  connection-in  'tcp-connection
+    in  bytes-to-read  'number  256
+    in  timeout-ms     'number  60000
+    out connection-out 'tcp-connection
+    out data           'string
+    out bytes-read     'number
     emit [
-        _r: _tcp-read-helper session-in size timeout
-        session-out: _r/1
-        response:    _r/2
+        _r: _tcp-read-helper connection-in bytes-to-read timeout-ms
+        connection-out: _r/1
+        data:           _r/2
+        bytes-read:     _r/3
     ]
 ]
 
 block 'tcp-close 'hardware [
-    in session-in 'tcp-session
-    out session-out 'tcp-session
-    emit [session-out: _tcp-close-helper session-in]
+    in  connection-in  'tcp-connection
+    out connection-out 'tcp-connection
+    emit [connection-out: _tcp-close-helper connection-in]
 ]
 
 #include %../compiler/compiler.red

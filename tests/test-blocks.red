@@ -4,7 +4,7 @@ do %../src/graph/model.red  ; model.red incluye blocks.red y ahora también make
 
 suite "blocks — registro"
 
-assert "registra 45 bloques (41 + tcp-connect + tcp-write + tcp-read + tcp-close)" (45 = length? block-registry)
+assert "registra 45 bloques (41 + tcp-open + tcp-write + tcp-read + tcp-close)" (45 = length? block-registry)
 assert "const está en el registro"     (not none? find-block 'const)
 assert "add está en el registro"       (not none? find-block 'add)
 assert "find-block devuelve none para bloques inexistentes" (none? find-block 'nonexistent)
@@ -114,7 +114,7 @@ assert "to-string emit es [result: form a]"                ([result: form a]    
 
 suite "blocks — cluster: registro"
 
-assert "registra 45 bloques (41 + tcp-connect + tcp-write + tcp-read + tcp-close)" (45 = length? block-registry)
+assert "registra 45 bloques (41 + tcp-open + tcp-write + tcp-read + tcp-close)" (45 = length? block-registry)
 assert "bundle está en el registro"   (not none? find-block 'bundle)
 assert "unbundle está en el registro" (not none? find-block 'unbundle)
 
@@ -194,126 +194,136 @@ assert "waveform-graph value es block"      (block? wg/value)
 assert "waveform-graph value vacío inicial"  (empty? wg/value)
 
 ; ══════════════════════════════════════════════════════════════════
-; Fase 4 — Issue #19: Bloques TCP v2 (session-through)
+; Fase 4 — Issue #19: Bloques TCP estilo LabVIEW (connection refnum)
 ; ══════════════════════════════════════════════════════════════════
 
 suite "blocks — tcp: registro"
 
-b-tcpc: find-block 'tcp-connect
+b-tcpo: find-block 'tcp-open
 b-tcpw: find-block 'tcp-write
 b-tcpr: find-block 'tcp-read
 b-tcpx: find-block 'tcp-close
 
-assert "tcp-connect está en el registro" (not none? b-tcpc)
-assert "tcp-write está en el registro"   (not none? b-tcpw)
-assert "tcp-read está en el registro"    (not none? b-tcpr)
-assert "tcp-close está en el registro"   (not none? b-tcpx)
+assert "tcp-open está en el registro"  (not none? b-tcpo)
+assert "tcp-write está en el registro" (not none? b-tcpw)
+assert "tcp-read está en el registro"  (not none? b-tcpr)
+assert "tcp-close está en el registro" (not none? b-tcpx)
 
-assert "tcp-connect categoría es hardware" ('hardware = b-tcpc/category)
-assert "tcp-write categoría es hardware"   ('hardware = b-tcpw/category)
-assert "tcp-read categoría es hardware"    ('hardware = b-tcpr/category)
-assert "tcp-close categoría es hardware"   ('hardware = b-tcpx/category)
+assert "tcp-open categoría es hardware"  ('hardware = b-tcpo/category)
+assert "tcp-write categoría es hardware" ('hardware = b-tcpw/category)
+assert "tcp-read categoría es hardware"  ('hardware = b-tcpr/category)
+assert "tcp-close categoría es hardware" ('hardware = b-tcpx/category)
 
-suite "blocks — tcp: session-through (puertos)"
+suite "blocks — tcp: puertos (estilo LabVIEW)"
 
-tcpc-out1: first b-tcpc/outputs
+; tcp-open: 3 entradas (address, remote-port, timeout-ms) → 1 salida (connection-out)
+tcpo-in1:  first  b-tcpo/inputs
+tcpo-in2:  second b-tcpo/inputs
+tcpo-in3:  third  b-tcpo/inputs
+tcpo-out1: first  b-tcpo/outputs
+
+assert "tcp-open tiene 3 entradas"                   (3 = length? b-tcpo/inputs)
+assert "tcp-open tiene 1 salida"                     (1 = length? b-tcpo/outputs)
+assert "tcp-open in[0] se llama address"             ('address     = tcpo-in1/name)
+assert "tcp-open in[0] es string"                    ('string      = tcpo-in1/type)
+assert "tcp-open in[0] default es localhost"         ("localhost"   = tcpo-in1/default)
+assert "tcp-open in[1] se llama remote-port"         ('remote-port = tcpo-in2/name)
+assert "tcp-open in[1] es number"                    ('number      = tcpo-in2/type)
+assert "tcp-open in[1] default es 5000"              (5000         = tcpo-in2/default)
+assert "tcp-open in[2] se llama timeout-ms"          ('timeout-ms  = tcpo-in3/name)
+assert "tcp-open in[2] default es 60000"             (60000        = tcpo-in3/default)
+assert "tcp-open salida se llama connection-out"     ('connection-out  = tcpo-out1/name)
+assert "tcp-open salida es tcp-connection"           ('tcp-connection  = tcpo-out1/type)
+assert "tcp-open no tiene configs"                   (0 = length? b-tcpo/configs)
+
+; tcp-write: connection-in + data → connection-out + bytes-written
 tcpw-in1:  first  b-tcpw/inputs
 tcpw-in2:  second b-tcpw/inputs
 tcpw-out1: first  b-tcpw/outputs
+tcpw-out2: second b-tcpw/outputs
+
+assert "tcp-write tiene 2 entradas"                  (2 = length? b-tcpw/inputs)
+assert "tcp-write tiene 2 salidas"                   (2 = length? b-tcpw/outputs)
+assert "tcp-write in[0] se llama connection-in"      ('connection-in   = tcpw-in1/name)
+assert "tcp-write in[0] es tcp-connection"           ('tcp-connection  = tcpw-in1/type)
+assert "tcp-write in[1] se llama data"               ('data            = tcpw-in2/name)
+assert "tcp-write in[1] es string"                   ('string          = tcpw-in2/type)
+assert "tcp-write out[0] se llama connection-out"    ('connection-out  = tcpw-out1/name)
+assert "tcp-write out[0] es tcp-connection"          ('tcp-connection  = tcpw-out1/type)
+assert "tcp-write out[1] se llama bytes-written"     ('bytes-written   = tcpw-out2/name)
+assert "tcp-write out[1] es number"                  ('number          = tcpw-out2/type)
+assert "tcp-write no tiene configs"                  (0 = length? b-tcpw/configs)
+
+; tcp-read: connection-in + bytes-to-read + timeout-ms → connection-out + data + bytes-read
 tcpr-in1:  first  b-tcpr/inputs
+tcpr-in2:  second b-tcpr/inputs
+tcpr-in3:  third  b-tcpr/inputs
 tcpr-out1: first  b-tcpr/outputs
 tcpr-out2: second b-tcpr/outputs
-tcpx-in1:  first  b-tcpx/inputs
-tcpx-out1: first  b-tcpx/outputs
+tcpr-out3: third  b-tcpr/outputs
 
-; tcp-connect: sin entradas, 1 salida session-out
-assert "tcp-connect no tiene entradas"           (0 = length? b-tcpc/inputs)
-assert "tcp-connect tiene 1 salida"              (1 = length? b-tcpc/outputs)
-assert "tcp-connect salida se llama session-out" ('session-out = tcpc-out1/name)
-assert "tcp-connect salida es tcp-session"       ('tcp-session = tcpc-out1/type)
+assert "tcp-read tiene 3 entradas"                   (3 = length? b-tcpr/inputs)
+assert "tcp-read tiene 3 salidas"                    (3 = length? b-tcpr/outputs)
+assert "tcp-read in[0] se llama connection-in"       ('connection-in   = tcpr-in1/name)
+assert "tcp-read in[1] se llama bytes-to-read"       ('bytes-to-read   = tcpr-in2/name)
+assert "tcp-read in[1] default es 256"               (256              = tcpr-in2/default)
+assert "tcp-read in[2] se llama timeout-ms"          ('timeout-ms      = tcpr-in3/name)
+assert "tcp-read in[2] default es 60000"             (60000            = tcpr-in3/default)
+assert "tcp-read out[0] se llama connection-out"     ('connection-out  = tcpr-out1/name)
+assert "tcp-read out[1] se llama data"               ('data            = tcpr-out2/name)
+assert "tcp-read out[1] es string"                   ('string          = tcpr-out2/type)
+assert "tcp-read out[2] se llama bytes-read"         ('bytes-read      = tcpr-out3/name)
+assert "tcp-read no tiene configs"                   (0 = length? b-tcpr/configs)
 
-; tcp-write: session-in + data → session-out
-assert "tcp-write tiene 2 entradas"              (2 = length? b-tcpw/inputs)
-assert "tcp-write tiene 1 salida"                (1 = length? b-tcpw/outputs)
-assert "tcp-write in[0] se llama session-in"     ('session-in  = tcpw-in1/name)
-assert "tcp-write in[0] es tcp-session"          ('tcp-session = tcpw-in1/type)
-assert "tcp-write in[1] se llama data"           ('data        = tcpw-in2/name)
-assert "tcp-write in[1] es string"               ('string      = tcpw-in2/type)
-assert "tcp-write salida se llama session-out"   ('session-out = tcpw-out1/name)
-assert "tcp-write salida es tcp-session"         ('tcp-session = tcpw-out1/type)
+; tcp-close: connection-in → connection-out
+tcpx-in1:  first b-tcpx/inputs
+tcpx-out1: first b-tcpx/outputs
 
-; tcp-read: session-in → session-out + response
-assert "tcp-read tiene 1 entrada"                (1 = length? b-tcpr/inputs)
-assert "tcp-read tiene 2 salidas"                (2 = length? b-tcpr/outputs)
-assert "tcp-read in[0] se llama session-in"      ('session-in  = tcpr-in1/name)
-assert "tcp-read in[0] es tcp-session"           ('tcp-session = tcpr-in1/type)
-assert "tcp-read out[0] se llama session-out"    ('session-out = tcpr-out1/name)
-assert "tcp-read out[0] es tcp-session"          ('tcp-session = tcpr-out1/type)
-assert "tcp-read out[1] se llama response"       ('response    = tcpr-out2/name)
-assert "tcp-read out[1] es string"               ('string      = tcpr-out2/type)
+assert "tcp-close tiene 1 entrada"                   (1 = length? b-tcpx/inputs)
+assert "tcp-close tiene 1 salida"                    (1 = length? b-tcpx/outputs)
+assert "tcp-close in[0] se llama connection-in"      ('connection-in   = tcpx-in1/name)
+assert "tcp-close in[0] es tcp-connection"           ('tcp-connection  = tcpx-in1/type)
+assert "tcp-close out[0] se llama connection-out"    ('connection-out  = tcpx-out1/name)
+assert "tcp-close out[0] es tcp-connection"          ('tcp-connection  = tcpx-out1/type)
+assert "tcp-close no tiene configs"                  (0 = length? b-tcpx/configs)
 
-; tcp-close: session-in → session-out
-assert "tcp-close tiene 1 entrada"               (1 = length? b-tcpx/inputs)
-assert "tcp-close tiene 1 salida"                (1 = length? b-tcpx/outputs)
-assert "tcp-close in[0] se llama session-in"     ('session-in  = tcpx-in1/name)
-assert "tcp-close in[0] es tcp-session"          ('tcp-session = tcpx-in1/type)
-assert "tcp-close salida se llama session-out"   ('session-out = tcpx-out1/name)
-assert "tcp-close salida es tcp-session"         ('tcp-session = tcpx-out1/type)
+suite "blocks — tcp: emit (helpers connection refnum)"
 
-suite "blocks — tcp: configs"
+assert "tcp-open tiene emit"   (block? b-tcpo/emit)
+assert "tcp-write tiene emit"  (block? b-tcpw/emit)
+assert "tcp-read tiene emit"   (block? b-tcpr/emit)
+assert "tcp-close tiene emit"  (block? b-tcpx/emit)
 
-tcpc-cfg1: first  b-tcpc/configs
-tcpc-cfg2: second b-tcpc/configs
-tcpr-cfg1: first  b-tcpr/configs
-tcpr-cfg2: second b-tcpr/configs
+assert "tcp-open emit usa _tcp-open-helper"    (not none? find mold b-tcpo/emit "_tcp-open-helper")
+assert "tcp-write emit usa _tcp-write-helper"  (not none? find mold b-tcpw/emit "_tcp-write-helper")
+assert "tcp-read emit usa _tcp-read-helper"    (not none? find mold b-tcpr/emit "_tcp-read-helper")
+assert "tcp-close emit usa _tcp-close-helper"  (not none? find mold b-tcpx/emit "_tcp-close-helper")
 
-assert "tcp-connect tiene 2 configs"             (2 = length? b-tcpc/configs)
-assert "tcp-connect config[0] es host"           ('host = tcpc-cfg1/name)
-assert "tcp-connect config host default 127.0.0.1" ("127.0.0.1" = tcpc-cfg1/default)
-assert "tcp-connect config[1] es port"           ('port = tcpc-cfg2/name)
-assert "tcp-connect config port default 5000"    (5000 = tcpc-cfg2/default)
-
-assert "tcp-write tiene 0 configs"               (0 = length? b-tcpw/configs)
-assert "tcp-close tiene 0 configs"               (0 = length? b-tcpx/configs)
-
-assert "tcp-read tiene 2 configs"                (2 = length? b-tcpr/configs)
-assert "tcp-read config[0] es size"              ('size    = tcpr-cfg1/name)
-assert "tcp-read config size default 1024"       (1024 = tcpr-cfg1/default)
-assert "tcp-read config[1] es timeout"           ('timeout = tcpr-cfg2/name)
-assert "tcp-read config timeout default 2000"    (2000 = tcpr-cfg2/default)
-
-suite "blocks — tcp: emit (helpers session-through)"
-
-assert "tcp-connect tiene emit"    (block? b-tcpc/emit)
-assert "tcp-write tiene emit"      (block? b-tcpw/emit)
-assert "tcp-read tiene emit"       (block? b-tcpr/emit)
-assert "tcp-close tiene emit"      (block? b-tcpx/emit)
-
-assert "tcp-connect emit usa _tcp-connect-helper" (not none? find mold b-tcpc/emit "_tcp-connect-helper")
-assert "tcp-write emit usa _tcp-write-helper"     (not none? find mold b-tcpw/emit "_tcp-write-helper")
-assert "tcp-read emit usa _tcp-read-helper"       (not none? find mold b-tcpr/emit "_tcp-read-helper")
-assert "tcp-close emit usa _tcp-close-helper"     (not none? find mold b-tcpx/emit "_tcp-close-helper")
-
-assert "tcp-read emit asigna session-out" (not none? find mold b-tcpr/emit "session-out")
-assert "tcp-read emit asigna response"    (not none? find mold b-tcpr/emit "response")
+assert "tcp-read emit asigna connection-out"   (not none? find mold b-tcpr/emit "connection-out")
+assert "tcp-read emit asigna data"             (not none? find mold b-tcpr/emit "data")
+assert "tcp-read emit asigna bytes-read"       (not none? find mold b-tcpr/emit "bytes-read")
+assert "tcp-write emit asigna bytes-written"   (not none? find mold b-tcpw/emit "bytes-written")
 
 suite "blocks — tcp: helpers runtime definidos"
 
-assert "_make-tcp-session está definido"   (function? :_make-tcp-session)
-assert "_tcp-connect-helper está definido" (function? :_tcp-connect-helper)
-assert "_tcp-write-helper está definido"   (function? :_tcp-write-helper)
-assert "_tcp-read-helper está definido"    (function? :_tcp-read-helper)
-assert "_tcp-close-helper está definido"   (function? :_tcp-close-helper)
+assert "_make-tcp-connection está definido" (function? :_make-tcp-connection)
+assert "_tcp-open-helper está definido"     (function? :_tcp-open-helper)
+assert "_tcp-write-helper está definido"    (function? :_tcp-write-helper)
+assert "_tcp-read-helper está definido"     (function? :_tcp-read-helper)
+assert "_tcp-close-helper está definido"    (function? :_tcp-close-helper)
 
-; _make-tcp-session construye objeto con los campos correctos
-_sess-test: _make-tcp-session true "localhost" 5000
-assert "_make-tcp-session activa?"   (true  = _sess-test/active?)
-assert "_make-tcp-session host"      ("localhost" = _sess-test/host)
-assert "_make-tcp-session port"      (5000 = _sess-test/port)
+; _make-tcp-connection construye objeto con los campos correctos
+_conn-test: _make-tcp-connection true "localhost" 5000
+assert "_make-tcp-connection activa?"   (true       = _conn-test/active?)
+assert "_make-tcp-connection host"      ("localhost" = _conn-test/host)
+assert "_make-tcp-connection port"      (5000        = _conn-test/port)
 
-; helpers con sesión inactiva son no-op
-_sess-off: _make-tcp-session false "x" 0
-assert "_tcp-write-helper no-op si inactiva" (not none? _tcp-write-helper _sess-off "ignored")
-assert "_tcp-close-helper no-op si inactiva" (not _sess-off/active?)
-_r-noop: _tcp-read-helper _sess-off 64 100
-assert "_tcp-read-helper no-op devuelve response vacío" ("" = _r-noop/2)
+; helpers con conexión inactiva son no-op
+_conn-off: _make-tcp-connection false "x" 0
+_w-noop: _tcp-write-helper _conn-off "ignored"
+assert "_tcp-write-helper no-op devuelve bloque"     (block? _w-noop)
+assert "_tcp-write-helper no-op bytes-written es 0"  (0 = _w-noop/2)
+assert "_tcp-close-helper no-op si inactiva"         (not _conn-off/active?)
+_r-noop: _tcp-read-helper _conn-off 64 100
+assert "_tcp-read-helper no-op devuelve data vacío"  ("" = _r-noop/2)
+assert "_tcp-read-helper no-op bytes-read es 0"      (0  = _r-noop/3)

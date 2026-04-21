@@ -1,6 +1,6 @@
 # QTorres — Contexto para Claude Code
 
-> Última actualización: 2026-03-31
+> Última actualización: 2026-04-20
 
 ## Reglas absolutas — NUNCA violar
 
@@ -126,13 +126,16 @@ QTorres/
 - ~~#64 FP como ventana maestra~~ ✅ (FP=blocking master, BD=no-wait slave, Ctrl+E toggle, títulos sincronizados, current-file en app-model)
 - ~~#65 Scroll en BD y FP~~ ✅ (ventanas fijas 900x600, scroll wheel + click scrollbar, límites por contenido real)
 
+**Fase 4 — Hardware (en curso):**
+- ~~#19 TCP/IP — bloques básicos cliente~~ ✅ (tcp-open/write/read/close estilo LabVIEW, session-through por connection refnum, verificado con socat)
+
 **Fase 5 — UX y gestión de proyectos (planificado):**
 - Splash / Welcome screen (Create New VI, Open Existing, proyectos recientes)
 - Project Explorer con formato .qproj (árbol de ficheros, gestión de dependencias)
 - Depende de: .qlib (#18) ✅ y FP como ventana maestra (#64) ✅
 - **Nota:** Prototipo temprano de `.qproj` existe en `examples/ejemplo.qproj` — sirve como referencia del formato, pero sin tooling de Project Explorer aún
 
-**Próximo paso:** Fase 4 (hardware) → Fase 4.5 (integración red-sg) → Fase 5 (UX)
+**Próximo paso:** seguir Fase 4 (#20 USBTMC, #21 Serie, #22 Modbus/servidor TCP, #23 DAQ) → Fase 4.5 (integración red-sg) → Fase 5 (UX)
 
 **Refactor 4B ✅ COMPLETADO (2026-04-17):** `compiler.red` (1255 → 18 líneas orquestador + 5 módulos) y `file-io.red` (939 → 17 líneas orquestador + 4 módulos). Todos los módulos <400 líneas excepto `file-io-serialize.red` (468) por `format-qvi` monolítica. 482/482 tests PASS. Ver `docs/refactor-4b-plan.md` para el plan original.
 
@@ -294,12 +297,14 @@ Spec visual: cada tipo implementa su aspecto según `docs/visual-spec.md`.
 - #64 FP como ventana maestra — BD bajo demanda (Ctrl+E) ✅
 - ~~#65 Scroll en BD y FP~~ ✅ (ventanas fijas 900x600, scrollbars draw-based, límites por contenido)
 
-**Fase 4 — Hardware:**
-- #19 SCPI sobre TCP/IP (Keysight por red)
-- #20 SCPI sobre USB/USBTMC (Keysight por USB)
+**Fase 4 — Hardware (en curso):**
+- ~~#19 TCP/IP — bloques básicos cliente~~ ✅ (tcp-open/write/read/close estilo LabVIEW, session-through por connection refnum)
+- #20 USBTMC — acceso genérico a instrumentos USB (/dev/usbtmc*)
 - #21 Puerto serie RS-232/RS-485 (Arduino, ESP32)
-- #22 TCP/IP genérico (Modbus TCP, protocolos propios)
+- #22 Modbus TCP y servidor TCP/IP (depende de #19)
 - #23 DAQ analógico (comedi/libcomedi)
+
+> **Nota:** NO se implementan bloques SCPI específicos. SCPI es un protocolo de comandos en texto que se envía como string vía `tcp-write` o `usbtmc-write`. Esto mantiene QTorres genérico y sirve también para Modbus, protocolos propios y cualquier otro protocolo sobre TCP/USB.
 
 **Fase 5 — UX y gestión de proyectos:**
 - Splash / Welcome screen (Create New VI, Open Existing, proyectos recientes)
@@ -403,6 +408,7 @@ Cubre sintaxis core, View, Draw, VID, Parse, patrones idiomáticos y gotchas.
 - Riesgos conocidos: `docs/retos.md`
 - Bugs GTK Linux: `docs/GTK_ISSUES.md`
 - **Arquitectura LabVIEW:** `docs/labview-comportamiento.md` — **leer antes de tomar decisiones sobre renderizado de widgets, modos edit/run, o controles custom**
+- **TCP/IP API:** `docs/tcp-api.md` — API nativa para Fase 4 (instrumentación por red, Modbus TCP, protocolos propios)
 
 ## Problemas conocidos de arquitectura
 

@@ -408,7 +408,12 @@ format-qvi: func [
                 "if not _saved-qtorres-runtime [unset 'qtorres-runtime]^/^/"
             ]]
             "; --- Helpers de runtime ---^/"
-            "arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]^/^/"
+            "arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]^/"
+            "_make-tcp-connection: func [a? h p] [make object! [active?: a?  host: h  port: p]]^/"
+            "_tcp-open-helper: func [host port timeout-ms /local ok] [ok: tcp/connect host to-integer port  _make-tcp-connection ok host to-integer port]^/"
+            "_tcp-write-helper: func [conn data /local bytes] [if not conn/active? [return reduce [conn 0]]  bytes: length? to-binary data  tcp/send data  reduce [conn bytes]]^/"
+            "_tcp-read-helper: func [conn sz timeout-ms /local buf bytes] [if not conn/active? [return reduce [conn {} 0]]  tcp/set-timeout to-integer timeout-ms  buf: tcp/receive to-integer sz  either buf [bytes: length? buf  reduce [conn to string! buf bytes]] [reduce [conn {} 0]]]^/"
+            "_tcp-close-helper: func [conn] [if not conn/active? [return conn]  tcp/close  _make-tcp-connection false conn/host conn/port]^/^/"
             "; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---^/"
             func-name ": context [^/"
             "    exec: func [] [^/"  ; TODO: extraer parámetros del connector
@@ -431,7 +436,12 @@ format-qvi: func [
                 "if not _saved-qtorres-runtime [unset 'qtorres-runtime]^/^/"
             ]]
             "; --- Helpers de runtime ---^/"
-            "arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]^/^/"
+            "arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]^/"
+            "_make-tcp-connection: func [a? h p] [make object! [active?: a?  host: h  port: p]]^/"
+            "_tcp-open-helper: func [host port timeout-ms /local ok] [ok: tcp/connect host to-integer port  _make-tcp-connection ok host to-integer port]^/"
+            "_tcp-write-helper: func [conn data /local bytes] [if not conn/active? [return reduce [conn 0]]  bytes: length? to-binary data  tcp/send data  reduce [conn bytes]]^/"
+            "_tcp-read-helper: func [conn sz timeout-ms /local buf bytes] [if not conn/active? [return reduce [conn {} 0]]  tcp/set-timeout to-integer timeout-ms  buf: tcp/receive to-integer sz  either buf [bytes: length? buf  reduce [conn to string! buf bytes]] [reduce [conn {} 0]]]^/"
+            "_tcp-close-helper: func [conn] [if not conn/active? [return conn]  tcp/close  _make-tcp-connection false conn/host conn/port]^/^/"
             "; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---^/"
             "either empty? system/options/args [^/"
             "    view layout [^/"

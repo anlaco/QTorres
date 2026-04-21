@@ -17,10 +17,12 @@ col-grid:       200.203.212
 col-block-ctrl: 50.100.180
 col-block-ind:  175.125.20
 col-block-op:   55.75.105
+col-block-hw:   20.130.130   ; turquesa oscuro — bloques hardware (TCP, USBTMC, serie, DAQ)
 col-wire:       195.95.20
 col-wire-bool:  20.160.20
 col-wire-str:   220.100.160
 col-wire-cluster: 139.69.19
+col-wire-session: 107.142.35   ; verde oliva — VISA session (estilo LabVIEW)
 col-wire-sel:   0.160.200
 col-port-in:    50.110.200
 col-port-out:   195.80.25
@@ -51,10 +53,11 @@ text-dy: either system/platform = 'Linux [8] [0]
 block-color: func [node-type /local cat] [
     cat: block-category to-word node-type
     case [
-        cat = 'input   [col-block-ctrl]
-        cat = 'output  [col-block-ind]
-        cat = 'cluster [col-wire-cluster]
-        true           [col-block-op]
+        cat = 'input    [col-block-ctrl]
+        cat = 'output   [col-block-ind]
+        cat = 'cluster  [col-wire-cluster]
+        cat = 'hardware [col-block-hw]
+        true            [col-block-op]
     ]
 ]
 
@@ -162,11 +165,12 @@ port-in-type: func [node port-name /local bdef p] [
 ; Devuelve el color de wire para un tipo de dato.
 wire-data-color: func [data-type] [
     case [
-        data-type = 'boolean [col-wire-bool]
-        data-type = 'string  [col-wire-str]
-        data-type = 'cluster [col-wire-cluster]
-        data-type = 'array   [col-wire]   ; mismo naranja que number, diferenciado por línea doble
-        true                 [col-wire]
+        data-type = 'boolean     [col-wire-bool]
+        data-type = 'string      [col-wire-str]
+        data-type = 'cluster     [col-wire-cluster]
+        data-type = 'array       [col-wire]   ; mismo naranja que number, diferenciado por línea doble
+        data-type = 'tcp-session [col-wire-session]
+        true                     [col-wire]
     ]
 ]
 

@@ -368,7 +368,7 @@ mínimos reproducibles:
 
 ---
 
-### Fase 4 — Hardware (SCPI, Serial, TCP/IP, DAQ)
+### Fase 4 — Hardware (TCP/IP, USBTMC, Serial, DAQ)
 
 > **Prioridad estratégica:** Fase 4 va **antes** que Fase 5 (UX). Un QTorres que habla con
 > instrumentos reales aporta valor a ingenieros de laboratorio; un QTorres con undo/redo
@@ -405,14 +405,17 @@ concurrencia cooperativa (DT-027):
 
 ```red
 ; Patrón: intentar operación con timeout
-scpi-query: func [instrument command /timeout ms /local result timer] [
+tcp-query: func [command /timeout ms /local result timer] [
     timer: make object! [expired: false]
-    ; ... implementar con rate/on-time o callback
+    tcp/set-timeout ms
+    tcp/send command
+    tcp/receive 1024
+    ; ... implementar polling con rate/on-time si se requiere no-bloqueante
 ]
 ```
 
-**Nota:** Esto es investigación y diseño, no solo implementación. La estrategia exacta
-depende de las capacidades de Red para I/O con timeout, que deben validarse primero.
+**Nota:** La API TCP nativa (`tcp/set-timeout`, `tcp/readable?`) ya da soporte básico.
+Para no-bloqueante real con integración GUI hay que combinar con `face/rate`+`on-time`.
 
 #### 4.3 Tests de compilación con `red -c` (PRIORIDAD MEDIA)
 
@@ -858,8 +861,8 @@ una verdad revelada, se listan aquí sus puntos débiles conocidos:
 3. **Priorización ALTA/MEDIA/BAJA** — sigue siendo subjetiva. Menos deshonesta que la
    puntuación decimal original, pero no es objetiva.
 4. **"Fase 4 antes que Fase 5"** — es la opinión actual del autor del roadmap. Un
-   usuario real podría considerar undo/redo más urgente que SCPI si su caso de uso
-   no incluye hardware.
+   usuario real podría considerar undo/redo más urgente que hardware si su caso de uso
+   no incluye instrumentación.
 
 ### Decisiones que este documento no justifica
 

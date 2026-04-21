@@ -1,0 +1,93 @@
+Red [Title: "tcp-echo-demo" Needs: 'View]
+
+; Demo TCP/IP — estilo LabVIEW (connection refnum, puertos cableables).
+;
+; Requiere servidor de eco en 127.0.0.1:5000.
+; Para probar: socat TCP-LISTEN:5000,reuseaddr,fork EXEC:/bin/cat
+;
+; Cableado:
+;   str-const("127.0.0.1") → tcp-open/address
+;   num-const(5000)        → tcp-open/remote-port
+;   timeout-ms sin cablear → usa default 60000
+;   str-control(Mensaje)   → tcp-write/data
+;   num-const(256)         → tcp-read/bytes-to-read
+;   tcp-read/data          → str-indicator(Respuesta)
+
+qvi-diagram: [
+    meta: [description: "Cliente TCP eco — estilo LabVIEW" version: 3 author: "" tags: [tcp hardware demo]]
+    icon: []
+    front-panel: [
+        control   [id: 1  type: 'string   name: "msg_1"   label: [text: "Mensaje"]   default: "HELLO"]
+        indicator [id: 2  type: 'string   name: "resp_1"  label: [text: "Respuesta"]]
+    ]
+    block-diagram: [
+        nodes: [
+            node [id: 1  type: 'str-control   x: 40   y: 200  name: "msg_1"          label: [text: "Mensaje"    visible: true]]
+            node [id: 2  type: 'str-const     x: 40   y: 40   name: "str-const_1"    label: [text: "str-const"  visible: false]  config: [default "127.0.0.1"]]
+            node [id: 3  type: 'const         x: 40   y: 120  name: "const_1"        label: [text: "const"      visible: false]  config: [default 5000]]
+            node [id: 4  type: 'tcp-open      x: 220  y: 60   name: "tcp-open_1"     label: [text: "tcp-open"   visible: true]]
+            node [id: 5  type: 'tcp-write     x: 400  y: 120  name: "tcp-write_1"    label: [text: "tcp-write"  visible: true]]
+            node [id: 6  type: 'tcp-read      x: 580  y: 120  name: "tcp-read_1"     label: [text: "tcp-read"   visible: true]]
+            node [id: 7  type: 'tcp-close     x: 760  y: 160  name: "tcp-close_1"    label: [text: "tcp-close"  visible: true]]
+            node [id: 8  type: 'const         x: 580  y: 40   name: "const_2"        label: [text: "const"      visible: false]  config: [default 256]]
+            node [id: 9  type: 'str-indicator x: 580  y: 280  name: "resp_1"         label: [text: "Respuesta"  visible: true]]
+        ]
+        wires: [
+            ; constantes → tcp-open
+            wire [from: 2  port: 'result        to: 4  port: 'address]
+            wire [from: 3  port: 'result        to: 4  port: 'remote-port]
+            ; connection refnum encadenado
+            wire [from: 4  port: 'connection-out  to: 5  port: 'connection-in]
+            wire [from: 5  port: 'connection-out  to: 6  port: 'connection-in]
+            wire [from: 6  port: 'connection-out  to: 7  port: 'connection-in]
+            ; datos
+            wire [from: 1  port: 'result        to: 5  port: 'data]
+            wire [from: 8  port: 'result        to: 6  port: 'bytes-to-read]
+            wire [from: 6  port: 'data          to: 9  port: 'in]
+        ]
+    ]
+]
+
+; --- Helpers de runtime ---
+_make-tcp-connection: func [a? h p] [make object! [active?: a?  host: h  port: p]]
+_tcp-open-helper: func [host port timeout-ms /local ok] [ok: tcp/connect host to-integer port  _make-tcp-connection ok host to-integer port]
+_tcp-write-helper: func [conn data /local bytes] [if not conn/active? [return reduce [conn 0]]  bytes: length? to-binary data  tcp/send data  reduce [conn bytes]]
+_tcp-read-helper: func [conn sz timeout-ms /local buf bytes] [if not conn/active? [return reduce [conn "" 0]]  tcp/set-timeout to-integer timeout-ms  buf: tcp/receive to-integer sz  either buf [bytes: length? buf  reduce [conn to string! buf bytes]] [reduce [conn "" 0]]]
+_tcp-close-helper: func [conn] [if not conn/active? [return conn]  tcp/close  _make-tcp-connection false conn/host conn/port]
+
+; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
+either empty? system/options/args [
+    view layout [
+        text "Mensaje:"   f_msg_1:  field "HELLO" 200x30  return
+        text "Respuesta:" f_resp_1: field ""      200x30  return
+        button "Run" [
+            msg_1:              f_msg_1/text
+            str-const_1:        "127.0.0.1"
+            const_1:            5000
+            tcp-open_1:         _tcp-open-helper str-const_1 const_1 60000
+            _w:                 _tcp-write-helper tcp-open_1 msg_1
+            tcp-write_1:        _w/1
+            tcp-write_1_bytes:  _w/2
+            const_2:            256
+            _r:                 _tcp-read-helper tcp-write_1 const_2 60000
+            tcp-read_1:         _r/1
+            resp_1:             _r/2
+            tcp-close_1:        _tcp-close-helper tcp-read_1
+            f_resp_1/text: resp_1
+        ]
+    ]
+][
+    msg_1:             system/options/args/1
+    str-const_1:       "127.0.0.1"
+    const_1:           5000
+    tcp-open_1:        _tcp-open-helper str-const_1 const_1 60000
+    _w:                _tcp-write-helper tcp-open_1 msg_1
+    tcp-write_1:       _w/1
+    tcp-write_1_bytes: _w/2
+    const_2:           256
+    _r:                _tcp-read-helper tcp-write_1 const_2 60000
+    tcp-read_1:        _r/1
+    resp_1:            _r/2
+    tcp-close_1:       _tcp-close-helper tcp-read_1
+    print resp_1
+]

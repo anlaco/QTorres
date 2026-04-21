@@ -1031,7 +1031,7 @@ Cuando se implementen comunicaciones con hardware, se activa el error cluster co
 - Puertos `error-in` y `error-out` visibles en los nodos que lo soporten
 - Wire de error con color propio (amarillo, como en LabVIEW)
 - El compilador genera código que chequea el error antes de ejecutar cada nodo
-- Los nodos de hardware (SCPI, serial, TCP) siempre tienen puertos de error
+- Los nodos de hardware (TCP, USBTMC, serial) siempre tienen puertos de error
 
 **Estructura del error cluster:**
 ```red
@@ -1048,13 +1048,13 @@ error-cluster: context [
 ```red
 ; El compilador genera checks de error entre nodos
 _err: copy error-empty
-_err: scpi-write instrument "*IDN?" _err
+_err: tcp-write-block "*IDN?" _err
 if _err/status [
     ; saltar nodos dependientes
     ind_1-face/text: rejoin ["ERROR: " _err/message]
     exit  ; o equivalente según el contexto
 ]
-_err: scpi-read instrument _err
+_err: tcp-read-block 256 _err
 ```
 
 **Razones de la implementación progresiva:**

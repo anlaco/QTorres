@@ -1,0 +1,128 @@
+Red [Title: {/home/alaforga/Anlaco/01-PRODUCTOS/QTorres/src/test-tcp.qvi} Needs: 'View]
+
+qvi-diagram: [
+    meta: [description: "" version: 1 author: "" tags: []]
+    icon: []
+    block-diagram: [
+        nodes: [
+            node [
+    id: 1 type: str-control
+    name: "str-control_1"
+    label: [text: "" visible: false]
+    x: 325.0 y: 260.0 config [default "HOLA"]
+]
+            node [
+    id: 2 type: str-indicator
+    name: "str-indicator_2"
+    label: [text: "" visible: false]
+    x: 1077.0 y: 289.0
+]
+            node [
+    id: 3 type: str-const
+    name: "str-const_1"
+    label: [text: "" visible: false]
+    x: 70.0 y: 153.0 config [default "127.0.0.1"]
+]
+            node [
+    id: 4 type: const
+    name: "const_1"
+    label: [text: "" visible: false]
+    x: 61.0 y: 220.0 config [default 5000.0]
+]
+            node [
+    id: 5 type: tcp-open
+    name: "tcp-open_1"
+    label: [text: "" visible: false]
+    x: 303.0 y: 189.0
+]
+            node [
+    id: 6 type: tcp-write
+    name: "tcp-write_1"
+    label: [text: "" visible: false]
+    x: 564.0 y: 189.0
+]
+            node [
+    id: 7 type: const
+    name: "const_2"
+    label: [text: "" visible: false]
+    x: 595.0 y: 273.0 config [default 256.0]
+]
+            node [
+    id: 8 type: tcp-read
+    name: "tcp-read_1"
+    label: [text: "" visible: false]
+    x: 839.0 y: 189.0
+]
+            node [
+    id: 9 type: tcp-close
+    name: "tcp-close_1"
+    label: [text: "" visible: false]
+    x: 1077.0 y: 190.0
+]
+        ]
+        wires: [
+            wire [
+    from: 3 from-port: result
+    to: 5 to-port: address
+]
+            wire [
+    from: 4 from-port: result
+    to: 5 to-port: remote-port
+]
+            wire [
+    from: 5 from-port: connection-out
+    to: 6 to-port: connection-in
+]
+            wire [
+    from: 1 from-port: result
+    to: 6 to-port: data
+]
+            wire [
+    from: 6 from-port: connection-out
+    to: 8 to-port: connection-in
+]
+            wire [
+    from: 7 from-port: result
+    to: 8 to-port: bytes-to-read
+]
+            wire [
+    from: 8 from-port: connection-out
+    to: 9 to-port: connection-in
+]
+            wire [
+    from: 8 from-port: data
+    to: 2 to-port: value
+]
+        ]
+    ]
+    front-panel: [
+        str-control [id: 1 type: str-control name: "str-control_1" label: [text: "String" visible: true offset: 0x0] default: "HOLA" offset: 119x83]
+        str-indicator [id: 2 type: str-indicator name: "str-indicator_2" label: [text: "String" visible: true offset: 0x0] default: "HOLA" offset: 447x91]
+    ]
+]
+
+; --- Helpers de runtime ---
+arr-subset-helper: func [arr st ln] [copy/part skip arr to-integer st to-integer ln]
+_make-tcp-connection: func [a? h p] [make object! [active?: a?  host: h  port: p]]
+_tcp-open-helper: func [host port timeout-ms /local ok] [ok: tcp/connect host to-integer port  _make-tcp-connection ok host to-integer port]
+_tcp-write-helper: func [conn data /local bytes] [if not conn/active? [return reduce [conn 0]]  bytes: length? to-binary data  tcp/send data  reduce [conn bytes]]
+_tcp-read-helper: func [conn sz timeout-ms /local buf bytes] [if not conn/active? [return reduce [conn {} 0]]  tcp/set-timeout to-integer timeout-ms  buf: tcp/receive to-integer sz  either buf [bytes: length? buf  reduce [conn to string! buf bytes]] [reduce [conn {} 0]]]
+_tcp-close-helper: func [conn] [if not conn/active? [return conn]  tcp/close  _make-tcp-connection false conn/host conn/port]
+
+; --- CÓDIGO GENERADO — no editar, se regenera al guardar ---
+either empty? system/options/args [
+    view layout [
+        text "" f_1: field "HOLA"
+        text "" f_3: field "127.0.0.1"
+        text "" f_4: field "5000.0"
+        text "" f_7: field "256.0"
+        button "Run" [str-control_1_result: f_1/text str-const_1_result: f_3/text const_1_result: to-float f_4/text const_2_result: to-float f_7/text tcp-open_1_connection-out: _tcp-open-helper str-const_1_result const_1_result 60000
+_w: _tcp-write-helper tcp-open_1_connection-out str-control_1_result tcp-write_1_connection-out: _w/1 tcp-write_1_bytes-written: _w/2
+_r: _tcp-read-helper tcp-write_1_connection-out const_2_result 60000 tcp-read_1_connection-out: _r/1 tcp-read_1_data: _r/2 tcp-read_1_bytes-read: _r/3 tcp-close_1_connection-out: _tcp-close-helper tcp-read_1_connection-out t_2/text: form tcp-read_1_data]
+        text "" t_2: text "---"
+    ]
+][
+    str-control_1_result: "HOLA" str-const_1_result: "127.0.0.1" const_1_result: 5000.0 const_2_result: 256.0 tcp-open_1_connection-out: _tcp-open-helper str-const_1_result const_1_result 60000
+_w: _tcp-write-helper tcp-open_1_connection-out str-control_1_result tcp-write_1_connection-out: _w/1 tcp-write_1_bytes-written: _w/2
+_r: _tcp-read-helper tcp-write_1_connection-out const_2_result 60000 tcp-read_1_connection-out: _r/1 tcp-read_1_data: _r/2 tcp-read_1_bytes-read: _r/3 tcp-close_1_connection-out: _tcp-close-helper tcp-read_1_connection-out print rejoin ["" ": " form tcp-read_1_data]
+]

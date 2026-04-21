@@ -49,7 +49,7 @@ bind-emit: func [
             block? item [
                 append/only result bind-emit item bindings
             ]
-            true [append result item]
+            true [append/only result item]
         ]
     ]
     result
@@ -84,8 +84,10 @@ build-bindings: func [
     ]
 
     foreach p bdef/inputs [
+        found: false
         foreach w diagram/wires [
             if all [w/to-node = node/id  (to-word w/to-port) = p/name] [
+                found: true
                 case [
                     w/from-node < 0 [
                         _var: either w/from-node = -1 [
@@ -114,6 +116,10 @@ build-bindings: func [
                     ]
                 ]
             ]
+        ]
+        if all [not found  not none? p/default] [
+            append bindings p/name
+            append/only bindings p/default
         ]
     ]
 

@@ -30,7 +30,7 @@ fp-chart-height:     160
 
 ; GTK-010: en Linux/GTK, Draw text usa baseline como Y en vez de top-left.
 ; Compensamos añadiendo fp-text-dy a todas las coordenadas Y de texto.
-fp-text-dy: either system/platform = 'Linux [8] [0]
+fp-text-dy: either system/platform = 'Linux [0] [0]
 
 fp-color?: func [item-type] [
     either find [control bool-control str-control arr-control cluster-control] item-type [fp-control-color] [fp-indicator-color]
@@ -44,7 +44,7 @@ fp-border-color?: func [item-type] [
 
 fp-cluster-height: func [item /local n] [
     n: (length? fp-cluster-fields item) / 2
-    20 + (max 1 n) * 20
+    20 + ((max 1 n) * 20)
 ]
 
 fp-type-label?: func [item-type] [

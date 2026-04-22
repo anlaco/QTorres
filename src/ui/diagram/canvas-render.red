@@ -10,7 +10,7 @@ Red [
 ; No contiene estado mutable ni side-effects de UI.
 ; ──────────────────────────────────────────────────────────────────
 
-block-width: 120   block-height: 50   port-radius: 8   grid-size: 20
+block-width: 60   block-height: 60   port-radius: 8   grid-size: 20
 
 col-canvas:     225.228.235
 col-grid:       200.203.212
@@ -27,7 +27,7 @@ col-wire-sel:   0.160.200
 col-port-in:    50.110.200
 col-port-out:   195.80.25
 col-sel:        0.175.210
-col-text:       240.245.250
+col-text:       255.255.255
 col-black:      0.0.0
 
 ; Colores de estructuras contenedoras (while-loop)
@@ -42,9 +42,11 @@ sr-terminal-half:      6            ; semitamaño del triángulo SR (triángulo 
 case-nav-height:       24           ; altura de la barra de navegación
 case-btn-size:         18           ; tamaño de botones ◀ ▶ [+][-]
 col-case-nav-bg:       160.185.215  ; fondo de barra de navegación
+bd-label-above:        3            ; gap label→nodo (LabVIEW: 2-4px)
+col-text-label:        0.0.0        ; negro — labels sobre fondo claro del canvas
 
-; Compensación vertical de texto (8px en Linux por diferencia de baseline)
-text-dy: either system/platform = 'Linux [8] [0]
+; Compensación vertical de texto (0px en Linux por diferencia de baseline)
+text-dy: either system/platform = 'Linux [0] [0]
 
 ; ══════════════════════════════════════════════════════════
 ; GEOMETRÍA DE NODOS — funciones puras sin side-effects
@@ -250,15 +252,47 @@ port-xy: func [node port-name direction /local ports port-index found] [
 ; Devuelve la altura visual de un nodo.
 ; bundle/unbundle/cluster-control/cluster-indicator: variable según número de campos.
 ; Resto: block-height fijo.
-node-height: func [node /local n-in n-out] [
+node-height: func [node /local n-in n-out h] [
     case [
         find [bundle unbundle cluster-control cluster-indicator] node/type [
             n-in:  length? in-ports node
             n-out: length? out-ports node
-            max block-height (12 + (max n-in n-out) * 20 + 10)
+            max block-height (12 + ((max n-in n-out) * 20))
         ]
         true [block-height]
     ]
+]
+
+; ══════════════════════════════════════════════════════════
+; DASHED-BOX — dibuja rectángulo discontinuo (estilo LabVIEW)
+; ══════════════════════════════════════════════════════════
+dashed-box: func [x1 y1 x2 y2 dash gap /local cmds pos lim step] [
+    cmds: copy []
+    pos: x1  lim: x2
+    while [pos < lim] [
+        step: min dash (lim - pos)
+        append cmds compose [line (as-pair pos y1) (as-pair (pos + step) y1)]
+        pos: pos + dash + gap
+    ]
+    pos: y1  lim: y2
+    while [pos < lim] [
+        step: min dash (lim - pos)
+        append cmds compose [line (as-pair x2 pos) (as-pair x2 (pos + step))]
+        pos: pos + dash + gap
+    ]
+    pos: x2  lim: x1
+    while [pos > lim] [
+        step: min dash (pos - lim)
+        append cmds compose [line (as-pair pos y2) (as-pair (pos - step) y2)]
+        pos: pos - dash - gap
+    ]
+    pos: y2  lim: y1
+    while [pos > lim] [
+        step: min dash (pos - lim)
+        append cmds compose [line (as-pair x1 pos) (as-pair x1 (pos - step))]
+        pos: pos - dash - gap
+    ]
+    cmds
 ]
 
 ; ══════════════════════════════════════════════════════════
@@ -338,7 +372,7 @@ render-wire-list: func [
 render-node-list: func [
     "Genera Draw cmds para una lista de nodos"
     nodes selected-node
-    /local cmds node node-color type-label ports in-port-y out-port-y port
+    /local cmds node node-color type-label ports in-port-y out-port-y port lbl-x lbl-y
 ][
     cmds: copy []
     foreach node nodes [
@@ -391,25 +425,19 @@ render-node-list: func [
             array-size     ["SIZE[]"]
             array-subset   ["SUB[]"]
         ] [uppercase form node/type]
-        either all [node/label  object? node/label  node/label/visible] [
+        ; ── Label (fuera del nodo, arriba) ──
+        if all [node/label  object? node/label  node/label/visible] [
+            lbl-x: node/x + either pair? node/label/offset [node/label/offset/x] [0]
+            lbl-y: node/y - bd-label-above + either pair? node/label/offset [node/label/offset/y] [0]
             append cmds compose [
-                fill-pen col-text
-                text (as-pair (node/x + 10) (node/y + 10 + text-dy)) (any [node/label/text ""])
-                text (as-pair (node/x + 10) (node/y + 26 + text-dy)) (type-label)
+                pen (col-text-label)
+                text (as-pair lbl-x (lbl-y + text-dy)) (any [node/label/text ""])
             ]
-        ][
-            either all [node/label  string? node/label] [
-                append cmds compose [
-                    fill-pen col-text
-                    text (as-pair (node/x + 10) (node/y + 10 + text-dy)) (node/label)
-                    text (as-pair (node/x + 10) (node/y + 26 + text-dy)) (type-label)
-                ]
-            ][
-                append cmds compose [
-                    fill-pen col-text
-                    text (as-pair (node/x + 10) (node/y + 14 + text-dy)) (type-label)
-                ]
-            ]
+        ]
+        ; ── Type-label (siempre fijo dentro del nodo) ──
+        append cmds compose [
+            pen (col-text)
+            text (as-pair (node/x + 10) (node/y + 14 + text-dy)) (type-label)
         ]
         ports: in-ports node
         in-port-y: node/y + 12
@@ -417,7 +445,7 @@ render-node-list: func [
             append cmds compose [
                 pen col-port-in  fill-pen col-port-in
                 circle (as-pair (node/x - port-radius) in-port-y) (port-radius)
-                fill-pen col-text
+                pen (col-text-label)
                 text (as-pair (node/x - port-radius - 22) (in-port-y - 7 + text-dy)) (subvi-port-label node port)
             ]
             in-port-y: in-port-y + 20
@@ -428,17 +456,26 @@ render-node-list: func [
             append cmds compose [
                 pen col-port-out  fill-pen col-port-out
                 circle (as-pair (node/x + block-width + port-radius) out-port-y) (port-radius)
-                fill-pen col-text
+                pen (col-text-label)
                 text (as-pair (node/x + block-width + port-radius + 12) (out-port-y - 7 + text-dy)) (subvi-port-label node port)
             ]
             out-port-y: out-port-y + 20
         ]
+        ; ── Selección: dashed-box body + dashed-box label ──
         if same? node selected-node [
-            append cmds compose [
-                pen col-sel  line-width 2  fill-pen off
-                box (as-pair (node/x - 3) (node/y - 3)) (as-pair (node/x + block-width + 3) (node/y + block-height + 3)) 6
-                line-width 1
+            append cmds compose [pen col-sel  line-width 2  fill-pen off]
+            append cmds dashed-box
+                (node/x - 3) (node/y - 3)
+                (node/x + block-width + 3) (node/y + block-height + 3)
+                6 4
+            if all [node/label  object? node/label  node/label/visible] [
+                lbl-x: node/x + either pair? node/label/offset [node/label/offset/x] [0]
+                lbl-y: node/y - bd-label-above + either pair? node/label/offset [node/label/offset/y] [0]
+                lw: max 30 (7 * length? any [node/label/text ""])
+                append cmds compose [pen col-sel  line-width 1  fill-pen off]
+                append cmds dashed-box (lbl-x - 2) (lbl-y - 2) (lbl-x + lw + 2) (lbl-y + 15) 4 3
             ]
+            append cmds [line-width 1]
         ]
     ]
     cmds
@@ -451,7 +488,7 @@ render-node-list: func [
 render-cluster-node: func [
     "Genera Draw cmds para un nodo bundle/unbundle con altura variable y puertos coloreados"
     node selected-node
-    /local cmds node-color h type-label ports in-port-y out-port-y port port-col
+    /local cmds node-color h type-label ports in-port-y out-port-y port port-col lbl-x lbl-y
 ][
     cmds: copy []
     node-color: col-wire-cluster
@@ -472,8 +509,18 @@ render-cluster-node: func [
         node/type = 'cluster-control   ["CLU-CTRL"]
         true                           ["CLU-IND"]
     ]
+    ; ── Label (fuera del nodo, arriba) ──
+    if all [node/label  object? node/label  node/label/visible] [
+        lbl-x: node/x + either pair? node/label/offset [node/label/offset/x] [0]
+        lbl-y: node/y - bd-label-above + either pair? node/label/offset [node/label/offset/y] [0]
+        append cmds compose [
+            pen (col-text-label)
+            text (as-pair lbl-x (lbl-y + text-dy)) (any [node/label/text ""])
+        ]
+    ]
+    ; ── Type-label (siempre fijo dentro del nodo) ──
     append cmds compose [
-        fill-pen col-text
+        pen (col-text)
         text (as-pair (node/x + 8) (node/y + 14 + text-dy)) (type-label)
     ]
 
@@ -485,7 +532,7 @@ render-cluster-node: func [
         append cmds compose [
             pen (port-col)  fill-pen (port-col)
             circle (as-pair (node/x - port-radius) in-port-y) (port-radius)
-            fill-pen col-text
+            pen (col-text-label)
             text (as-pair (node/x - port-radius - 22) (in-port-y - 7)) (form port)
         ]
         in-port-y: in-port-y + 20
@@ -499,19 +546,27 @@ render-cluster-node: func [
         append cmds compose [
             pen (port-col)  fill-pen (port-col)
             circle (as-pair (node/x + block-width + port-radius) out-port-y) (port-radius)
-            fill-pen col-text
+            pen (col-text-label)
             text (as-pair (node/x + block-width + port-radius + 12) (out-port-y - 7)) (form port)
         ]
         out-port-y: out-port-y + 20
     ]
 
-    ; Borde de selección
+    ; ── Selección: dashed-box body + dashed-box label ──
     if same? node selected-node [
-        append cmds compose [
-            pen col-sel  line-width 2  fill-pen off
-            box (as-pair (node/x - 3) (node/y - 3)) (as-pair (node/x + block-width + 3) (node/y + h + 3)) 6
-            line-width 1
+        append cmds compose [pen col-sel  line-width 2  fill-pen off]
+        append cmds dashed-box
+            (node/x - 3) (node/y - 3)
+            (node/x + block-width + 3) (node/y + h + 3)
+            6 4
+        if all [node/label  object? node/label  node/label/visible] [
+            lbl-x: node/x + either pair? node/label/offset [node/label/offset/x] [0]
+            lbl-y: node/y - bd-label-above + either pair? node/label/offset [node/label/offset/y] [0]
+            lw: max 30 (7 * length? any [node/label/text ""])
+            append cmds compose [pen col-sel  line-width 1  fill-pen off]
+            append cmds dashed-box (lbl-x - 2) (lbl-y - 2) (lbl-x + lw + 2) (lbl-y + 15) 4 3
         ]
+        append cmds [line-width 1]
     ]
     cmds
 ]
@@ -684,7 +739,7 @@ render-structure: func [
         pen (col-struct-border)  line-width 1  fill-pen (col-struct-term-i)
         box (as-pair (bx + 8) (by2 - tx - 8))
             (as-pair (bx + 8 + tx) (by2 - 8)) 2
-        pen off  fill-pen col-text
+        pen (col-text)  fill-pen off
         text (as-pair (bx + 11) (by2 - tx - 5 + text-dy)) "i"
     ]
 
@@ -703,7 +758,7 @@ render-structure: func [
             pen (col-struct-border)  line-width 1  fill-pen (col-wire)
             box (as-pair (bx + 8) (by + 8))
                 (as-pair (bx + 8 + tx) (by + 8 + tx)) 2
-            pen off  fill-pen col-text
+            pen (col-text)  fill-pen off
             text (as-pair (bx + 11) (by + 11 + text-dy)) "N"
         ]
     ]

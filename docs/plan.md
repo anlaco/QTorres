@@ -1,8 +1,8 @@
-# Plan de desarrollo — Telekino
+# Plan de desarrollo — QTorres
 
 ## Visión
 
-Telekino es una alternativa open source a LabVIEW para el mismo público objetivo: ingenieros de instrumentación y automatización. El usuario construye programas visualmente con bloques y wires (igual que en LabVIEW), y Telekino genera código Red-Lang puro y legible.
+QTorres es una alternativa open source a LabVIEW para el mismo público objetivo: ingenieros de instrumentación y automatización. El usuario construye programas visualmente con bloques y wires (igual que en LabVIEW), y QTorres genera código Red-Lang puro y legible.
 
 **Principios de diseño:**
 - Mismo modelo mental que LabVIEW: Front Panel + Block Diagram, dataflow, sub-VIs
@@ -96,7 +96,7 @@ Ciclo completo: dibujar → compilar → ejecutar → ver resultado.
 ### Front Panel modular
 - [x] Panel con controles e indicadores arrastrables (#7)
 - [x] Botón Run visible en el panel
-- [x] Conectar módulos en `telekino.red` (#8)
+- [x] Conectar módulos en `qtorres.red` (#8)
 
 ### Qué genera el compilador (decisión DT-009)
 
@@ -106,7 +106,7 @@ Estructura del `.qvi` generado:
 
 ```
 [Cabecera Red]
-[qvi-diagram: ... — para reconstruir la vista en Telekino]
+[qvi-diagram: ... — para reconstruir la vista en QTorres]
 [view layout [ ... — ventana con controles, botón Run e indicadores ]]
 ```
 
@@ -185,7 +185,7 @@ Esta fase es esencial para el público objetivo (mismo que LabVIEW: ingeniería 
 - [ ] USBTMC: acceso a `/dev/usbtmc*` con misma interfaz (#20)
 - [ ] Manejo de timeouts y errores de red/USB
 
-> **Nota:** NO se implementan bloques SCPI específicos. SCPI es un protocolo de comandos en texto que el usuario envía como string a través de `tcp-write`/`usbtmc-write`. Esto mantiene Telekino genérico y sirve también para Modbus (#22), protocolos propios y cualquier otro protocolo sobre TCP/USB.
+> **Nota:** NO se implementan bloques SCPI específicos. SCPI es un protocolo de comandos en texto que el usuario envía como string a través de `tcp-write`/`usbtmc-write`. Esto mantiene QTorres genérico y sirve también para Modbus (#22), protocolos propios y cualquier otro protocolo sobre TCP/USB.
 
 ### Comunicación serie
 - [ ] Puerto serie RS-232/RS-485: bloques open/write/read/close (#30)
@@ -207,9 +207,9 @@ Esta fase es esencial para el público objetivo (mismo que LabVIEW: ingeniería 
 
 ## Fase 4.5 — Integración red-sg (puente entre hardware y UX)
 
-**Premisa:** red-sg es el toolkit hermano de Telekino. La separación aplicación/toolkit
+**Premisa:** red-sg es el toolkit hermano de QTorres. La separación aplicación/toolkit
 (ver DT-030 y `docs/roadmap-9-10.md` sección "red-sg: separación de responsabilidades
-por equipos") implica que, una vez red-sg esté estable, Telekino delega en él la capa
+por equipos") implica que, una vez red-sg esté estable, QTorres delega en él la capa
 gráfica genérica (scene graph, transforms, hit-test, undo/redo, widgets).
 
 **Prerrequisitos:**
@@ -219,7 +219,7 @@ gráfica genérica (scene graph, transforms, hit-test, undo/redo, widgets).
 
 **Entregables:**
 - [ ] Migrar hit-test manual a `sg-hit-test`
-- [ ] Mapear nodos Telekino a `sg-node` con `draw-cmd`
+- [ ] Mapear nodos QTorres a `sg-node` con `draw-cmd`
 - [ ] Reemplazar scroll manual por `scene/view-x`, `scene/view-y`
 - [ ] Activar undo/redo con `sg-undo` (DT-031)
 - [ ] Migrar panel.red al mismo patrón
@@ -232,7 +232,7 @@ gráfica genérica (scene graph, transforms, hit-test, undo/redo, widgets).
 ## Fase 5 — Experiencia de usuario y gestión de proyectos
 
 ### Splash / Welcome screen
-- [ ] Pantalla de bienvenida al lanzar Telekino (Create New VI, Open Existing, proyectos recientes)
+- [ ] Pantalla de bienvenida al lanzar QTorres (Create New VI, Open Existing, proyectos recientes)
 - [ ] Depende de que exista el concepto de proyecto (.qproj) o al menos .qlib (#18)
 
 ### Project Explorer (.qproj)
@@ -262,9 +262,9 @@ gráfica genérica (scene graph, transforms, hit-test, undo/redo, widgets).
 | Sub-VIs | VIs reutilizables como bloques con connector | 3 ✅ |
 | FP como master | FP ventana principal, BD bajo demanda | 3 |
 | Resize + scroll | Ventanas redimensionables con scrollbars | 3 |
-| Primera medida real | Controlar un Keysight desde Telekino | 4 |
+| Primera medida real | Controlar un Keysight desde QTorres | 4 |
 | DAQ completo | Adquisición continua con tarjeta o Arduino | 4 |
-| Welcome screen | Splash con Create/Open al lanzar Telekino | 5 |
+| Welcome screen | Splash con Create/Open al lanzar QTorres | 5 |
 | Project Explorer | Árbol de proyecto .qproj con gestión de VIs | 5 |
 
 ---
@@ -283,6 +283,6 @@ Trabajar siempre Issues en orden de Fase. No empezar una fase sin completar la a
 
 Si en el futuro los agentes de IA muestran problemas recurrentes con la sintaxis Red (confusión con Rebol, funciones inventadas, mezcla de dialectos), se creará un documento o skill de referencia del lenguaje Red específicamente diseñado para consumo por LLMs. Por ahora no es necesario — no se han observado problemas que lo justifiquen.
 
-### Generación de ficheros Telekino por IA (vibe coding → spec-driven design)
+### Generación de ficheros QTorres por IA (vibe coding → spec-driven design)
 
 Ver DT-021 en `docs/decisiones.md`. La referencia de formatos para agentes de IA está en `docs/ai-reference.md`. Conforme el proyecto madure y se implementen más tipos de fichero, esta referencia crecerá y el nivel de rigor de la generación por IA aumentará progresivamente — desde generar un `.qvi` individual (vibe coding) hasta generar proyectos completos desde especificaciones técnicas (spec-driven design).

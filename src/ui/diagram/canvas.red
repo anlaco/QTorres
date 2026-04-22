@@ -299,6 +299,23 @@ hit-node: func [model mouse-x mouse-y /local found-node node h] [
     found-node
 ]
 
+hit-node-label: func [model mouse-x mouse-y /local node lx ly lw lbl-dx lbl-dy] [
+    foreach node model/nodes [
+        if all [node/label  object? node/label  node/label/visible] [
+            lbl-dx: either pair? node/label/offset [node/label/offset/x] [0]
+            lbl-dy: either pair? node/label/offset [node/label/offset/y] [0]
+            lx: node/x + lbl-dx
+            ly: node/y - bd-label-above + lbl-dy
+            lw: max 30 (7 * length? any [node/label/text ""])
+            if all [
+                mouse-x >= (lx - 2)  mouse-x <= (lx + lw + 2)
+                mouse-y >= (ly - 2)   mouse-y <= (ly + 14)
+            ] [return reduce [node 'label]]
+        ]
+    ]
+    none
+]
+
 ; Comprueba si el punto (mx my) está sobre algún wire de la lista dada.
 hit-wire-in-list: func [wires nodes mouse-x mouse-y /local tolerance src-node dst-node out-xy in-xy mid-x wire node] [
     tolerance: 8
@@ -887,7 +904,25 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     return none
                 ]
 
-                ; 6) Nodo normal externo? — antes que interior de estructura
+                ; 6) Label de nodo? — antes que el body del nodo
+                hit-ref: hit-node-label model mouse-x mouse-y
+                if hit-ref [
+                    model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none  model/wire-src-sr: none
+                    model/broken-wire: none
+                    model/selected-wire: none
+                    model/selected-struct: none
+                    model/selected-sr: none
+                    model/selected-node: hit-ref/1
+                    model/drag-node: hit-ref/1
+                    model/drag-is-label: true
+                    lbl-dx: either pair? hit-ref/1/label/offset [hit-ref/1/label/offset/x] [0]
+                    lbl-dy: either pair? hit-ref/1/label/offset [hit-ref/1/label/offset/y] [0]
+                    model/drag-off: as-pair (mouse-x - hit-ref/1/x - lbl-dx) (mouse-y - hit-ref/1/y + bd-label-above - lbl-dy)
+                    face/draw: render-bd model
+                    return none
+                ]
+
+                ; 7) Nodo normal externo? — antes que interior de estructura
                 ;    (fix bug #7: nodo arrastrado dentro del while queda accesible)
                 hit-ref: hit-node model mouse-x mouse-y
                 if hit-ref [
@@ -906,7 +941,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     return none
                 ]
 
-                ; 7) Interior de estructura (fondo → seleccionar estructura, paleta interna futura)?
+                ; 8) Interior de estructura (fondo → seleccionar estructura, paleta interna futura)?
                 hit-result: point-in-structure? model mouse-x mouse-y
                 if hit-result [
                     model/selected-struct: hit-result
@@ -918,7 +953,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     return none
                 ]
 
-                ; 8) Wire normal?
+                ; 9) Wire normal?
                 hit-ref: hit-wire model mouse-x mouse-y
                 if hit-ref [
                     model/selected-wire: hit-ref
@@ -929,7 +964,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                     return none
                 ]
 
-                ; 9) Clic en vacío: cancelar todo
+                ; 10) Clic en vacío: cancelar todo
                 model/wire-src: none  model/wire-port: none  model/mouse-pos: none  model/wire-src-struct: none  model/wire-src-sr: none
                 model/broken-wire: none
                 model/drag-node: none  model/selected-wire: none
@@ -942,21 +977,27 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 mouse-x: event/offset/x + model/scroll-x
                 mouse-y: event/offset/y + model/scroll-y
 
-                ; Drag de nodo (normal o interno)
+                ; Drag de nodo (normal o interno) o de label
                 if all [model/drag-node model/drag-off event/down?] [
-                    model/drag-node/x: mouse-x - model/drag-off/x
-                    model/drag-node/y: mouse-y - model/drag-off/y
-                    ; Clamp nodo interno dentro de la estructura (margen 20px)
-                    if model/selected-struct [
-                        _st: model/selected-struct
-                        ; Case Structure: clamp Considerar nav-height para Y
-                        _nav-h: either _st/type = 'case-structure [case-nav-height + 4] [22]
-                        model/drag-node/x: max (_st/x + 20)
-                                           min (_st/x + _st/w - block-width - 20)
-                                               model/drag-node/x
-                        model/drag-node/y: max (_st/y + _nav-h)
-                                           min (_st/y + _st/h - block-height - 20)
-                                               model/drag-node/y
+                    either model/drag-is-label [
+                        model/drag-node/label/offset: as-pair
+                            (mouse-x - model/drag-off/x - model/drag-node/x)
+                            (mouse-y - model/drag-off/y - model/drag-node/y + bd-label-above)
+                    ][
+                        model/drag-node/x: mouse-x - model/drag-off/x
+                        model/drag-node/y: mouse-y - model/drag-off/y
+                        ; Clamp nodo interno dentro de la estructura (margen 20px)
+                        if model/selected-struct [
+                            _st: model/selected-struct
+                            ; Case Structure: clamp Considerar nav-height para Y
+                            _nav-h: either _st/type = 'case-structure [case-nav-height + 4] [22]
+                            model/drag-node/x: max (_st/x + 20)
+                                               min (_st/x + _st/w - block-width - 20)
+                                                   model/drag-node/x
+                            model/drag-node/y: max (_st/y + _nav-h)
+                                               min (_st/y + _st/h - block-height - 20)
+                                                   model/drag-node/y
+                        ]
                     ]
                     face/draw: render-bd model
                     return none
@@ -1057,6 +1098,7 @@ render-diagram: func [model canvas-width canvas-height /local canvas-face] [
                 model/drag-struct: none
                 model/drag-struct-off: none
                 model/resize-struct: none
+                model/drag-is-label: false
             ]
 
             on-key: func [face event /local model] [

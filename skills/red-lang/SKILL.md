@@ -1,11 +1,11 @@
-# Red-Lang Skill para Telekino
+# Red-Lang Skill para QTorres
 
-> Referencia rápida de Red para codificar Telekino. Consultar antes de escribir código Red, especialmente Draw y View.
+> Referencia rápida de Red para codificar QTorres. Consultar antes de escribir código Red, especialmente Draw y View.
 
 **Repositorio Red oficial:** https://www.red-lang.org  
 **Documentación:** https://doc.red-lang.org  
 **Versión:** 0.6.6+  
-**Telekino:** Red 100% (DT-001)
+**QTorres:** Red 100% (DT-001)
 
 ---
 
@@ -360,7 +360,7 @@ if tcp/connect "192.168.1.100" 5000 [
     response: tcp/receive 256
 
     ; Procesar
-    print to string! response
+    print to-string! response
 
     ; Cerrar
     tcp/close
@@ -398,19 +398,19 @@ tcp/send "HELLO^/"
 
 response: tcp/receive 256
 if response [
-    print ["Respuesta: " to string! response]
+    print ["Respuesta: " to-string! response]
 ]
 
 tcp/close
 ```
 
-> Telekino no incluye bloques específicos por protocolo. Para enviar comandos de texto
+> QTorres no incluye bloques específicos por protocolo. Para enviar comandos de texto
 > de instrumentación, Modbus, HTTP, MQTT o similar, basta con poner el string adecuado
 > en `tcp/send`. Ver `docs/tcp-api.md` para referencia completa.
 
 ---
 
-## Dialects propios de Telekino
+## Dialects propios de QTorres
 
 ### block-def — Definición de bloques
 
@@ -461,7 +461,7 @@ emit: [
 
 - ❌ `do` con bloques dinámicos en `.qvi` generado (debe compilarse con `red -c`)
 - ❌ `load` de strings → use parse
-- ❌ `compose` en runtime del VI generado (OK en compilador de Telekino)
+- ❌ `compose` en runtime del VI generado (OK en compilador de QTorres)
 - ❌ Herencia profunda (A → B → C) → usar composición
 - ❌ Faces nativas en canvas del editor (usar Draw)
 - ❌ Strings intermedios en compilador (manipular bloques Red)
@@ -492,8 +492,8 @@ emit: [
 - **Red/View:** https://doc.red-lang.org/en/view.html
 - **Red/Draw:** https://doc.red-lang.org/en/view.html#_draw-dialect
 - **Red/Parse:** https://doc.red-lang.org/en/parse.html
-- **TCP API:** Ver `docs/tcp-api.md` (específico de Telekino)
-- **Skill Red en Telekino:** Este fichero
+- **TCP API:** Ver `docs/tcp-api.md` (específico de QTorres)
+- **Skill Red en QTorres:** Este fichero
 
 ## Cuándo consultar esta skill
 

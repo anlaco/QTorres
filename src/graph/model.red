@@ -53,7 +53,7 @@ make-label: func [
     make object! [
         text:    any [select spec 'text     ""]
         visible: either none? select spec 'visible [true] [select spec 'visible]
-        offset:  any [select spec 'offset   0x-15]
+        offset:  any [select spec 'offset   0x0]
     ]
 ]
 

@@ -21,9 +21,9 @@ serialize-nodes: func [
     nodes-block: copy []
     foreach n nodes [
         lbl-block: either all [n/label  object? n/label] [
-            compose [text: (n/label/text)  visible: (n/label/visible)]
+            compose [text: (n/label/text)  visible: (n/label/visible)  offset: (n/label/offset)]
         ][
-            compose [text: (either string? n/label [n/label] [""])  visible: (true)]
+            compose [text: (either string? n/label [n/label] [""])  visible: (true)  offset: 0x0]
         ]
         nx: either relative [n/x - rel-x] [n/x]
         ny: either relative [n/y - rel-y] [n/y]
